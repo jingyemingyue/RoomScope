@@ -1,0 +1,325 @@
+"""``roomscope`` command-line interface.
+
+Subcommands: ``sweep``, ``analyze``, ``devices``, ``measure``, ``gui``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import sys
+from collections.abc import Sequence
+from pathlib import Path
+
+from roomscope import __version__
+from roomscope.cli.report import format_report
+from roomscope.errors import RoomScopeError
+from roomscope.logging_config import configure_logging
+from roomscope.models.configuration import (
+    DEFAULT_SAMPLE_RATE,
+    SUPPORTED_SAMPLE_RATES,
+    AnalysisSettings,
+    SweepSettings,
+)
+
+log = logging.getLogger("roomscope.cli")
+
+
+def _add_sweep_arguments(parser: argparse.ArgumentParser, *, default_level: float) -> None:
+    parser.add_argument(
+        "--sample-rate",
+        type=int,
+        default=DEFAULT_SAMPLE_RATE,
+        choices=SUPPORTED_SAMPLE_RATES,
+        help="sample rate (Hz)",
+    )
+    parser.add_argument(
+        "--duration", type=float, default=10.0, help="sweep duration in seconds (default 10)"
+    )
+    parser.add_argument(
+        "--start-hz", type=float, default=20.0, help="sweep start frequency (default 20)"
+    )
+    parser.add_argument(
+        "--end-hz", type=float, default=20000.0, help="sweep end frequency (default 20000)"
+    )
+    parser.add_argument(
+        "--fade-in", type=float, default=0.05, help="fade-in in seconds (default 0.05)"
+    )
+    parser.add_argument(
+        "--fade-out", type=float, default=0.01, help="fade-out in seconds (default 0.01)"
+    )
+    parser.add_argument(
+        "--level",
+        type=float,
+        default=default_level,
+        help=f"peak level in dBFS (default {default_level:g})",
+    )
+    parser.add_argument(
+        "--pre-silence", type=float, default=1.0, help="silence before the sweep (s)"
+    )
+    parser.add_argument(
+        "--post-silence", type=float, default=3.0, help="silence after the sweep (s)"
+    )
+
+
+def _sweep_settings(args: argparse.Namespace) -> SweepSettings:
+    return SweepSettings(
+        sample_rate=args.sample_rate,
+        duration_s=args.duration,
+        start_hz=args.start_hz,
+        end_hz=args.end_hz,
+        fade_in_s=args.fade_in,
+        fade_out_s=args.fade_out,
+        level_dbfs=args.level,
+        pre_silence_s=args.pre_silence,
+        post_silence_s=args.post_silence,
+    )
+
+
+def _add_analysis_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--channel", type=int, default=None, help="recording channel to analyse (0-based)"
+    )
+    parser.add_argument(
+        "--smoothing", type=int, default=6, help="fractional-octave smoothing 1/N (0 = off)"
+    )
+    parser.add_argument("--room", default="", help="room name (metadata)")
+    parser.add_argument("--position", default="", help="measurement position (metadata)")
+    parser.add_argument("--mic", default="", help="microphone name (metadata)")
+    parser.add_argument("--notes", default="", help="free-text notes (metadata)")
+    parser.add_argument("--no-curves", action="store_true", help="omit curves from result.json")
+    parser.add_argument(
+        "--json", action="store_true", help="print the result as JSON instead of a report"
+    )
+
+
+def _analysis_settings(args: argparse.Namespace) -> AnalysisSettings:
+    return AnalysisSettings(channel=args.channel, fr_smoothing_fraction=args.smoothing)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="roomscope",
+        description="RoomScope: an open-source, DAW-independent recording environment analyzer.",
+    )
+    parser.add_argument("--version", action="version", version=f"roomscope {__version__}")
+    parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_sweep = sub.add_parser("sweep", help="write the ESS test signal WAV (+ JSON sidecar)")
+    p_sweep.add_argument("--out", required=True, type=Path, help="output WAV path")
+    _add_sweep_arguments(p_sweep, default_level=-12.0)
+
+    p_an = sub.add_parser("analyze", help="analyse a recording made with the sweep")
+    p_an.add_argument(
+        "--recording", required=True, type=Path, help="recorded WAV (any length, untrimmed)"
+    )
+    p_an.add_argument(
+        "--sweep", required=True, type=Path, help="sweep WAV or its .roomscope-sweep.json sidecar"
+    )
+    p_an.add_argument(
+        "--out", type=Path, default=None, help="directory for session.json, result.json, IR WAV"
+    )
+    _add_analysis_arguments(p_an)
+
+    sub.add_parser("devices", help="list audio devices (Standalone Mode)")
+
+    p_me = sub.add_parser(
+        "measure", help="Standalone Mode: play the sweep and record the microphone"
+    )
+    p_me.add_argument("--out", required=True, type=Path, help="session directory (created)")
+    p_me.add_argument(
+        "--input-device", type=int, default=None, help="input device index (see 'devices')"
+    )
+    p_me.add_argument("--output-device", type=int, default=None, help="output device index")
+    p_me.add_argument(
+        "--input-channel", type=int, default=1, help="input channel, 1-based (default 1)"
+    )
+    p_me.add_argument(
+        "--output-channel", type=int, default=1, help="output channel, 1-based (default 1)"
+    )
+    p_me.add_argument(
+        "--acknowledge-level",
+        action="store_true",
+        help="required for levels above -12 dBFS; confirms the monitor level was set low first",
+    )
+    _add_sweep_arguments(p_me, default_level=-20.0)
+    _add_analysis_arguments(p_me)
+
+    sub.add_parser("gui", help="start the desktop GUI (needs the 'gui' extra)")
+    return parser
+
+
+def cmd_sweep(args: argparse.Namespace) -> int:
+    from roomscope.io.wav import write_sweep_file
+
+    settings = _sweep_settings(args)
+    wav_path, sidecar = write_sweep_file(settings, args.out)
+    print(
+        f"Wrote {wav_path} ({settings.total_samples / settings.sample_rate:.1f} s at {settings.sample_rate} Hz, "
+        f"sweep {settings.start_hz:g}-{settings.end_hz:g} Hz, {settings.duration_s:g} s, {settings.level_dbfs:g} dBFS)"
+    )
+    print(f"Wrote {sidecar} (keep it next to the WAV)")
+    print(
+        "Next: import the WAV into your DAW, play it through the monitors, record the measurement microphone,"
+    )
+    print(
+        "export the recording as WAV and run: roomscope analyze --recording <file> --sweep "
+        + str(wav_path)
+    )
+    return 0
+
+
+def _run_analysis(
+    recording_path: Path,
+    reference_path: Path | None,
+    args: argparse.Namespace,
+    *,
+    sweep_settings: SweepSettings | None = None,
+    mode: str = "universal_daw",
+    out_dir: Path | None = None,
+) -> int:
+    from roomscope.core.pipeline import Reference, analyze
+    from roomscope.interpretation import interpret
+    from roomscope.io.session_store import save_measurement
+    from roomscope.io.wav import load_reference, read_wav
+    from roomscope.models.session import MeasurementSession
+
+    recording = read_wav(recording_path)
+    if sweep_settings is not None:
+        reference = Reference.from_settings(sweep_settings)
+    else:
+        assert reference_path is not None
+        reference = load_reference(reference_path)
+    settings = _analysis_settings(args)
+    result = analyze(recording, reference, settings)
+    findings = interpret(result)
+
+    if out_dir is not None:
+        session = MeasurementSession(
+            mode=mode,
+            room_name=args.room,
+            measurement_position=args.position,
+            microphone_name=args.mic,
+            notes=args.notes,
+            sweep_settings=reference.settings or SweepSettings(sample_rate=recording.sample_rate),
+            analysis_settings=settings,
+            sweep_path=str(reference_path) if reference_path else None,
+            recording_path=str(recording_path),
+            input_channel=result.analysis_settings.get("channel_analysed"),
+        )
+        session_path = save_measurement(out_dir, session, result, include_curves=not args.no_curves)
+        log.info("session saved to %s", session_path)
+
+    if args.json:
+        payload = result.to_dict(include_curves=not args.no_curves)
+        payload["findings"] = [f.to_dict() for f in findings]
+        print(json.dumps(payload, indent=1))
+    else:
+        print(format_report(result, findings))
+        if out_dir is not None:
+            print(f"\nSaved session to {out_dir}")
+    return 0
+
+
+def cmd_analyze(args: argparse.Namespace) -> int:
+    return _run_analysis(args.recording, args.sweep, args, out_dir=args.out)
+
+
+def cmd_devices(_: argparse.Namespace) -> int:
+    from roomscope.audio.devices import list_devices
+
+    devices = list_devices()
+    print(f"{'idx':>3}  {'in':>3} {'out':>3}  {'rate':>7}  name  [host API]")
+    for d in devices:
+        flags = ("*in" if d.is_default_input else "") + ("*out" if d.is_default_output else "")
+        print(
+            f"{d.index:>3}  {d.max_input_channels:>3} {d.max_output_channels:>3}  {d.default_sample_rate:7.0f}  "
+            f"{d.name}  [{d.host_api}] {flags}"
+        )
+    return 0
+
+
+def cmd_measure(args: argparse.Namespace) -> int:
+    from roomscope.audio.devices import check_sample_rate
+    from roomscope.audio.playrec import SAFE_MAX_LEVEL_DBFS, SAFETY_MESSAGE, play_and_record
+    from roomscope.core.sweep import measurement_signal
+    from roomscope.io.wav import write_sweep_file, write_wav
+
+    settings = _sweep_settings(args)
+    if settings.level_dbfs > SAFE_MAX_LEVEL_DBFS and not args.acknowledge_level:
+        print(
+            f"Level {settings.level_dbfs:g} dBFS is above {SAFE_MAX_LEVEL_DBFS:g} dBFS. "
+            "Set the monitor level low first and pass --acknowledge-level to confirm.",
+            file=sys.stderr,
+        )
+        return 2
+    print(SAFETY_MESSAGE)
+    if args.input_device is not None:
+        check_sample_rate(args.input_device, settings.sample_rate, kind="input")
+    if args.output_device is not None:
+        check_sample_rate(args.output_device, settings.sample_rate, kind="output")
+    out_dir: Path = args.out
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sweep_path, _ = write_sweep_file(settings, out_dir / "sweep.wav")
+    print(
+        f"Playing sweep on output channel {args.output_channel}, recording input channel {args.input_channel} ..."
+    )
+    recording = play_and_record(
+        measurement_signal(settings),
+        settings.sample_rate,
+        input_device=args.input_device,
+        output_device=args.output_device,
+        input_channel=args.input_channel,
+        output_channel=args.output_channel,
+        level_dbfs=settings.level_dbfs,
+    )
+    recording_path = write_wav(
+        out_dir / "recording.wav", recording.samples, settings.sample_rate, subtype="FLOAT"
+    )
+    print(f"Recorded {recording.duration_s:.1f} s to {recording_path}")
+    return _run_analysis(
+        recording_path,
+        sweep_path,
+        args,
+        sweep_settings=settings,
+        mode="standalone",
+        out_dir=out_dir,
+    )
+
+
+def cmd_gui(_: argparse.Namespace) -> int:
+    try:
+        from roomscope.ui.app import run_app
+    except ImportError as exc:
+        print(f"The GUI needs PySide6: pip install 'roomscope[gui]' ({exc})", file=sys.stderr)
+        return 2
+    return int(run_app())
+
+
+COMMANDS = {
+    "sweep": cmd_sweep,
+    "analyze": cmd_analyze,
+    "devices": cmd_devices,
+    "measure": cmd_measure,
+    "gui": cmd_gui,
+}
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    configure_logging(logging.DEBUG if args.verbose else logging.WARNING)
+    try:
+        return COMMANDS[args.command](args)
+    except RoomScopeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("interrupted", file=sys.stderr)
+        return 130
+
+
+if __name__ == "__main__":  # pragma: no cover
+    sys.exit(main())
