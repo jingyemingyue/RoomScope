@@ -1,0 +1,156 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "roomscope"
+version = "0.1.0.dev1"
+description = "An open-source, DAW-independent recording environment analyzer."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "RoomScope contributors" }]
+keywords = [
+  "acoustics",
+  "room acoustics",
+  "impulse response",
+  "sine sweep",
+  "reverberation",
+  "RT60",
+  "recording",
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: End Users/Desktop",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Multimedia :: Sound/Audio :: Analysis",
+  "Topic :: Scientific/Engineering",
+  "Typing :: Typed",
+]
+# Runtime dependencies. Every entry is reviewed in docs/DEPENDENCIES.md.
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.12",
+  "soundfile>=0.12",
+  "sounddevice>=0.4.6",
+  "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+# The Qt GUI is optional: PySide6 is LGPL-3.0 and large. See docs/DEPENDENCIES.md.
+gui = ["PySide6>=6.6"]
+dev = [
+  "pytest>=8",
+  "pytest-cov>=5",
+  "ruff>=0.6",
+  "mypy>=1.11",
+]
+
+[project.scripts]
+roomscope = "roomscope.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/jingyemingyue/RoomScope"
+Repository = "https://github.com/jingyemingyue/RoomScope"
+Issues = "https://github.com/jingyemingyue/RoomScope/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/roomscope"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/roomscope",
+  "tests",
+  "docs",
+  "examples",
+  "scripts",
+  "README.md",
+  "LICENSE",
+  "NOTICE",
+  "CONTRIBUTING.md",
+  "CHANGELOG.md",
+  "pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -ra"
+markers = [
+  "gui: tests that need PySide6 (run with QT_QPA_PLATFORM=offscreen)",
+  "slow: tests that take more than a few seconds",
+]
+filterwarnings = [
+  "error::DeprecationWarning:roomscope",
+]
+
+[tool.coverage.run]
+source = ["roomscope"]
+branch = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "B",   # bugbear
+  "N",   # pep8-naming
+  "SIM", # simplify
+  "RUF", # ruff-specific
+  "C4",  # comprehensions
+  "PIE",
+  "T20", # no stray print() in library code
+  "ARG",
+]
+ignore = [
+  "E501",   # line length is enforced by `ruff format`; long message strings are allowed
+  "RUF001", # ambiguous unicode in strings (Chinese docs/messages are intentional)
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/roomscope/cli/*" = ["T20"]
+"examples/*" = ["T20"]
+"scripts/*" = ["T20"]
+"tests/*" = ["ARG"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/roomscope"]
+strict = true
+warn_unreachable = true
+pretty = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+# matplotlib's Qt canvas is not fully typed; the GUI results page only wraps it.
+module = ["roomscope.ui.results"]
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = [
+  "sounddevice",
+  "sounddevice.*",
+  "soundfile",
+  "soundfile.*",
+  "scipy",
+  "scipy.*",
+  "matplotlib",
+  "matplotlib.*",
+]
+ignore_missing_imports = true
