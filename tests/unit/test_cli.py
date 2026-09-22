@@ -25,7 +25,12 @@ def test_sweep_and_analyze_commands(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert sweep.is_file() and (tmp_path / "sweep.roomscope-sweep.json").is_file()
 
     signal = read_wav(sweep)
-    ir = make_rir(signal.sample_rate, rt60_s=0.4, reflections=[(0.018, 0.35)], diffuse_level=0.01)
+    # diffuse_level was 0.01: there the single -9 dB reflection carries about half
+    # of the energy after the direct sound, the broadband decay is curved by the
+    # ISO 3382-2 measure (C = 12 %) and RoomScope now withholds the RT60 (see
+    # tests/unit/test_decay.py). With 0.02 the decay is straight (C ~ 1 %), so
+    # this test keeps checking the CLI's RT60 output.
+    ir = make_rir(signal.sample_rate, rt60_s=0.4, reflections=[(0.018, 0.35)], diffuse_level=0.02)
     rec = fftconvolve(signal.samples, ir)[: signal.n_samples + ir.shape[0]]
     rec = np.stack([np.zeros_like(rec), rec], axis=1)
     recording = write_wav(tmp_path / "recording.wav", rec, signal.sample_rate, subtype="FLOAT")
@@ -67,6 +72,46 @@ def test_sweep_and_analyze_commands(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert code == 0
     assert payload["decay"]["broadband"]["rt60_estimate_s"] == pytest.approx(0.4, rel=0.15)
     assert payload["findings"]
+
+
+def test_analyze_accepts_recording_profile(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sweep = tmp_path / "sweep.wav"
+    assert main(["sweep", "--out", str(sweep), "--duration", "2", "--post-silence", "1.5"]) == 0
+    signal = read_wav(sweep)
+    ir = make_rir(signal.sample_rate, rt60_s=0.4, reflections=[(0.018, 0.35)], diffuse_level=0.02)
+    rec = fftconvolve(signal.samples, ir)[: signal.n_samples + ir.shape[0]]
+    recording = write_wav(tmp_path / "recording.wav", rec, signal.sample_rate, subtype="FLOAT")
+
+    assert (
+        main(
+            [
+                "analyze",
+                "--recording",
+                str(recording),
+                "--sweep",
+                str(sweep),
+                "--profile",
+                "vocal",
+            ]
+        )
+        == 0
+    )
+    assert "Interpretation (vocal profile):" in capsys.readouterr().out
+
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "analyze",
+                "--recording",
+                str(recording),
+                "--sweep",
+                str(sweep),
+                "--profile",
+                "not_a_profile",
+            ]
+        )
 
 
 def test_analyze_missing_file_returns_error(
