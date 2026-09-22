@@ -85,7 +85,14 @@ def bundled_shared_libs(audit: PackageAudit) -> tuple[str, ...]:
     for name in audit.natives:
         low = name.lower()
         if any(
-            part in low for part in (".libs/", "_soundfile_data/", "_sounddevice_data/", "/qt/lib/")
+            part in low
+            for part in (
+                ".libs/",
+                ".dylibs/",
+                "_soundfile_data/",
+                "_sounddevice_data/",
+                "/qt/lib/",
+            )
         ):
             interesting.append(name)
     return tuple(interesting)

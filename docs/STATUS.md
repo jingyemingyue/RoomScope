@@ -33,6 +33,12 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 18: 2026-09-22 — wheel-audit test is OS-aware:
+macOS/Windows CI failed because the Linux OpenBLAS+quadmath /
+empty-ASIO checks ran against installed wheels. The test now
+follows DEPENDENCIES.md §6 per platform; `.dylibs/` counts as
+a bundled-lib folder. Hardware cells empty.
+
 Snapshot 17: 2026-09-22 — 1.0-rc M7 CLI help / text-report labels:
 `--lang zh_CN` translates CLI `--help` and every text-report
 heading (ARCHITECTURE_V1.md §5.6). Windows win_amd64 wheels of

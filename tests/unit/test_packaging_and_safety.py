@@ -14,21 +14,34 @@ def _load(name: str, path: Path):
     return module
 
 
-def test_linux_wheels_match_the_bundle_gate() -> None:
+def test_installed_wheels_match_the_bundle_gate() -> None:
+    """Installed-wheel layout differs by OS (DEPENDENCIES.md §6)."""
     module = _load("audit_wheel_contents", Path("scripts") / "audit_wheel_contents.py")
     reports = {item.name: item for item in module.audit_required()}
     numpy = reports["numpy"]
-    assert any("openblas" in name.lower() for name in module.bundled_shared_libs(numpy))
-    assert any("quadmath" in name.lower() for name in module.bundled_shared_libs(numpy))
     scipy = reports["scipy"]
-    assert any("qhull" in name.lower() for name in scipy.licenses)
     soundfile = reports["soundfile"]
-    assert any("libsndfile" in name.lower() for name in module.bundled_shared_libs(soundfile))
     sounddevice = reports["sounddevice"]
-    assert sounddevice.asio == ()
     matplotlib = reports["matplotlib"]
+    numpy_libs = module.bundled_shared_libs(numpy)
+    soundfile_libs = module.bundled_shared_libs(soundfile)
+
     assert matplotlib.ttconv == ()
     assert not any("ttconv" in name.lower() for name in matplotlib.natives)
+    assert any("qhull" in name.lower() for name in scipy.licenses)
+    assert any("openblas" in name.lower() for name in numpy_libs)
+    assert any("libsndfile" in name.lower() for name in soundfile_libs)
+
+    if sys.platform.startswith("linux"):
+        assert any("quadmath" in name.lower() for name in numpy_libs)
+        assert sounddevice.asio == ()
+    elif sys.platform == "win32":
+        assert not any("quadmath" in name.lower() for name in numpy_libs)
+        assert sounddevice.asio
+    else:
+        # macOS: OpenBLAS + GCC runtime live under .dylibs/; the sounddevice
+        # wheel also lists Windows *-asio.dll files that the bundle gate strips.
+        assert any("quadmath" in name.lower() for name in numpy_libs)
 
 
 def test_src_safety_script_is_clean() -> None:
