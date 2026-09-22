@@ -33,6 +33,10 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 12: 2026-09-22 — 1.0-rc GUI/supply-chain: keyboard shortcuts
+for File and Measure actions, linestyle-coded plots, Actions pinned
+by SHA. API/schema not frozen. Hardware cells empty.
+
 Snapshot 11: 2026-09-22 — 1.0-rc quality gates: docs link check, 85 %
 coverage on `core`/`models`, `docs/index.md` hub, fixtures README.
 API/schema not frozen. Hardware cells empty.

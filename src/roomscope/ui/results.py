@@ -196,6 +196,7 @@ class ResultsPage(QWidget):
         self.new_button = QPushButton("New Measurement")
         self.new_button.clicked.connect(self.new_measurement.emit)
         self.save_button = QPushButton("Save Session...")
+        self.save_button.setShortcut("Ctrl+S")
         self.save_button.clicked.connect(self._choose_save_directory)
         row.addWidget(self.new_button)
         row.addStretch(1)

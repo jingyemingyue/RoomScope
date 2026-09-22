@@ -14,9 +14,10 @@ All notable changes to RoomScope are documented here. The format follows
   SHA256SUMS on `v*` tags; PyPI trusted-publishing job (GitHub
   environment `pypi`, maintainer approval); `CODEOWNERS`; docs link
   check; 85 % coverage gate on `core` and `models`; `docs/index.md`
-  hub; fixtures README. The campaign has not been run; hardware cells
-  stay empty; the repository stays private. The API and schemas are
-  **not** frozen.
+  hub; fixtures README; keyboard shortcuts for every main action;
+  plots use linestyle as well as colour; GitHub Actions pinned by SHA.
+  The campaign has not been run; hardware cells stay empty; the
+  repository stays private. The API and schemas are **not** frozen.
 - v0.4 for everyone (ARCHITECTURE_V1.md milestone 0.4): gettext with a
   Simplified Chinese catalog; `--lang` / `settings.language` /
   `ROOMSCOPE_LANG`; user settings under `$ROOMSCOPE_HOME/settings.json`;

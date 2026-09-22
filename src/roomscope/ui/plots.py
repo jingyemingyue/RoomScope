@@ -15,6 +15,9 @@ from roomscope.models.result import AnalysisResult, Validity
 
 _EPS = 1e-300
 
+# Linestyles so a plot is readable when colour is not (ARCHITECTURE_V1 §5.8).
+_LINESTYLES = ("-", "--", "-.", ":", (0, (3, 1, 1, 1)))
+
 
 def plot_impulse_response(fig: Figure, result: AnalysisResult) -> None:
     fig.clear()
@@ -44,12 +47,20 @@ def plot_frequency_response(fig: Figure, result: AnalysisResult) -> None:
     fig.clear()
     fr = result.frequency_response
     ax = fig.add_subplot(1, 1, 1)
-    ax.semilogx(fr.frequencies_hz, fr.magnitude_db_raw, linewidth=0.5, alpha=0.35, label="raw")
+    ax.semilogx(
+        fr.frequencies_hz,
+        fr.magnitude_db_raw,
+        linewidth=0.5,
+        alpha=0.35,
+        linestyle=":",
+        label="raw",
+    )
     if fr.magnitude_db_smoothed is not None:
         ax.semilogx(
             fr.frequencies_hz,
             fr.magnitude_db_smoothed,
             linewidth=1.6,
+            linestyle="-",
             label=f"1/{fr.smoothing_fraction}-octave smoothed",
         )
     loopback = result.impulse_response.loopback
@@ -63,6 +74,7 @@ def plot_frequency_response(fig: Figure, result: AnalysisResult) -> None:
             loopback.interface_response_db,
             linewidth=1.0,
             alpha=0.8,
+            linestyle="--",
             label="interface (loopback)",
         )
     ax.set_xlim(20.0, result.sample_rate / 2.0)
@@ -82,13 +94,20 @@ def plot_decay(fig: Figure, result: AnalysisResult) -> None:
     fig.clear()
     ax = fig.add_subplot(1, 1, 1)
     bb = result.decay.broadband
-    ax.plot(bb.edc_time_s, bb.edc_db, linewidth=2.0, color="black", label="broadband")
-    for band in result.decay.bands:
+    ax.plot(bb.edc_time_s, bb.edc_db, linewidth=2.4, linestyle="-", label="broadband")
+    for index, band in enumerate(result.decay.bands):
         rt = band.rt60_estimate_s
         label = band.band_label + (
             f"  RT60~{rt:.2f} s" if rt is not None else "  (insufficient range)"
         )
-        ax.plot(band.edc_time_s, band.edc_db, linewidth=0.9, alpha=0.8, label=label)
+        ax.plot(
+            band.edc_time_s,
+            band.edc_db,
+            linewidth=0.9,
+            alpha=0.8,
+            linestyle=_LINESTYLES[(index + 1) % len(_LINESTYLES)],
+            label=label,
+        )
     ax.set_ylim(-70.0, 5.0)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Schroeder decay (dB)")
@@ -116,7 +135,7 @@ def plot_noise(fig: Figure, result: AnalysisResult) -> None:
         if hum.detected:
             for freq, prominence in hum.harmonics:
                 idx = int(np.argmin(np.abs(f - freq)))
-                ax.plot(freq, noise.psd_db[idx], "rv")
+                ax.plot(freq, noise.psd_db[idx], "v", markerfacecolor="none")
                 ax.annotate(
                     f"{freq:.0f} Hz +{prominence:.0f} dB",
                     (freq, noise.psd_db[idx]),
@@ -151,7 +170,7 @@ def plot_reflections(fig: Figure, result: AnalysisResult) -> None:
             [r.delay_ms for r in refl.reflections],
             [r.relative_db for r in refl.reflections],
             "o",
-            color="tab:red",
+            markerfacecolor="none",
             label="candidate reflections",
         )
     ax.axhline(refl.threshold_db, color="gray", linestyle="--", linewidth=0.8, label="threshold")

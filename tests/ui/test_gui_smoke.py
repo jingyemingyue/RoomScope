@@ -133,6 +133,23 @@ def test_reopen_saved_session(
     window.close()
 
 
+def test_main_window_actions_have_shortcuts(app: QApplication) -> None:
+    from PySide6.QtGui import QAction
+
+    window = MainWindow()
+    shortcuts = {
+        action.shortcut().toString()
+        for action in window.findChildren(QAction)
+        if not action.shortcut().isEmpty()
+    }
+    for needed in ("Ctrl+N", "Ctrl+O", "Ctrl+Shift+C", "Ctrl+,", "Ctrl+1", "Ctrl+2", "Ctrl+3"):
+        assert needed in shortcuts, shortcuts
+    assert window.daw.analyze_button.shortcut().toString() == "Ctrl+Return"
+    assert window.standalone.stop_button.shortcut().toString() == "Esc"
+    assert window.results.save_button.shortcut().toString() == "Ctrl+S"
+    window.close()
+
+
 def test_standalone_page_builds(app: QApplication) -> None:
     window = MainWindow()
     window.show_mode("standalone")
