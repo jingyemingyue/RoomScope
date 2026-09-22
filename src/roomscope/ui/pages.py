@@ -31,7 +31,7 @@ from roomscope.audio.playrec import (
 from roomscope.core.pipeline import Reference
 from roomscope.core.sweep import measurement_signal
 from roomscope.errors import RoomScopeError
-from roomscope.interpretation import interpret
+from roomscope.interpretation import available_profiles, interpret
 from roomscope.io.wav import load_reference, read_wav, write_sweep_file
 from roomscope.models.audio import AudioSignal
 from roomscope.models.configuration import SUPPORTED_SAMPLE_RATES, AnalysisSettings, SweepSettings
@@ -88,6 +88,14 @@ def _metadata_form(state: MeasurementState) -> tuple[QGroupBox, QLineEdit, QLine
     form.addRow("Position", position)
     form.addRow("Microphone", mic)
     return box, room, position, mic
+
+
+def _profile_combo(state: MeasurementState) -> QComboBox:
+    combo = QComboBox()
+    for name in available_profiles():
+        combo.addItem(name, name)
+    combo.setCurrentText(state.profile)
+    return combo
 
 
 class DawModePage(QWidget):
@@ -159,6 +167,10 @@ class DawModePage(QWidget):
         v4 = QVBoxLayout(step4)
         meta, self.room, self.position, self.mic = _metadata_form(state)
         v4.addWidget(meta)
+        profile_form = QFormLayout()
+        self.profile = _profile_combo(state)
+        profile_form.addRow("Recording profile", self.profile)
+        v4.addLayout(profile_form)
         row = QHBoxLayout()
         self.analyze_button = QPushButton("Analyze")
         self.analyze_button.clicked.connect(self.start_analysis)
@@ -263,6 +275,7 @@ class DawModePage(QWidget):
             )
             return
         channel = self.channel.currentData()
+        self.state.profile = str(self.profile.currentData())
         self.state.analysis_settings = AnalysisSettings(
             channel=None if channel is None else int(channel)
         )
@@ -294,7 +307,7 @@ class DawModePage(QWidget):
 
     def _on_success(self, result: AnalysisResult) -> None:
         self.state.result = result
-        self.state.findings = interpret(result)
+        self.state.findings = interpret(result, self.state.profile)
         self._set_busy(False, "Done.")
         self.analysis_finished.emit()
 
@@ -359,6 +372,8 @@ class StandalonePage(QWidget):
         form2.addRow("Sweep duration", self.duration)
         form2.addRow("Playback level", self.level)
         form2.addRow(self.acknowledge)
+        self.profile = _profile_combo(state)
+        form2.addRow("Recording profile", self.profile)
         layout.addWidget(sweep)
 
         meta, self.room, self.position, self.mic = _metadata_form(state)
@@ -430,6 +445,7 @@ class StandalonePage(QWidget):
         self.state.sweep_settings = settings
         self.state.reference = Reference.from_settings(settings)
         self.state.analysis_settings = AnalysisSettings()
+        self.state.profile = str(self.profile.currentData())
         self._set_busy(True, "Playing the sweep and recording...")
         self._measure_worker = MeasureWorker(
             measurement_signal(settings),
@@ -473,7 +489,7 @@ class StandalonePage(QWidget):
 
     def _on_success(self, result: AnalysisResult) -> None:
         self.state.result = result
-        self.state.findings = interpret(result)
+        self.state.findings = interpret(result, self.state.profile)
         self._set_busy(False, "Done.")
         self.analysis_finished.emit()
 
