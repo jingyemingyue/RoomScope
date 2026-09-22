@@ -3,37 +3,73 @@
 recording + reference sweep
     -> channel selection and validation
     -> deconvolution (whole recording, no manual trimming)
-    -> impulse response location
-    -> decay analysis (broadband + octave bands)
-    -> frequency response
-    -> background noise (quiet segment of the recording)
+    -> impulse response location (sweep passes, recording start check,
+       excitation band, harmonic distortion indicators)
+    -> linearity checks (flat-topped peaks, folded/aliased distortion products)
+    -> decay analysis (broadband + octave bands, on h_full with a fixed lead-in;
+       bands outside the excitation band withheld; all metrics unreliable when
+       the direct sound is unverified, the recording clips or it contains
+       aliased distortion)
+    -> frequency response (gated from the direct sound, with a lead-in)
+    -> background noise (a quiet segment of the recording, verified quiet)
     -> early reflections
     -> potential low-frequency resonances
+    -> placement geometry (only what the supplied tape measurements make
+       identifiable; nothing horizontal is ever derived)
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import numpy as np
 from scipy.signal import resample_poly
 
-from roomscope.core.decay import analyze_decay
-from roomscope.core.deconvolution import confidence_label, deconvolve, locate_impulse_response
+from roomscope.core.decay import analyze_decay, decay_lead_in_s
+from roomscope.core.deconvolution import (
+    PASS_LEVEL_DB,
+    LocatedImpulseResponse,
+    confidence_label,
+    deconvolve,
+    harmonic_distortion_levels,
+    locate_impulse_response,
+)
 from roomscope.core.frequency_response import frequency_response
-from roomscope.core.noise import analyze_noise, find_quiet_segment
+from roomscope.core.linearity import aliased_distortion_levels, detect_clipping
+from roomscope.core.noise import analyze_noise, quiet_segment_candidates, sweep_level_dbfs
+from roomscope.core.placement import estimate_placement
 from roomscope.core.reflections import detect_early_reflections
 from roomscope.core.resonance import detect_potential_resonances
-from roomscope.core.sweep import generate_ess, inverse_filter, inverse_filter_spectral
+from roomscope.core.sweep import (
+    REFERENCE_SILENCE_THRESHOLD_DB,
+    active_region,
+    design_spectral_inverse,
+    estimate_reference_band_hz,
+    excitation_band_hz,
+    frequency_at_sweep_time,
+    inverse_filter,
+)
 from roomscope.errors import ConfigurationError, InvalidAudioError, SampleRateMismatchError
 from roomscope.models.audio import AudioSignal, FloatArray
 from roomscope.models.configuration import AnalysisSettings, SweepSettings
-from roomscope.models.result import AnalysisResult, ImpulseResponseResult
+from roomscope.models.result import (
+    EXCITATION_SOURCE_ESTIMATED,
+    EXCITATION_SOURCE_SETTINGS,
+    AliasedDistortion,
+    AnalysisResult,
+    ClippingCheck,
+    DecayResult,
+    ExcitationBand,
+    HarmonicDistortion,
+    ImpulseResponseResult,
+)
 
 SILENCE_THRESHOLD_DBFS = -80.0
-CLIPPING_THRESHOLD = 0.999
-CLIPPING_MIN_SAMPLES = 8
+#: Periods of the lowest excited frequency analysed before the direct sound
+#: for the frequency response (see :func:`frequency_response_lead_in_s`).
+FREQUENCY_RESPONSE_LEAD_IN_PERIODS = 10.0
 
 
 @dataclass(frozen=True)
@@ -65,12 +101,30 @@ class Reference:
         return cls(signal=np.asarray(mono, dtype=np.float64), sample_rate=sample_rate)
 
 
+#: How far (s) the recording may start after the sweep began, beyond the
+#: sweep's fade-in, before the analysis is refused (latency jitter of a DAW
+#: export). Frequencies swept in the missing part are removed from the
+#: excitation band.
+RECORDING_START_TOLERANCE_S = 0.010
+#: Report trimmed reference silences longer than this (s).
+REFERENCE_TRIM_NOTE_S = 0.010
+
+
 @dataclass(frozen=True)
 class _PreparedReference:
     inverse: FloatArray
+    #: Length of the (trimmed) sweep the inverse belongs to.
     reference_length: int
     sweep_settings: SweepSettings | None
     warnings: tuple[str, ...]
+    excitation_band: ExcitationBand
+    #: ``L`` of the sweep (s) when the sweep definition is known.
+    sweep_rate_s: float | None
+    #: The trimmed reference signal (signal references only).
+    trimmed_signal: FloatArray | None
+    #: Samples removed before / after the active part of a reference signal.
+    lead_trim: int = 0
+    tail_trim: int = 0
 
 
 def _prepare_reference(reference: Reference, sample_rate: int) -> _PreparedReference:
@@ -88,11 +142,17 @@ def _prepare_reference(reference: Reference, sample_rate: int) -> _PreparedRefer
                 f"reference sweep regenerated at the recording sample rate ({sample_rate} Hz); "
                 f"it was defined at {reference.settings.sample_rate} Hz"
             )
+        low, high = excitation_band_hz(settings)
         return _PreparedReference(
             inverse=inverse_filter(settings),
             reference_length=settings.sweep_samples,
             sweep_settings=settings,
             warnings=tuple(warnings),
+            excitation_band=ExcitationBand(
+                low_hz=low, high_hz=high, source=EXCITATION_SOURCE_SETTINGS
+            ),
+            sweep_rate_s=settings.sweep_rate,
+            trimmed_signal=None,
         )
     assert reference.signal is not None and reference.sample_rate is not None
     signal = reference.signal
@@ -105,34 +165,219 @@ def _prepare_reference(reference: Reference, sample_rate: int) -> _PreparedRefer
         warnings.append(
             f"reference signal resampled from {reference.sample_rate} Hz to {sample_rate} Hz"
         )
+    try:
+        first, stop = active_region(signal)
+    except ConfigurationError as exc:
+        raise InvalidAudioError(f"reference signal cannot be used: {exc}") from exc
+    lead, tail = first, signal.shape[0] - stop
+    trimmed = np.ascontiguousarray(signal[first:stop])
+    if lead / sample_rate > REFERENCE_TRIM_NOTE_S or tail / sample_rate > REFERENCE_TRIM_NOTE_S:
+        warnings.append(
+            f"the reference audio starts with {lead / sample_rate:.2f} s and ends with "
+            f"{tail / sample_rate:.2f} s of near-silence (below {REFERENCE_SILENCE_THRESHOLD_DB:g} dB "
+            "re its peak); it was removed so that the reference is the sweep itself, and "
+            "sweep positions refer to the sweep, not to the start of the file"
+        )
     warnings.append(
         "reference given as an audio file without a RoomScope sweep definition; "
-        "using regularised spectral division instead of the analytic inverse filter"
+        "using regularised spectral division instead of the analytic inverse filter, "
+        "and the excitation band is estimated from the reference spectrum"
     )
+    try:
+        design = design_spectral_inverse(trimmed, sample_rate)
+    except ConfigurationError as exc:
+        raise InvalidAudioError(f"reference signal cannot be used: {exc}") from exc
     return _PreparedReference(
-        inverse=inverse_filter_spectral(signal),
-        reference_length=signal.shape[0],
+        inverse=design.inverse,
+        reference_length=trimmed.shape[0],
         sweep_settings=None,
         warnings=tuple(warnings),
+        excitation_band=ExcitationBand(
+            low_hz=design.band_low_hz,
+            high_hz=design.band_high_hz,
+            source=EXCITATION_SOURCE_ESTIMATED,
+            note=(
+                f"the reference covers about {design.reference_low_hz:.0f}-"
+                f"{design.reference_high_hz:.0f} Hz (-3 dB); the outer 1/3 octave at each end is "
+                "used for the regularisation roll-off and excluded"
+            ),
+        ),
+        sweep_rate_s=None,
+        trimmed_signal=trimmed,
+        lead_trim=lead,
+        tail_trim=tail,
     )
 
 
-def _validate_recording(mono: FloatArray, sample_rate: int) -> list[str]:
+def _check_recording_start(
+    prepared: _PreparedReference, missing: int, sample_rate: int
+) -> tuple[ExcitationBand, str | None]:
+    """Refuse a recording that starts inside the sweep; narrow the band for small gaps.
+
+    ``missing`` is the number of sweep samples before the start of the recording.
+    """
+    band = prepared.excitation_band
+    if missing <= 0:
+        return band, None
+    missing_s = missing / sample_rate
+    settings = prepared.sweep_settings
+    fade_in_s = settings.fade_in_s if settings is not None else 0.0
+    tolerance = round((fade_in_s + RECORDING_START_TOLERANCE_S) * sample_rate)
+    if settings is not None:
+        lost_hz = frequency_at_sweep_time(settings, missing_s)
+        if missing > tolerance:
+            raise InvalidAudioError(
+                f"the recording starts about {missing_s:.2f} s after the sweep began, so frequencies "
+                f"below about {lost_hz:.0f} Hz were not recorded. Start the recording before "
+                "playback (the test file begins with silence for this purpose) and export the "
+                "whole take"
+            )
+        if lost_hz <= band.low_hz:
+            return band, None
+        new_low = lost_hz
+    else:
+        if missing > tolerance:
+            raise InvalidAudioError(
+                f"the recording starts about {missing_s:.2f} s after the reference sweep began, so "
+                "the first part of the sweep (for a rising sweep: its lowest frequencies) was not "
+                "recorded. Start the recording before playback and export the whole take"
+            )
+        assert prepared.trimmed_signal is not None
+        recorded_part = prepared.trimmed_signal[missing:]
+        try:
+            new_low = estimate_reference_band_hz(recorded_part, sample_rate)[0]
+        except ConfigurationError:
+            new_low = band.low_hz
+        if new_low <= band.low_hz:
+            return band, None
+    if new_low >= band.high_hz:
+        raise InvalidAudioError(
+            "the recording starts after the swept range; no part of the sweep can be analysed"
+        )
+    note = (
+        f"the recording starts {missing_s * 1000.0:.0f} ms after the sweep began; the excitation "
+        f"band now starts at {new_low:.0f} Hz instead of {band.low_hz:.0f} Hz"
+    )
+    return (
+        ExcitationBand(low_hz=new_low, high_hz=band.high_hz, source=band.source, note=note),
+        note,
+    )
+
+
+def _validate_recording(mono: FloatArray, sample_rate: int) -> tuple[ClippingCheck, list[str]]:
+    """Refuse an unusable recording and report flat-topped (clipped) peaks."""
     warnings: list[str] = []
     peak = float(np.max(np.abs(mono)))
     if peak <= 0.0 or 20.0 * np.log10(peak) < SILENCE_THRESHOLD_DBFS:
         raise InvalidAudioError(
             f"recording is silent (peak below {SILENCE_THRESHOLD_DBFS:g} dBFS); check the input routing"
         )
-    clipped = int(np.count_nonzero(np.abs(mono) >= CLIPPING_THRESHOLD))
-    if clipped >= CLIPPING_MIN_SAMPLES:
+    clipping = detect_clipping(mono)
+    if clipping.clipped:
         warnings.append(
-            f"recording contains {clipped} samples at or above {CLIPPING_THRESHOLD:g} full scale: "
-            "probable clipping; lower the playback level and measure again"
+            f"recording has {clipping.runs} flat-topped peaks ({clipping.samples} samples) at "
+            f"{clipping.peak_dbfs:.1f} dBFS, its highest level: probable clipping"
+            + (
+                " before an export or a gain change, because the flat tops are below full scale"
+                if clipping.peak_dbfs < -0.1
+                else ""
+            )
+            + "; lower the playback or input level and measure again"
         )
     if mono.shape[0] < sample_rate:
         raise InvalidAudioError("recording is shorter than one second")
-    return warnings
+    return clipping, warnings
+
+
+def _segment_around_pass(
+    h_full: FloatArray,
+    located: LocatedImpulseResponse,
+    sample_rate: int,
+    lead_in_s: float,
+) -> tuple[FloatArray, int]:
+    """``h_full`` around the analysed pass and the direct sound's index in it.
+
+    The segment starts ``lead_in_s`` before the direct sound (limited by the
+    start of ``h_full`` and by an earlier sweep pass) and ends where the
+    located impulse response ends, so that time-reversed band filters and the
+    frequency response see the whole response of the direct sound whatever
+    ``ir_pre_delay_ms`` is.
+    """
+    peak = located.peak_index
+    start = max(0, peak - round(lead_in_s * sample_rate))
+    earlier = [p for p in located.pass_peak_indices if p < peak]
+    if earlier:
+        start = max(start, earlier[-1] + 1)
+    stop = peak + (located.samples.shape[0] - located.direct_index)
+    return np.asarray(h_full[start:stop], dtype=np.float64), peak - start
+
+
+def _analyze_decay_of_pass(
+    h_full: FloatArray,
+    located: LocatedImpulseResponse,
+    sample_rate: int,
+    settings: AnalysisSettings,
+    excitation_band: ExcitationBand,
+) -> DecayResult:
+    """Decay analysis on ``h_full`` around the analysed pass."""
+    segment, direct_index = _segment_around_pass(
+        h_full, located, sample_rate, decay_lead_in_s(settings)
+    )
+    return analyze_decay(
+        segment,
+        sample_rate,
+        settings,
+        direct_index=direct_index,
+        excitation_band=excitation_band,
+    )
+
+
+def frequency_response_lead_in_s(
+    excitation_band: ExcitationBand, settings: AnalysisSettings
+) -> float:
+    """Time kept before the direct sound for the frequency response (s).
+
+    The deconvolved direct sound is a band-limited pulse whose pre-ringing is
+    part of its low-frequency content: analysing only ``ir_pre_delay_ms``
+    before it costs about 1.2 dB at 31.5 Hz and 0.9 dB at 63 Hz on a loopback
+    of the default sweep. Ten periods of the lowest excited frequency are
+    kept, which is where the low-frequency response stops changing (measured:
+    within 0.03 dB of the value at a 1.5 s lead-in).
+    """
+    return max(
+        settings.ir_pre_delay_ms / 1000.0,
+        FREQUENCY_RESPONSE_LEAD_IN_PERIODS / max(excitation_band.low_hz, 1.0),
+    )
+
+
+def _decay_unreliable_reasons(
+    confidence: str,
+    margin_db: float | None,
+    clipped: bool,
+    aliased: tuple[AliasedDistortion, ...] = (),
+) -> list[str]:
+    """Measurement-level reasons why no decay metric may be reported as valid."""
+    reasons: list[str] = []
+    if confidence == "low":
+        margin = "not checkable" if margin_db is None else f"{margin_db:.1f} dB"
+        reasons.append(
+            f"direct-sound detection confidence is low (pre-peak margin {margin}): the "
+            "recording may not contain the reference sweep"
+        )
+    if clipped:
+        reasons.append(
+            "the recording clips, so the measurement chain was not linear and the "
+            "deconvolved response is not the room's impulse response"
+        )
+    significant = [a for a in aliased if a.significant]
+    if significant:
+        orders = ", ".join(str(a.order) for a in significant)
+        level = max(a.level_db or -math.inf for a in significant)
+        reasons.append(
+            f"aliased distortion (folded harmonic {orders} at {level:.0f} dB re the direct sound) "
+            "spreads over the impulse response after the direct sound and imitates a decay"
+        )
+    return reasons
 
 
 def analyze(
@@ -148,12 +393,14 @@ def analyze(
     mono, channel, channel_warning = recording.select_channel(settings.channel)
     if channel_warning:
         warnings.append(channel_warning)
-    warnings.extend(_validate_recording(mono, sample_rate))
+    clipping, validation_warnings = _validate_recording(mono, sample_rate)
+    warnings.extend(validation_warnings)
 
     prepared = _prepare_reference(reference, sample_rate)
     warnings.extend(prepared.warnings)
 
     h_full = deconvolve(mono, prepared.inverse)
+    fade_in_s = prepared.sweep_settings.fade_in_s if prepared.sweep_settings is not None else 0.0
     located = locate_impulse_response(
         h_full,
         recording_length=mono.shape[0],
@@ -161,22 +408,79 @@ def analyze(
         sample_rate=sample_rate,
         pre_delay_ms=settings.ir_pre_delay_ms,
         max_length_s=settings.ir_max_length_s,
+        sweep_rate_s=prepared.sweep_rate_s,
+        start_tolerance_samples=round((fade_in_s + RECORDING_START_TOLERANCE_S) * sample_rate),
     )
     ir = located.samples
-    confidence = confidence_label(located.pre_peak_margin_db)
     ir_notes: list[str] = []
+    # The excitation band is what later stages (decay, frequency response,
+    # resonances) must respect: impulse.excitation_band / result.excitation_band.
+    band, start_note = _check_recording_start(prepared, -located.sweep_start_raw_index, sample_rate)
+    if start_note:
+        ir_notes.append(start_note)
+    if located.sweep_passes > 1:
+        order = located.pass_peak_indices.index(located.peak_index) + 1
+        ir_notes.append(
+            f"the recording contains {located.sweep_passes} sweep passes (pulses within "
+            f"{PASS_LEVEL_DB:g} dB of the strongest); pass {order}, starting at "
+            f"{located.sweep_start_index_in_recording / sample_rate:.2f} s, was analysed and the "
+            "others were ignored. Record a single pass for a clean measurement"
+        )
+    if located.truncated_by_next_pass:
+        ir_notes.append(
+            "the impulse response ends where the next sweep pass starts "
+            f"({located.valid_length_samples / sample_rate:.2f} s after the direct sound)"
+        )
     if located.valid_length_samples / sample_rate < 1.0:
         ir_notes.append(
             f"only {located.valid_length_samples / sample_rate:.2f} s of decay were recorded after the "
             "sweep; long reverberation times cannot be evaluated"
         )
-    if confidence != "high":
+    confidence = confidence_label(located.pre_peak_margin_db)
+    if located.pre_peak_margin_db is None:
+        ir_notes.append(
+            "there is no content before the direct sound to check the detection against; "
+            f"direct-sound detection confidence is {confidence}"
+        )
+    elif confidence != "high":
         ir_notes.append(
             f"content before the direct sound is only {located.pre_peak_margin_db:.1f} dB below it "
-            "(distortion, noise or a wrong reference); direct-sound detection confidence is "
+            "(noise, pre-ringing or a wrong reference); direct-sound detection confidence is "
             f"{confidence}"
         )
     warnings.extend(ir_notes)
+
+    harmonics: tuple[HarmonicDistortion, ...] = ()
+    aliased: tuple[AliasedDistortion, ...] = ()
+    if prepared.sweep_settings is not None:
+        harmonics = harmonic_distortion_levels(
+            h_full, located, sample_rate=sample_rate, excitation_band=band
+        )
+        # Folded (aliased) products land *after* the direct sound, where the
+        # harmonic windows and the pre-peak margin cannot see them.
+        aliased = aliased_distortion_levels(
+            mono,
+            h_full,
+            sample_rate=sample_rate,
+            settings=prepared.sweep_settings,
+            excitation_band=band,
+            peak_index=located.peak_index,
+            reference_length=prepared.reference_length,
+        )
+        significant = [a for a in aliased if a.significant]
+        if significant:
+            orders = ", ".join(str(a.order) for a in significant)
+            level = max(a.level_db or -math.inf for a in significant)
+            note = (
+                f"harmonic {orders} of the sweep was folded back below the Nyquist frequency "
+                f"({level:.0f} dB re the direct sound): a nonlinearity in the digital domain (a "
+                "playback bus or export that clipped, or a saturation plug-in without "
+                "oversampling) distorted the signal before the converter. The folded products "
+                "land after the direct sound and imitate a long decay, so the decay metrics "
+                "cannot be trusted. Lower the level in the playback path and measure again"
+            )
+            ir_notes.append(note)
+            warnings.append(note)
 
     impulse = ImpulseResponseResult(
         sample_rate=sample_rate,
@@ -189,23 +493,81 @@ def analyze(
         direct_sound_confidence=confidence,
         sweep_start_in_recording_s=located.sweep_start_index_in_recording / sample_rate,
         notes=tuple(ir_notes),
+        excitation_band=band,
+        sweep_passes=located.sweep_passes,
+        first_sweep_start_in_recording_s=located.first_sweep_start_index_in_recording / sample_rate,
+        harmonic_distortion=harmonics,
+        aliased_distortion=aliased,
     )
 
-    decay = analyze_decay(ir, sample_rate, settings)
+    decay = _analyze_decay_of_pass(h_full, located, sample_rate, settings, band)
+    unreliable = _decay_unreliable_reasons(
+        confidence, located.pre_peak_margin_db, clipping.clipped, aliased
+    )
+    if unreliable:
+        decay = decay.with_all_unreliable("; ".join(unreliable))
+    warnings.extend(decay.notes)
+
+    # The frequency response and the resonance search run on h_full with a
+    # lead-in, so that the pre-ringing of the band-limited direct sound (its
+    # low-frequency content) is kept whatever ir_pre_delay_ms is.
+    fr_segment, fr_direct = _segment_around_pass(
+        h_full, located, sample_rate, frequency_response_lead_in_s(band, settings)
+    )
     response = frequency_response(
-        ir,
+        fr_segment,
         sample_rate,
+        direct_index=fr_direct,
         window_s=settings.fr_window_s,
         smoothing_fraction=settings.fr_smoothing_fraction,
+        excitation_band=band,
     )
-    segment = find_quiet_segment(
+    # A gate hides exactly the long decays the resonance search looks for, so
+    # that search always uses the ungated response.
+    ungated = (
+        response
+        if not response.gated
+        else frequency_response(
+            fr_segment,
+            sample_rate,
+            direct_index=fr_direct,
+            smoothing_fraction=0,
+            excitation_band=band,
+        )
+    )
+    if response.gated:
+        warnings.append(
+            f"the frequency response is gated to {response.window_s * 1000.0:.0f} ms after the "
+            f"direct sound, so its resolution is {response.resolution_hz:.1f} Hz; the resonance "
+            "search uses the ungated response"
+        )
+
+    last_pass = located.pass_peak_indices[-1] if located.pass_peak_indices else located.peak_index
+    candidates = quiet_segment_candidates(
         recording_length=mono.shape[0],
         sample_rate=sample_rate,
-        sweep_start_index=located.sweep_start_index_in_recording,
-        reference_length=prepared.reference_length,
+        # Before the *first* sweep pass and after the *last* one, so that no
+        # other pass can be measured as background noise.
+        first_sweep_start_index=located.first_sweep_start_index_in_recording,
+        last_sweep_end_index=last_pass
+        - (prepared.reference_length - 1)
+        + prepared.reference_length,
         min_segment_s=settings.noise_min_segment_s,
     )
-    noise = analyze_noise(mono, sample_rate, segment, octave_bands_hz=settings.octave_bands_hz)
+    noise = analyze_noise(
+        mono,
+        sample_rate,
+        candidates[0] if candidates else None,
+        octave_bands_hz=settings.octave_bands_hz,
+        min_segment_s=settings.noise_min_segment_s,
+        sweep_level_dbfs=sweep_level_dbfs(
+            mono,
+            sample_rate,
+            located.sweep_start_index_in_recording,
+            prepared.reference_length,
+        ),
+        fallbacks=candidates[1:],
+    )
     reflections = detect_early_reflections(
         ir,
         sample_rate,
@@ -216,12 +578,20 @@ def analyze(
         prominence_db=settings.reflections_prominence_db,
         direct_sound_confidence=confidence,
     )
+    placement = estimate_placement(
+        reflections,
+        distance_m=settings.placement_distance_m,
+        mic_height_m=settings.placement_mic_height_m,
+        temperature_c=settings.placement_temperature_c,
+    )
     resonances = detect_potential_resonances(
-        ir,
+        fr_segment,
         sample_rate,
-        response,
+        ungated,
         max_hz=settings.resonance_max_hz,
         min_prominence_db=settings.resonance_min_prominence_db,
+        direct_index=fr_direct,
+        excitation_band=band,
     )
     sweep_dict = prepared.sweep_settings.to_dict() if prepared.sweep_settings is not None else {}
     analysis_dict = settings.to_dict()
@@ -237,6 +607,8 @@ def analyze(
         noise=noise,
         reflections=reflections,
         resonances=resonances,
+        clipping=clipping,
+        placement=placement,
         warnings=tuple(warnings),
     )
 
@@ -251,9 +623,8 @@ def synthetic_recording(
 ) -> AudioSignal:
     """Convolve the measurement signal with ``room_ir`` and add white noise.
 
-    Used by the tests and the examples to prove the round trip without a real
-    room. ``generate_ess`` is imported here so that the helper lives next to
-    ``analyze``; it is not used by the analysis itself.
+    Used by the tests to prove the round trip without a real room; it is not
+    used by the analysis itself.
     """
     from scipy.signal import fftconvolve
 
@@ -267,4 +638,4 @@ def synthetic_recording(
     return AudioSignal(samples=recorded, sample_rate=settings.sample_rate, source="synthetic")
 
 
-__all__ = ["Reference", "analyze", "generate_ess", "synthetic_recording"]
+__all__ = ["Reference", "analyze", "synthetic_recording"]
