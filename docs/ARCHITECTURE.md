@@ -4,8 +4,9 @@ Status: v0.1 foundation (2026-09). This document describes what exists and the
 extension points that later milestones (plug-ins, more profiles, calibrated
 SPL) must respect.
 
-The design for v1.0 -- the first release open to everyone -- is a separate
-proposal, [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) (Chinese digest:
+The design for v1.0 -- macOS only, compatible with every mainstream DAW and
+with the hardware people own, proven by matrices and a chain check -- is a
+separate proposal, [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) (Chinese digest:
 [ARCHITECTURE_V1.zh-CN.md](ARCHITECTURE_V1.zh-CN.md)). It only adds to what is
 described here; the dependency direction and the single analysis entry point
 are unchanged.

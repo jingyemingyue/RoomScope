@@ -1,177 +1,247 @@
-# RoomScope v1.0 架构设计（中文摘要）
+# RoomScope v1.0 架构设计（中文摘要）：仅 macOS，兼容性优先
 
-> 状态：**提案，2026-09-22**，供维护者评审。本文是
-> [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) 的摘要而非逐字翻译；两者不一致时以英文版为准。
-> [ARCHITECTURE.md](ARCHITECTURE.md) 描述 v0.1 已有的东西，本文描述"开放给所有人"的
-> v1.0 要新增什么、冻结什么、继续拒绝什么。除标注"已落地"或"PR #2 中"的条目外，
-> 以下内容均尚未实现。只能由项目发起人决定的事项标注为 **维护者决定**，汇总在第 11 节。
+> 状态：**提案，2026-09-22 修订**。维护者已收窄范围：v1.0 **只针对 macOS**，必须是**实用的小工具**
+> （GUI 保持朴素），并且**必须先兼容所有主流 DAW 和大家真正在用的音频硬件**。Windows / Linux
+> 推迟到 1.0 之后；核心保持平台无关，届时只是打包与矩阵工作，不是重新设计。
+>
+> 本文是 [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) 的摘要而非逐字翻译，两者不一致时以英文版为准。
+> [ARCHITECTURE.md](ARCHITECTURE.md) 描述 v0.1 已有的东西。除标注"已落地"或"PR #2 中"的条目外，
+> 以下内容均尚未实现。只能由项目发起人决定的事项标注 **维护者决定**，汇总在第 11 节。
 
-## 1. 一句话定位
+## 1. 核心判断
 
-v0.1 用合成房间证明了测量链路，并给开发者一个可以 clone、测试、评审的仓库。
-"开放给所有人"意味着同一条链路要交到三种人手里：
+"兼容所有 DAW 和所有声卡"不能靠"WAV 进、WAV 出"的设计自动成立，必须**逐个 DAW、逐类设备去证明，
+而且每次测量时由工具自己再验一遍**。v1.0 围绕这一点构建：
 
-| 受众 | v1.0 提供 | 他们永远不需要 |
-| --- | --- | --- |
-| 录音师、学生、家庭录音用户 | 签名的桌面应用；DAW 四步流程与 Standalone 模式；中英文用户指南；两个位置的对比；可以直接发给别人求助的会话文件夹 | Python、终端、账号、联网、校准麦克风 |
-| 集成者与研究者 | `pip install roomscope`；带稳定性承诺的公开 API；`result.json` / `session.json` / `comparison.json` 及其 JSON Schema；曲线 CSV 导出；`roomscope analyze-ir` 分析其他工具产出的脉冲响应 | 逆向 JSON 结构；导入私有模块 |
-| 贡献者、翻译者 | 不碰 DSP 就能加 Recording Profile、导出器和翻译；跨平台 CI；记录"为什么"的 ADR；作为回归证据的真实房间验证数据 | DSP 背景；改 Python 才能翻译 |
+1. **链路检查（chain check）。** `roomscope check` 与 GUI 的"检查我的设置"按钮分析一段**电气回环**录音
+   ——扫频由 DAW 或 RoomScope 播放，经线缆（或声卡内部 loopback）录回输入，不用音箱、不用麦克风——
+   给出 PASS / FAIL 判定，并逐条说明是 DAW 侧还是硬件侧的哪个原因、怎么修。DAW 兼容矩阵和硬件矩阵
+   都靠它填写，用户也靠它在测房间之前验证自己的设置。
+2. **管线内置扫频完整性校验。** 每次分析都估计录到的扫频是否被以错误速度播放（采样率不匹配）、
+   被时间拉伸（DAW 的 warp / flex / elastic / musical mode）、被两台设备的时钟漂移拖歪、被播放多次、
+   削波或失真，并**拒绝报告指标而不是报告错误的指标**。只检测，永不校正。
+3. **读得了 DAW 导出的所有格式。** WAV 各种变体、BWF、RF64、AIFF / AIFC、CAF、FLAC、分离单声道文件对、
+   任意通道数；有损格式带理由拒绝。
+4. **把 Core Audio 做对。** 默认使用声卡当前采样率，未经用户明确选择不改任何设备配置；输入输出分属
+   两台设备（USB 测量麦克风）可用且做漂移检测；聚合设备写进指南；第一次扫频前有电平检查与实时输入表；
+   "停止"立即静音。
+5. **重新打开、对比、留存。** 会话可重开（PR #2）、两次会话按有效性对比、会话文件夹自包含并可打包求助。
+6. **签名的 macOS 应用与 PyPI wheel**，由发布流程构建，并同时生成 LGPL / FreeType / PortAudio 义务要求的许可证包。
+7. **先有证据再叫 1.0**：DAW 矩阵、硬件矩阵、外来文件健壮性测试、与参考仪器的真实房间验证都是发布门槛。
 
-## 2. 原则
+需求书禁止的东西继续禁止：没有房间评分、自动 EQ、插件、云、账号、遥测，未校准不报 dB SPL，不报房间坐标。
 
-v0.1 与需求书中的原则全部保留：DAW-independent、Core-first、科学正确性优先、诚实的数字
-（未校准只报 dBFS、没有房间评分）、许可证清晰、安全（保守电平、不碰系统音频设置）。
+## 2. 新增原则
 
-v1.0 新增四条：
-
-* **兼容性是功能。** 任何 1.x 写出的文件，所有更高的 1.x 都能读。读取宽松（未知键忽略并记日志），写入严格（测试中按 Schema 校验）。
-* **会话自包含。** 一个会话文件夹带着重新分析和报告 bug 所需的一切：扫频定义、原始录音（按需复制）、脉冲响应、结果与元数据。解释性 Findings 是派生数据，打开时重新生成，从不当作真相存储。
-* **从构造上离线。** 包内没有任何网络代码，CI 检查 `src/` 下不得 import `socket` / `urllib` / `http` / `requests` / `ssl`。更新检查、崩溃上报、遥测在 1.x 里不是"默认关闭"，而是不在范围内。
-* **不 fork 也能扩展。** Profile、导出器、语言包通过 entry point 与 gettext 目录发现。
-* **"停止"是安全控制。** 任何驱动音箱的操作都能立即中止，中止时先静音输出再做别的。
+* **兼容性靠证明，不靠假设。** 一个 DAW 或一类设备只有在矩阵里有带版本、日期的绿色行才算"支持"，工具每次测量都重新检查链路。
+* **检测并拒绝，绝不悄悄修复。** 被重采样、拉伸、拖歪、削波或失真的录音得到判定与建议，不是被"修正"过的数字。
+* 文件兼容性、会话自包含、从构造上离线（CI 禁止 `src/` 里出现网络 import）、"停止"是安全控制——与上一版一致。
+* **朴素即可。** GUI 是工程工具：每个控件有标签、每个数字有单位、每张图有坐标轴。1.0 不安排视觉设计工作。
 
 ## 3. 范围
 
-### 3.1 MUST（发布阻断项）
+### 3.1 MUST（按优先级）
 
 | # | 条目 |
 | --- | --- |
-| M1 | 公开 API 分层与 `roomscope` 顶层导出（§5.1） |
-| M2 | result / session / comparison / sidecar 的 JSON Schema；宽松读取；`AnalysisResult.from_dict`（PR #2 中） |
-| M3 | 重新打开会话与会话浏览器（PR #2 中） |
-| M4 | 两次会话的对比（core、CLI、GUI、解释层）——回答需求书的第三个问题"换位置以后有没有改善" |
-| M5 | Loopback 参考通道（DAW 双轨导出；Standalone 双通道采集）——去除声卡自身响应，并给出电气时间零点 |
-| M6 | 音频后端接口、假后端（测试与演示模式）、进度、立即停止 |
-| M7 | 国际化框架；Findings、GUI、CLI 的简体中文目录 |
-| M8 | 自包含会话、bug 报告打包、用户设置 |
-| M9 | PyPI 发布（trusted publishing）；macOS / Windows / Linux 桌面包，附许可证包与 GPL 模块门禁 |
-| M10 | 跨平台 CI、不可信文件的健壮性测试、每个平台至少跑一次硬件测试矩阵 |
-| M11 | 真实房间验证活动，连同数据一起发布 |
-| M12 | 中英文用户指南（测量、读图、对比、排错） |
-| M13 | 仓库公开检查清单执行完毕（**维护者决定**） |
+| M1 | **DAW 兼容**：音频格式覆盖；扫频完整性校验（速度、拉伸、拖歪、多次播放、电平、失真）；DAW 形式的链路检查；逐 DAW 操作配方；需求书列出的九个 DAW 在 macOS 上的兼容矩阵全绿 |
+| M2 | **macOS 硬件兼容**：音频后端接口与 Core Audio 规则；默认设备当前采样率、不悄悄改配置；输入输出分属两台设备时的漂移检测；聚合设备；USB 测量麦克风；1–2 以外的通道映射；电平检查与实时输入表；停止；Standalone 形式的链路检查；§6.1 各类设备在硬件矩阵全绿 |
+| M3 | 会话重开与浏览器（PR #2 中） |
+| M4 | 两次会话对比（core、CLI、朴素的 GUI 表格） |
+| M5 | 文件格式稳定性策略与一个小的公开 API |
+| M6 | 自包含会话与求助打包 |
+| M7 | macOS `.app`（arm64 与 x86_64），公证或明确的维护者决定；PyPI wheel；发布流程；许可证包；GPL 模块门禁 |
+| M8 | 中英文用户指南，含逐 DAW 配方与硬件设置（聚合设备、USB 麦克风） |
+| M9 | 质量门槛：CI 上有 macOS；外来文件健壮性测试；两个矩阵执行完毕；与参考仪器的真实房间验证 |
+| M10 | 仓库公开检查清单执行完毕（**维护者决定**） |
 
-### 3.2 SHOULD（计划内，延期不阻断 1.0）
+### 3.2 SHOULD（延期不阻断）
 
-`analyze-ir` 脉冲响应导入；同一房间多次会话的 T 值空间平均（按 ISO 3382-2 标注精度等级）；
-项目文件夹（一个房间、多个位置）；CSV 导出器与导出器 entry point；GUI 的 Placement 标签页；
-CI 加入 Python 3.14；由 `docs/` 生成的文档站。
+双通道 loopback 补偿（麦克风 + 回环同录，去除声卡响应并给出音箱距离上界）；假后端上的演示模式（假后端本身是 CI 必需）；
+`analyze-ir`；随包分发 JSON Schema 文件；Findings 与 GUI 的简体中文（指南的中文版是 MUST）；CSV 导出；GUI 的 Placement 标签页。
 
-### 3.3 v1.0 不做（设计上拒绝，或带理由推迟）
+### 3.3 v1.0 不做
 
-* **插件（VST3 / AU / AAX）。** WAV 已经保证 DAW 无关；VST3 SDK 是 GPLv3 / 商业双许可，AAX 需要 Avid 协议，开放仓库无法满足。将来的插件外壳必须跨进程边界调用 Apache-2.0 的核心，该边界本身是 1.0 之后的事，且要先做许可证审查。
-* **独立播放/录音设备之间的时钟漂移估计或校正。** 超出"单一全双工声卡"的假设，且是有效专利 US 10,816,391 B2 的主题。Loopback 通道只用一台设备、一个时钟，不估计漂移。
-* **自动双扫频通带方案**（US 9,959,883 B2）。仍然一次扫频。
-* **dB SPL。** 模型里预留校准槽位（§5.3.5），1.0 不提供校准流程，所有电平仍是 dBFS。
-* **多位置的摆位几何。** 需要冗余的第三个位置与简并性规范化，尚未设计。
-* 房间评分、自动 EQ / 校正、房间模态识别、3D 建模、吸音材料计算、云、账号、遥测、更新检查——与需求书一致。
+* **Windows 与 Linux。** 1.0 之后的打包工作；除 `audio/coreaudio_rules.py`、打包配方与硬件矩阵外没有任何 macOS 专有代码。
+* **校正速度、拉伸或漂移。** 只估计用于拒绝。独立未同步设备间的采样率偏差校正是有效专利 US 10,816,391 B2 的主题，做校正功能须先做权利要求审查，目前不计划。
+* 自动双扫频通带方案（US 9,959,883 B2）；插件（VST3 / AU / AAX，许可证性质不同）；dB SPL（模型里预留校准槽位，USB 测量麦克风自带的校准文件让这件事以后很便宜）；多位置平均与多位置摆位、项目、entry point 插件机制、核心诊断文本的国际化；房间评分、自动 EQ、模态识别、3D 建模、云、账号、遥测、更新检查。
 
 ## 4. 包布局变化要点
 
-`roomscope.core` 仍只有一个入口 `pipeline.analyze`，新增三个纯函数：
-`loopback.compensate`、`compare.compare`、`averaging.average_decay`，规则不变：
-NumPy 进、dataclass 出，无 I/O、无 Qt。其他新增：
+`core` 仍只有一个入口 `pipeline.analyze`，新增两个纯模块 `integrity`（扫频轨迹拟合、脉冲紧凑度）与 `compare`，
+链路检查 `chain_check` 是作用于 `AnalysisResult` 的纯函数。其他新增：`io/wav.py` 的 `read_audio`；
+`audio/backend.py`（协议）、`audio/portaudio.py`（回调流：进度、取消、多通道输入、纯输入监听流）、
+`audio/coreaudio_rules.py`（唯一知道自己在 macOS 上的模块）、`audio/fake.py`；`models/comparison.py`；
+`cli` 新增 `check`、`compare`、`session bundle`；`ui` 新增 `check_page.py`、`compare_view.py`；
+文档新增 `DAW_COMPATIBILITY.md`、`HARDWARE_TESTS.md`、`user-guide/`。依赖方向不变。
 
-* `roomscope/__init__.py` 惰性导出 Tier 1 API；`__main__.py` 供桌面包使用；`settings.py`；`i18n.py`；`locale/`；`schemas/`。
-* `models/`：`comparison.py`、`project.py`、`calibration.py`；`result.py` 加 `LoopbackResult` 与 `roomscope_version`。
-* `io/`：`project_store.py`、`exporters/`；`session_store` 支持复制录音、打包。
-* `audio/`：`backend.py`（协议）、`portaudio.py`（现有代码改为回调流，支持进度与取消）、`fake.py`。
-* `interpretation/registry.py`：内置 Profile + entry point 组 `roomscope.profiles`。
-* `cli/`：新增 `analyze-ir`、`compare`、`session`、`export`、`schema`；全局 `--format`、`--lang`、`--backend`。
-* `ui/`：`compare_view.py`、`settings_dialog.py`；PR #2 的 `browser.py`。
+## 5. DAW 兼容（M1）
 
-依赖方向不变：`core` 永不 import `io` / `audio` / `ui` / `cli` / `settings` / `i18n`；`core` 产生的所有字符串保持英文并原样存入 `result.json`。
+### 5.1 从"导入 WAV"到"导出录音"之间会出什么错
 
-## 5. 关键设计
+| 故障模式（藏在哪） | 录音里的症状 | 检测 | 建议 |
+| --- | --- | --- | --- |
+| 导入或导出时的采样率转换 | 频率与时长同时按比例缩放（44.1 ↔ 48 kHz 为 8.8 %） | 轨迹拟合：速度因子 ≠ 1 | sidecar 会按录音采样率重新生成参考，干净的转换没问题；错速播放带比例拒绝 |
+| 跟随速度的片段：warp / flex / elastic / musical mode / stretch，长片段常默认开启 | 时长缩放、频率不变；解卷积脉冲变成 chirp | 拉伸因子 ≠ 1；脉冲紧凑度 | 关掉片段的 warp / stretch 再导出 |
+| 两台设备的时钟漂移（USB 麦克风 + 声卡） | 高频端脉冲被拖散（Farina 2007 §3.4） | 紧凑度低于理想值；小的速度因子 | 用一台声卡，或用带漂移校正的聚合设备 |
+| 循环播放、count-in、同一文件里两个 take | 多个扫频通过 | `sweep_passes`（已落地） | 只录一次 |
+| 播放或监听路径上的插件：总线限制器、饱和、房间校正软件、带响度补偿的监听控制器 | 谐波失真；频响偏差；数字削波的混叠产物 | 谐波与混叠指标（已落地）；链路检查的平坦度判据 | 测量时旁通扫频轨、总线与监听路径上的所有插件 |
+| DAW、导出或转换器削波 | 平顶峰，可能在增益改变后低于满幅 | `ClippingCheck`（已落地） | 降电平，导出不做归一化 |
+| 不同文件格式、位深、通道布局、分离单声道文件 | 读不了或读一半 | `read_audio` 格式覆盖 | 任何 §5.2 格式都可用；有损格式带理由拒绝 |
+| 立体声导出、麦克风只在一侧 | 只有一个有用通道 | 通道自动选择（已落地） | GUI 里显式选择 |
+| 导出时加抖动 / 噪声整形 | 高频本底抬高 | 噪声分析注明 | 导出 24 bit 或 32 bit float、不加抖动 |
+| 扫频开始后才开始录 | 低频缺失 | 录音起点检查（已落地） | 先开录音；文件开头的静音就是为此 |
+| 录音延迟补偿 | 恒定时移 | 无害：全录音解卷积具有时移不变性 | 无 |
+| 蓝牙或有损编解码路径 | 带宽受限、编解码非线性 | 链路检查在平坦度与失真上 FAIL | 用有线声卡 |
+| 内置麦克风的自动增益、"人声隔离"、降噪 | 时变增益、被门限切掉的尾音 | 衰减非线性与曲率标志；链路检查 | 用声卡或 USB 测量麦克风 |
 
-### 5.1 公开 API 分层
+### 5.2 音频格式覆盖
 
-* **Tier 1（公开，SemVer 承诺）：** `roomscope` 顶层导出的名字、JSON 文件及其 Schema、`--format json` 输出、CLI 退出码。删除或改义需要主版本号；弃用提前一个次版本用 `DeprecationWarning` 通告。
-* **Tier 2（有文档）：** MEASUREMENT_METHODOLOGY.md 点名的 `core` 函数、`AudioBackend`、`RecordingProfile`、entry point 组。可以加带默认值的关键字参数，变更写进 CHANGELOG。
-* **Tier 3（内部）：** `ui`、`cli` 内部、下划线开头的一切。
+`read_wav` 变为 `read_audio`（旧名保留一个次版本作别名），通过 libsndfile 读 WAV 全部变体
+（PCM 16 / 24 / 32、float 32 / 64、`WAVE_FORMAT_EXTENSIBLE`、带 `bext` 的 BWF、RF64）、AIFF / AIFC、CAF、FLAC、任意通道数；
+分离单声道文件对（`take.L.wav` + `take.R.wav`）作为列表接受并合并；MP3 / AAC / Opus / Vorbis 带一句"有损格式会毁掉扫频"拒绝；
+扫频无法在该采样率重新生成的奇怪采样率带说明拒绝。`AudioSignal` 记录容器、子类型、通道数、时长，写入会话，便于 bug 报告说明 DAW 到底导出了什么。
 
-文本报告不是接口：措辞会本地化、会变。
+### 5.3 扫频完整性校验（`core/integrity.py`）
 
-### 5.2 Schema 与文件格式
+在 `analyze` 内对每个已知扫频定义的录音运行；纯 NumPy / SciPy，按 ESS 定义独立实现；只检测。
 
-`schema_version` 只在 1.0 的读取者可能误解时才递增（键改名、单位改变、时间原点改变）；加可选键不递增。`MeasurementSession.from_dict` 现在拒绝未知字段，v1.0 改为忽略并记日志，只拒绝更高的 `schema_version`。Schema 文件手写、随包分发，测试证明每个 dataclass 能通过其 Schema 往返；`jsonschema`（MIT）只作为测试依赖。Findings 不存储，打开会话时用记录的 profile 与当前版本重新生成，报告注明两者。
+* **轨迹拟合。** 在定位到的扫频上（去掉淡入淡出段）用 STFT 脊线跟踪瞬时频率。ESS 满足 `f(t) = f1 · exp(t / L)`；
+  播放速度因子 `r`（采样率不匹配）同时缩放频率与时间，拉伸因子 `s`（跟随速度的片段）只缩放时间：
+  `f(t) = r · f1 · exp(r · t / (s · L))`。对 `ln f` 关于 `t` 做最小二乘得到 `a = ln(r · f1)`、`b = r / (s · L)`，
+  于是 `r = exp(a) / f1`、`s = r / (b · L)`。先用基于中位数的拟合剔除脊线的倍频程错误。
+* **脉冲紧凑度。** 解卷积直达声峰值 ±0.5 ms 内的能量占比，与 `reference_pulse(settings)` 的同一比例相比；
+  两个时钟之间的漂移与小幅拉伸在轨迹拟合看见之前就会把脉冲拖散。
+* **管线内判定。** `|r − 1|`、`|s − 1|` 超过容差（起点 0.1 %，在矩阵上调定后写入方法学文档 §2a）或紧凑度低于容差时，
+  所有衰减、频响、反射、共振与摆位指标标为 UNRELIABLE，附一句说明原因类别与修法，与现在的削波、混叠失真处理方式一致。
+  结果带 `impulse_response.integrity`，报告能说"被拉伸 3.2 %"而不只是"不可靠"。
+* **不是什么。** 不重采样、不时间扭曲、不校正漂移：估计值只用于拒绝与解释，从构造上避开 US 10,816,391 B2。
 
-### 5.3 Loopback 参考通道（M5）
+### 5.4 链路检查（`core/chain_check.py`，`roomscope check`）
 
-声卡的一路输出既驱动音箱，也用线缆（或声卡内部 loopback）回送到第二路输入。使用前先验证 loopback 解卷积结果确实是一个电气脉冲（单次通过、pre-peak margin 高、无削波、峰后能量几毫秒内落到本底），否则拒绝补偿并说明原因，分析按无补偿继续。补偿是激励频带内的正则化除法（复用现有 `design_spectral_inverse` 的机制），带外不放大。Loopback 峰值给出电气时间零点：`path_delay_ms` 与 `distance_upper_bound_m = c · path_delay` 作为**上界**报告——音箱内部 DSP 延迟只会增加延迟，所以真实距离不超过该值。卷尺距离大于该上界时，摆位结果标为不可靠。不做时钟漂移估计（同一转换器时钟）；也不去除音箱自身响应，并明说。
+**电气回环**录音（DAW 形式由 DAW 播放，Standalone 形式由 RoomScope 播放，经线缆或声卡内部 loopback 录回，不接音箱和麦克风）
+先走普通 `analyze`，再走 `check_chain(result, settings)`。判据（容差为起点，在矩阵上定下后写入文档）：
 
-### 5.4 会话对比（M4）
+| # | 判据 | 起始容差 | 失败时的说明 |
+| --- | --- | --- | --- |
+| 1 | 找到参考扫频且只有一次 | 一次 | "n 次播放：只录一次" |
+| 2 | 速度因子 | ±0.05 % | "错速播放 x %：文件被重采样或工程采样率不同" |
+| 3 | 拉伸因子 | ±0.05 % | "被时间拉伸 x %：片段的 warp / flex / elastic / musical mode 开着" |
+| 4 | 脉冲紧凑度 | ≥ 理想值的 0.9 | "脉冲被拖散：两个时钟（USB 麦克风 + 声卡？）——用一台声卡或聚合设备" |
+| 5 | 削波 | 无 | "在 x dBFS 削波：降电平，导出不归一化" |
+| 6 | 2–5 次谐波（相对直达声） | ≤ −50 dB | "第 k 次谐波 x dB：播放路径上有限制器、饱和或削波插件" |
+| 7 | 混叠失真 | 不显著 | "转换器之前的数字削波" |
+| 8 | 激励频带内频响平坦度（1/6 倍频程平滑，两端各去 1/3 倍频程） | 中位数 ±1.0 dB | "在 f Hz 偏差 x dB：路径上有 EQ、房间校正插件或监听控制器" |
+| 9 | 峰值电平 | −40 … −1 dBFS | "太小 / 太大" |
+| 10 | 直达声置信度 | high | "扫频不干净：检查路由" |
+| 11 | 回环本底 | ≤ −70 dBFS（仅警告） | "回环有噪声：输入增益过高或经过了有噪声的模拟路径" |
 
-`compare(baseline, candidate)` 纯函数，只在**双方都 VALID** 时给出差值，否则 `NOT_COMPARABLE` 并附两边的原因。频响在公共激励频带内插值到同一对数网格后相减；早期反射按 ±0.5 ms 配对；噪声差值只有在双方都有已验证的安静段且用户明确声明"输入增益未变"时才有效；报告引用 ISO 3382-1 给出的 T 的可觉察差（约 5 %，条款待核对），但从不自行宣称"显著"。解释层新增 `interpret_comparison`，复用各 Profile 自己的阈值。结果存为 `comparison.json`。
+判定 PASS / PASS with warnings / FAIL，以清单形式打印并存为 `chain_check.json`（DAW 形式记录 DAW 名称与版本，Standalone 形式记录设备名）。
+GUI 的"检查我的设置"页运行同一函数、显示同一清单，UI 里不做任何判断。
+用电气回环的理由：去掉了房间与音箱，剩下的每个缺陷都归属于 DAW、导出或声卡，而且期望结果精确已知（平坦 0 dB、单一脉冲）；成本是一根线、一分钟。
 
-### 5.5 音频后端（M6）
+### 5.5 逐 DAW 配方与兼容矩阵
 
-`AudioBackend` 协议：`list_devices`、`check_sample_rate`、`play_and_record(... input_channels, progress, cancel)`。PortAudio 后端从阻塞的 `sd.playrec` 改为回调流，`cancel` 在下一个回调把输出置零并关闭流。假后端合成房间（`tests/conftest.py` 的 `make_rir` 系列搬进 `audio/fake.py`），支撑 CI 里的 Standalone 测试与 GUI 的 **Demo** 模式。Windows 不用 ASIO；WASAPI 共享模式会重采样，所以测量前必须 `check_sample_rate`，GUI 并排显示设备当前采样率。
+`docs/DAW_COMPATIBILITY.md` 每个 DAW 一行——Cubase / Nuendo、Pro Tools、Logic Pro、Studio One、Ableton Live、REAPER、FL Studio、Bitwig Studio、Digital Performer——
+记录 DAW 版本、macOS 版本、日期、导出格式、链路检查判定与配方链接。配方（`docs/user-guide/daw/<name>.md`，中英文）只在**测试该行时**编写，
+写明：如何导入（不转换或用 DAW 的转换器）；该 DAW 的跟随速度模式在哪里、怎么对片段关掉；如何把轨道路由到声卡输出并录输入；
+如何把一条轨道导出为 PCM 24 bit 或 float、不归一化、不抖动；要旁通哪些插件与监听工具。没有绿色判定的行标为 **untested**，绝不标为支持。
+每次矩阵测试的回环录音（几秒、很小）作为 fixture 存入 `tests/fixtures/daw/<name>/`，附 DAW 版本说明，作为完整性与链路检查代码的真实回归样本。
+社区提交的行（其他版本、其他 DAW）通过 measurement issue 模板附上会话打包接受。
 
-### 5.6 解释层与国际化（M7）
+**M1 退出标准：** 当前 macOS 上九行全绿，每行有配方、fixture 与日期。
 
-Profile 注册表合并内置与 entry point；第三方名字与内置冲突时忽略并警告。`Finding` 增加 `message_id`、`params`、`locale`，句子通过 gettext `_()` 用命名占位符渲染，阈值变化不会让翻译失效。机制是标准库 gettext，`.po` 提交、`.mo` 打包时编译，Babel（BSD-3）仅作开发依赖。**刻意不翻译**的部分：`core` 产生的诊断字符串（warnings / notes / reason），它们存在 `result.json` 里、出现在 bug 报告里、跨版本比较，必须与界面语言无关；GUI 在一个翻译过的标题下原样显示，并记录为已知限制。数字在所有语言里保持 ASCII 数字与小数点，单位不翻译。
+## 6. macOS 硬件兼容（M2）
 
-### 5.7 CLI 契约
+### 6.1 设备类别
 
-退出码：0 成功；1 `RoomScopeError`；2 用法错误或安全拒绝（电平确认）；130 中断。`--format json` 在 stdout 只输出 `result.json` 载荷加 `findings`，诊断全部走 stderr；`--json` 保留一个次版本作为别名后移除。
+| 类别 | 要处理的问题 |
+| --- | --- |
+| 内置输出与麦克风 | 能做第一次尝试；新 Mac 的内置麦克风被系统处理过，指南说明它适合做电平检查而不是测量 |
+| 类兼容 USB 声卡（2 进 2 出） | 最常见情况：一台设备、一个时钟、通道 1–2、设备当前采样率 |
+| 多通道 USB / Thunderbolt 声卡 | 1–2 以外的通道映射、驱动带来的多个设备名、最高 192 kHz |
+| USB 测量麦克风 | 输入设备 ≠ 输出设备：两个时钟；漂移检测；带漂移校正的聚合设备设置；1.0 不读其校准文件 |
+| 聚合设备（音频 MIDI 设置） | 作为一个 Core Audio 设备出现；指南解释"漂移校正"复选框 |
+| 蓝牙及其他编解码路径 | 不支持测量；链路检查带理由 FAIL；设备名或传输方式暗示蓝牙时列表里给提示 |
 
-### 5.8 存储
+**M2 退出标准：** `docs/HARDWARE_TESTS.md` 中除蓝牙外每类至少一台设备在 44.1 与 48 kHz 各有绿色的 Standalone 链路检查行和一次完整 Standalone 测量，另有一次 96 kHz，记录型号、macOS 版本与日期。
 
-会话文件夹在现有三个文件之外，总是复制 `sweep.roomscope-sweep.json`，按需（GUI 默认开）复制 `recording.wav`。项目文件夹 `project.json` 只是索引，会话仍可独立打开。`roomscope session bundle` 打包会话供 bug 报告，`--no-audio` 可排除录音。`ROOMSCOPE_HOME`（默认 `~/.roomscope`，PR #2 引入）存放最近会话、设置与日志。电平确认永不持久化。
+### 6.2 音频后端协议与 Core Audio 规则
 
-## 6. 分发（M9）
+`AudioBackend` 协议：`list_devices`（含当前采样率与提示）、`check_sample_rate`、`play_and_record(... input_channels, progress, cancel)`、
+`monitor_input`（纯输入流，供实时电平表）。`portaudio` 后端把阻塞的 `sd.playrec` 改为回调流：`cancel` 在下一个回调把输出置零并关闭流，
+`progress` 报告播放进度，可同时采集多个输入通道；电平、−12 dBFS 确认与安全提示不变。`fake` 后端合成房间，支撑 CI 与演示模式。
+Core Audio 规则（`audio/coreaudio_rules.py`，唯一知道自己在 macOS 上的模块）：
 
-* **PyPI：** `roomscope` 名称 2026-09-22 核实可用，应在第一个预发布前注册（**维护者决定**）。纯 Python wheel + sdist，trusted publishing（OIDC，无长期 token），发布环境需维护者批准。`pipx install "roomscope[gui]"` 是有 Python 的用户的推荐路径；`gui-scripts` 提供 Windows 无控制台启动器。
-* **桌面包：** PyInstaller one-dir（macOS `.app` 装入 `.dmg`；Windows zip + Inno Setup；Linux AppImage 在最旧受支持 Ubuntu LTS 上构建），保持 Qt、libsndfile、libquadmath 为可替换的共享库以满足 LGPL。macOS 分 arm64 / x86_64 两个包。
-* **打包门禁（CI 阻断）：** 包内不得含 GPL-only Qt 模块（白名单 QtCore / QtGui / QtWidgets / Linux 上的 QtDBus）、不得含 `*asio*.dll`、必须含 `scripts/build_license_bundle.py` 生成的 `THIRD_PARTY_LICENSES/`（含 LGPL/GPL 文本、Qt 与 PySide6 源码指针、FreeType 致谢、PortAudio 许可证等）。DEPENDENCIES.md §6 中 UNKNOWN / NEEDS REVIEW 的条目必须在第一个包发布前解决。
-* **签名：** macOS 需 `NSMicrophoneUsageDescription`、hardened runtime、audio-input entitlement、Developer ID 签名与公证；Windows 需 Authenticode。身份只能由维护者持有（**维护者决定**）；未签名的包明确标注并在用户指南里给出绕过步骤。
-* **发布流程：** 维护者推 `v*` tag 触发 `release.yml`：全矩阵测试 → PyPI（rc 作为预发布）→ 三平台打包与门禁 → `SHA256SUMS`、CycloneDX SBOM、许可证包 → 草稿 Release，由维护者发布。版本号唯一来源是 `pyproject.toml`，测试确保 `__version__` 一致。
+1. **测量默认采样率 = 输出设备当前标称采样率**，扫频按该采样率重新生成（参数化，零成本）；输入设备采样率不同则在播放前说明。
+2. **不悄悄重新配置任何设备。** PortAudio 的 Core Audio 实现可能把设备标称采样率切到流的采样率；RoomScope 只在用户明确选了其他采样率时才请求，并先显示"本次测量将把声卡切到 96 kHz"。实现时核实相关 `paMacCore…` 流标志并记入 HARDWARE_TESTS.md。
+3. **允许输入输出分属两台设备**（USB 麦克风情形），注明涉及两个时钟；链路检查与完整性校验决定结果是否可用；指南推荐带漂移校正的聚合设备。
+4. **通道映射**从 1 开始并显示设备通道数；超出范围在打开流之前拒绝。
+5. **只提示不决定：** 设备名含 "Aggregate"、"AirPods" 或蓝牙传输时旁边给提示，不隐藏、不禁用。
 
-## 7. 质量门槛（M10、M11）
+### 6.3 电平检查与实时输入表
 
-* CI：lint 加无网络 import 门禁与 Tier 1 导出测试；测试矩阵 Ubuntu / macOS / Windows × 3.12，Ubuntu 另跑 3.13 / 3.14；Schema 校验作业；wheel 干净安装；打包作业。
-* 测试层级：合成单元与集成（新增 loopback 补偿、对比、平均）；离屏 GUI；**健壮性**（畸形 WAV / JSON / sidecar / 会话文件只能抛 `RoomScopeError`）；**真实 fixture**（几秒钟的真实录音，CC0，只作回归证据，不作唯一证据）；手动硬件矩阵（`docs/HARDWARE_TESTS.md`）。
-* **验证活动：** 至少两个房间（处理过 / 未处理）× 两个位置，同一个录音 WAV 分别用 RoomScope 与参考仪器（REW 只作比较仪器，或许可证清晰的开源工具箱）分析，按频带比较 T20 / T30、EDT、最强早期反射延迟、loopback 补偿后的频响；容差在测量前写下；不达标则阻断 1.0，但结果照样发布。摆位几何用卷尺核对 `source_height_m` 与 `ceiling_height_m`。
+Standalone 页在第一次扫频前显示**实时输入表**（dBFS 峰值与 RMS，每秒刷新几次），不播放任何东西即可设麦克风增益；
+**电平检查**按钮以所选电平（默认 −20 dBFS）播放 0.5 s 扫频同频带的噪声并报告录到的峰值：低于 −40 dBFS "提高增益或电平"，高于 −3 dBFS "降低"，否则 "就绪"。
+两者都只是后端之上的 UI 便利，不存储、不当作房间指标。检查与测量期间都有**停止**按钮。
 
-## 8. 安全与隐私
+### 6.4 麦克风权限
 
-攻击面只有用户打开的文件与音频设备；JSON 读取限制大小与深度，不用 `pickle`、`eval`、shell。供应链：Dependabot、Actions 按 SHA 固定、打包锁文件、每次发布附 SBOM 与校验和。隐私：一切留在本机；会话可能包含私人空间的录音，打包支持 `--no-audio`，issue 模板先说明打包内容。SECURITY.md 在 1.0 时更新受支持版本。
+macOS 按应用授予麦克风权限：`.app` 带 `NSMicrophoneUsageDescription`；从终端运行 `roomscope` 时系统向终端应用询问，指南说明这一点，因为症状是一段无声录音。
+RoomScope 只写入用户选择的文件夹与 `ROOMSCOPE_HOME`（默认 `~/.roomscope`，PR #2 引入）。
 
-## 9. 社区与治理
+## 7. 产品的其余部分
 
-* **仓库公开检查清单（M13，维护者决定）：** 描述与 topics、`main` 分支保护（CI 必过、禁 force-push）、`CODEOWNERS`（core、方法学文档、许可证文档）、私密漏洞报告、标签、Discussions、置顶路线图。建议时机：第一个 rc，让候选版本先经受外部测试。
-* **贡献阶梯：** Profile 与翻译是入口（一个类 + 注册 + 合成测试；一个 `.po` 文件）；DSP 改动保持"公开来源 + 合成测试 + 方法学条目"。
-* **ADR：** 改变 Tier 1/2 接口、Schema、依赖或方法的决定记入 `docs/adr/`；本文的决定被接受后成为 ADR-0001 起。
-* DCO 签署与否是 **维护者决定**。
+* **重开与浏览（M3）：** PR #2 已提供 `AnalysisResult.from_dict`、`load_measurement`、`list_sessions`、最近列表、`roomscope show`、GUI 的打开会话；本设计只在其上增加字段与"与…对比"动作。
+* **对比（M4）：** `compare(baseline, candidate)` 纯函数，双方都 VALID 才给差值，否则 `NOT_COMPARABLE` 附两边原因；双方须通过完整性校验；频响在公共激励频带内插值到同一对数网格后相减；早期反射按 ±0.5 ms 配对；噪声差值只在双方都有已验证的安静段且用户明确声明输入增益未变时才有效；报告引用 ISO 3382-1 给出的 T 可觉察差（约 5 %，条款待核对），从不自行宣称"显著"。CLI `roomscope compare`；GUI 一张两列表格加一张差值图。
+* **格式稳定性与公开 API（M5）：** `schema_version` 只在 1.0 读取者可能误解时递增；读取宽松（未知键忽略并记日志，只拒绝更高版本）、写入严格（往返测试）；JSON Schema 文件是 SHOULD。新键：`result.json` 的 `roomscope_version`、`impulse_response.integrity`；`session.json` 的 `recording_profile`（PR #2）、`platform`、`daw`、设备名、文件元数据；新文件 `chain_check.json`、`comparison.json`。Findings 不存储，打开时按记录的 profile 重新生成。`roomscope` 顶层惰性导出一小组名字，遵守 1.x 的 SemVer；文本报告不是接口。
+* **自包含会话与打包（M6）：** 总是复制 sidecar，按需复制 `recording.wav`（GUI 默认开），`roomscope session bundle [--no-audio]` 打包求助。
+* **双通道 loopback 补偿（S1）：** 先用链路检查判据验证回环确实是电气脉冲，再在激励频带内用正则化除法去掉声卡响应，回环峰值作为电气时间零点，`distance_upper_bound_m = c · path_delay` 作为**上界**报告；卷尺距离超过上界则摆位标为不可靠；不做漂移估计，不去除音箱响应并明说。
+* **GUI（朴素，只加功能）：** 首页加"检查我的设置"、打开会话、最近列表、Demo；检查页两种形式与判据清单；Standalone 页设备列表显示当前采样率与通道数、实时表、电平检查、进度、停止、"两个时钟"提示；DAW 页有配方链接与 DAW 名称/版本字段、接受所有格式与分离单声道对；结果概览顶部加一行完整性信息；对比视图；1.0 界面为英文。
+* **CLI：** 新增 `check --recording … --sweep … [--daw …]`、`check --standalone …`、`compare`、`session bundle`、`analyze-ir`（S3）、`export`（S6）；全局 `--format text|json`、`--copy-recording`、`--backend`；退出码 0 成功、1 `RoomScopeError`、2 用法或安全拒绝、3 链路检查 FAIL、130 中断。
+
+## 8. 分发（M7）
+
+* PyInstaller one-dir 生成 `RoomScope.app`，用 `hdiutil` 装入 `.dmg`；arm64 与 x86_64 两个包（NumPy / SciPy 无 universal2 wheel），x86_64 包可在 Rosetta 下运行。
+* `Info.plist`：`CFBundleIdentifier`、`LSMinimumSystemVersion`、`NSMicrophoneUsageDescription`。签名：hardened runtime、`com.apple.security.device.audio-input`、Developer ID 签名与 `notarytool` 公证；身份属于维护者（**维护者决定**）；在此之前以未签名发布并在指南给出 Gatekeeper 步骤，未公证或未明确决定则不叫 1.0。
+* 打包门禁（CI 阻断）：不含 GPL-only Qt 模块（白名单 QtCore / QtGui / QtWidgets）；含 `scripts/build_license_bundle.py` 生成的 `THIRD_PARTY_LICENSES/`；DEPENDENCIES.md §6 中与 macOS wheel 有关的未决项先解决；用锁文件构建；每个包在 runner 上启动冒烟。
+* PyPI：`roomscope` 名称 2026-09-22 核实可用，注册与 trusted publishing 是**维护者决定**；`pipx install "roomscope[gui]"`。`release.yml` 由维护者推 `v*` tag 触发：测试 → PyPI（rc 为预发布）→ 两个 macOS 包 → 门禁 → `SHA256SUMS`、SBOM、许可证包 → 草稿 Release，由维护者发布。
+* 用户指南（M8）：`docs/user-guide/` 中英文：安装、DAW 流程与逐 DAW 配方、硬件设置（单声卡；USB 麦克风 + 声卡 + 聚合设备；不要用什么）、先"检查我的设置"、读懂每个结果页、对比两个位置、按症状排错（§5.1 每行一条）、如何发送打包。
+
+## 9. 质量门槛（M9）
+
+* CI：Ubuntu 3.12 / 3.13 照旧，**macOS arm64 与 x86_64 runner 在每次 push 与 PR 上必跑**（含离屏 GUI 与假后端 Standalone 流程）；健壮性作业；打包作业。
+* 测试层级：合成单元（轨迹拟合还原已知速度与拉伸因子、理想与拖歪脉冲的紧凑度、合成回环上的链路判据）；合成集成（重采样、拉伸、漂移三种合成录音各以正确原因被拒绝；两个合成位置的对比）；离屏 GUI；健壮性（§5.2 每种格式与变体各一个小文件，截断 / 空 / 静音 / NaN / 有损 / 奇怪采样率，畸形 JSON 与会话文件，只能抛 `RoomScopeError`）；真实 fixture（两个矩阵的回环录音，CC0，回归证据）；手动矩阵。
+* 验证活动：至少一个房间（最好一处理一未处理）、各两个位置，在矩阵里绿色的 DAW 与设备上；**同一个录音文件**分别交给 RoomScope 与参考仪器（REW 只作比较仪器，或许可证清晰的开源工具箱）；按频带比较 T20 / T30、EDT、最强早期反射延迟、频响；容差在测量前写下；不达标阻断 1.0 但照样发布；用卷尺核对摆位几何。
 
 ## 10. 里程碑（无日期，退出标准即时间表）
 
 | 版本 | 主题 | 内容 | 退出标准 |
 | --- | --- | --- | --- |
-| 0.2 | 重新打开与对比 | PR #2；`compare` 全链路；宽松读取；Schema 与 Schema CI；Tier 1 导出 | 任何 v0.1 会话能重新打开；两次会话可对比且每个差值带有效性；`roomscope schema` 与随包文件一致 |
-| 0.3 | 信任链路 | Loopback；`AudioBackend` + 假后端 + 进度 + 停止；`analyze-ir`；跨平台 CI；健壮性测试；硬件矩阵开始 | 合成声卡响应在既定容差内被去除；真机上"停止"在一个回调周期内静音；Standalone 流程在三平台 CI 上运行 |
-| 0.4 | 给所有人 | i18n + zh-CN；自包含会话、打包、设置；演示模式；项目与平均（SHOULD）；CSV 导出；用户指南；三平台未签名包与许可证包、GPL 门禁 | 没有 Python 的人装上包，用中文或英文完成演示与一次 DAW 测量；许可证包没有未解决的条目 |
-| 1.0-rc | 冻结与证明 | API 与 Schema 冻结；验证活动发布；硬件矩阵完成；签名包或明确的维护者决定；仓库公开；PyPI 预发布 | 无未完成 MUST；§6–§7 所有门禁在 tag 上全绿 |
-| 1.0 | 发布 | 仅 rc 后的修复 | 同上；发布说明写明验证结果与已知限制 |
-| 1.0 之后 | | dB SPL 校准流程；带冗余第三位置的多位置摆位；插件外壳的进程边界（先做许可证审查）；更多语言；1/3 倍频程衰减；相位显示；文档站 | |
+| 0.2 | 任何 DAW | `read_audio`；`core/integrity.py` 进管线；`core/chain_check.py` 与 `roomscope check`（DAW 形式）；DAW 页字段；配方与 `DAW_COMPATIBILITY.md`；逐 DAW fixture；健壮性层 | 当前 macOS 上九行全绿，有配方、fixture 与日期；重采样、拉伸、漂移三种合成录音各以正确原因被拒绝 |
+| 0.3 | 任何声卡 | `AudioBackend`、回调流的 `portaudio`、`fake`、`coreaudio_rules`；默认采样率与重配置需确认；两台设备 + 漂移检测；实时表、电平检查、进度、停止；`check --standalone`；`HARDWARE_TESTS.md`；CI 上的 macOS runner | §6.1 除蓝牙外每类在 44.1 与 48 kHz 全绿、另有一次 96 kHz；真机上"停止"在一个回调周期内静音；Standalone 流程在 macOS 与 Ubuntu 的 CI 上以假后端运行 |
+| 0.4 | 重开、对比、留存 | 合并 PR #2；`compare` 全链路；宽松读取、新会话键、公开 API 导出与测试；自包含会话与 `session bundle`；时间允许则做 loopback 补偿（S1）与演示模式（S2） | 任何 v0.1 会话能重开；两次会话可对比且每个差值带有效性；GUI 打包的会话在另一台 Mac 上能复现分析 |
+| 1.0-rc | 冻结与证明 | 格式与 API 冻结；验证活动发布；`.app` 公证或明确决定；含全部配方的中英文指南；SECURITY / CONTRIBUTING / STATUS 更新；仓库公开；PyPI 预发布；两个矩阵在候选版本上重跑 | 无未完成 MUST；§8–§9 所有门禁在 tag 上全绿 |
+| 1.0 | 发布 | 仅 rc 后的修复 | 同上；发布说明写明矩阵、验证结果与已知限制 |
+| 1.0 之后 | | Windows 与 Linux 的包与矩阵；简体中文界面（S5）；来自麦克风校准文件的 dB SPL；`analyze-ir`、CSV 导出、项目、平均、entry point 插件机制；插件外壳的进程边界（先做许可证审查）；文档站 | |
 
 ## 11. 需要维护者决定的事项
 
-1. 仓库公开的时机：1.0-rc（建议）还是 1.0？
-2. 签名身份与预算：Apple Developer Program、Windows 代码签名证书；或 1.0 明确以未签名形式发布？
-3. PyPI 名称 `roomscope` 的注册、账号归属、trusted publishing 设置。
-4. 验证活动：参考仪器、房间、执行人；是否允许把 REW 当作比较仪器（其 EULA 允许使用，不允许再分发或逆向）。
-5. 是否要求 DCO 签署。
-6. 语言顺序：简体中文之后是繁体中文、日语、德语，还是看译者来源？
-7. 是否默认把原始录音复制进每个会话（自包含但更大）。
+1. 公证身份与预算：加入 Apple Developer Program 做 Developer ID 签名，还是 1.0 明确以未签名形式发布？
+2. PyPI 名称 `roomscope` 的注册与 trusted publishing。
+3. 仓库公开时机：1.0-rc（建议）还是 1.0？
+4. 矩阵所需的 DAW 授权：九个 DAW 中维护者能运行哪些；试用版可用于填行（记录版本）；没人能跑的行保持 untested 直到有贡献者补上。
+5. 矩阵所需的硬件：§6.1 各类中手头有哪些设备；用哪款 USB 测量麦克风。
+6. 验证活动：参考仪器、房间、执行人；是否允许 REW 作为比较仪器。
+7. 是否要求 DCO 签署。
+8. 是否默认把原始录音复制进每个会话。
 
-## 12. 对现有代码的影响（改动面）
+## 12. 对现有代码的影响
 
-`MeasurementSession.from_dict` 改为宽松；`AnalysisResult` 加 `roomscope_version` 与 `loopback`；
-`AnalysisSettings` 加 `loopback_channel`、`calibration`；`Finding` 加 `message_id` / `params` / `locale`；
-`RecordingProfile` 加 `interpret_comparison`，`_PROFILES` 移入 `registry.py`；
-`audio/devices.py` + `playrec.py` 合并为 `audio/portaudio.py` 并实现 `AudioBackend`；
-CLI 新增参数与子命令，`--json` 弃用；`roomscope/__init__.py` 惰性导出；
-`save_measurement` 总是复制 sidecar、按需复制录音；`tests/conftest.py` 的合成房间助手搬到 `audio/fake.py`；
-CI 加 OS 矩阵、Schema 作业、无网络门禁、打包作业与 `release.yml`；
-文档新增方法学 §11（对比）、§2a（loopback）、§3a（平均），DEPENDENCIES.md 加 `jsonschema`、Babel、`cyclonedx-bom`、PyInstaller、Inno Setup 行，以及 `docs/adr/`、`docs/user-guide/`、`docs/VALIDATION.md`、`docs/HARDWARE_TESTS.md`。
+`io/wav.py` 的 `read_audio`（别名 `read_wav`）、分离单声道对、有损拒绝、文件元数据；新增 `core/integrity.py`、`core/chain_check.py`、`core/compare.py`（S1 加 `core/loopback.py`），
+`pipeline.analyze` 加完整性步骤，`_decay_unreliable_reasons` 加完整性原因；`models/result.py` 加 `SweepIntegrity`、`ChainCheck`、`LoopbackResult`、`roomscope_version`，新增 `models/comparison.py`，
+`MeasurementSession` 宽松读取并加 `daw`、设备名、文件元数据、`platform`；`audio/devices.py` + `playrec.py` 合并为实现 `AudioBackend` 的 `audio/portaudio.py`（回调流、`input_channels`、`progress`、`cancel`、`monitor_input`），
+新增 `coreaudio_rules.py`、`fake.py`，合成房间助手从 `tests/conftest.py` 搬出；解释层加 `interpret_comparison` 与链路检查建议文本；CLI 新增子命令与参数、退出码 3、`--json` 弃用；
+UI 新增检查页、对比视图、Standalone 页的表 / 电平检查 / 停止、DAW 页字段、概览完整性行；`roomscope/__init__.py` 惰性导出与 `__main__.py`；
+CI 加 macOS runner、健壮性作业、无网络门禁、打包作业与 `release.yml`、`scripts/build_license_bundle.py`；
+文档新增 `DAW_COMPATIBILITY.md`、`HARDWARE_TESTS.md`、`VALIDATION.md`、`user-guide/`、`adr/`，方法学文档 §2a（完整性）、§2b（链路检查）、§11（对比），DEPENDENCIES.md 加 `jsonschema`、`cyclonedx-bom`、PyInstaller 行。

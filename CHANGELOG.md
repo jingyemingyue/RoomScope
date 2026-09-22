@@ -8,12 +8,14 @@ All notable changes to RoomScope are documented here. The format follows
 
 ### Added
 - v1.0 architecture design (`docs/ARCHITECTURE_V1.md`, Chinese digest in
-  `docs/ARCHITECTURE_V1.zh-CN.md`): the release open to everyone -- public
-  API tiers, schema policy, session comparison, loopback reference channel,
-  audio backend interface, internationalisation, packaging and release
-  pipeline, quality and validation gates, milestones with exit criteria, and
-  the decisions reserved for the maintainer. A proposal; nothing in it is
-  implemented by this entry.
+  `docs/ARCHITECTURE_V1.zh-CN.md`): macOS only, compatibility first -- the
+  electrical-loopback chain check, sweep integrity verification (speed,
+  stretch, drift; detect and refuse, never correct), audio-format breadth,
+  per-DAW recipes and a DAW compatibility matrix, Core Audio rules and a
+  hardware matrix, session comparison, format stability and a small public
+  API, a macOS app and PyPI release pipeline with license gates, quality and
+  validation gates, milestones with exit criteria, and the decisions reserved
+  for the maintainer. A proposal; nothing in it is implemented by this entry.
 - GitHub project files so other developers can clone, review and open pull
   requests: CI (pytest on Python 3.12/3.13, ruff, mypy, sdist/wheel), issue
   and pull-request templates, Dependabot, Contributor Covenant, and a
