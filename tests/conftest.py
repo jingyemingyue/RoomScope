@@ -6,9 +6,12 @@ from collections.abc import Sequence
 
 import numpy as np
 import pytest
+from scipy.signal import resample_poly
 
+from roomscope.core.sweep import normalisation_band_hz
 from roomscope.models.audio import FloatArray
 from roomscope.models.configuration import SweepSettings
+from roomscope.models.result import AnalysisResult
 
 DECAY_CONSTANT = 3.0 * np.log(10.0) * 2.0  # 60 dB in natural-log units: ln(10^6) = 13.8155
 
@@ -59,6 +62,37 @@ def exponential_decay_ir(
     return np.asarray(
         rng.normal(0.0, 1.0, n) * np.exp(-DECAY_CONSTANT * t / (2.0 * rt60_s)), dtype=np.float64
     )
+
+
+def alias_free_distortion(
+    signal: FloatArray,
+    amplitude: float,
+    *,
+    h2: float = 0.0,
+    h3: float = 0.0,
+    factor: int = 4,
+) -> FloatArray:
+    """Memoryless distortion with the given harmonic levels re the fundamental.
+
+    Computed at ``factor`` times the sample rate and resampled back, so that
+    harmonics above the Nyquist frequency are removed instead of folding back:
+    a loudspeaker distorts in the analogue domain, where nothing aliases.
+    Digital clipping is the opposite case and is built without oversampling.
+    """
+    up = np.asarray(resample_poly(signal, factor, 1), dtype=np.float64)
+    distorted = up + (2.0 * h2 / amplitude) * up**2 + (4.0 * h3 / amplitude**2) * up**3
+    return np.asarray(resample_poly(distorted, 1, factor), dtype=np.float64)
+
+
+def fr_median_db(result: AnalysisResult) -> float:
+    """Median raw frequency response (dB) over the normalisation band of the
+    result's excitation band (the level a flat response should show)."""
+    band = result.impulse_response.excitation_band
+    assert band is not None
+    lo, hi = normalisation_band_hz(band.low_hz, band.high_hz)
+    fr = result.frequency_response
+    select = (fr.frequencies_hz >= lo) & (fr.frequencies_hz <= hi)
+    return float(np.median(fr.magnitude_db_raw[select]))
 
 
 @pytest.fixture(scope="session")
