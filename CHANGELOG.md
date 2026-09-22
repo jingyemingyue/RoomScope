@@ -15,7 +15,9 @@ All notable changes to RoomScope are documented here. The format follows
   (`--no-audio`); project folders and `average_decay` (SHOULD); CSV
   exporter and `roomscope export`; user guide in English and Chinese;
   unsigned desktop-bundle pipeline (`release.yml`, license bundle, GPL /
-  ASIO gate). Demo mode was already in 0.3.
+  ASIO gate, macOS `NSMicrophoneUsageDescription`). Demo mode was already
+  in 0.3. `--json` is deprecated in favour of `--format json` (stderr
+  warning only).
 - Session re-opening: `AnalysisResult.from_dict` rebuilds a saved result;
   `load_measurement` reloads `session.json` + `result.json` + the IR WAV;
   `list_sessions` finds session directories. CLI `roomscope show` prints a
