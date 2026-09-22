@@ -144,9 +144,7 @@ def average_decay(
         raise ConfigurationError("source and microphone position counts must be >= 1")
 
     band_labels = _band_labels(results)
-    bands = tuple(
-        _average_band(results, labels, band_label) for band_label in band_labels
-    )
+    bands = tuple(_average_band(results, labels, band_label) for band_label in band_labels)
     notes = [
         "Decay curves are never averaged; only VALID T values enter the mean.",
         (

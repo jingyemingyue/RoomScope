@@ -57,8 +57,9 @@ def test_numbers_stay_ascii() -> None:
 
 
 def test_parse_po_round_trip(tmp_path) -> None:
-    from roomscope.i18n import write_mo
     import gettext
+
+    from roomscope.i18n import write_mo
 
     po = tmp_path / "roomscope.po"
     po.write_text('msgid "Hello"\nmsgstr "你好"\n', encoding="utf-8")

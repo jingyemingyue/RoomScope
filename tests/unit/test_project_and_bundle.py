@@ -25,7 +25,9 @@ def test_save_copies_sidecar_and_optional_recording(
     rec = synthetic_recording(short_sweep, ir, noise_rms=1e-5)
     result = analyze(rec, Reference.from_settings(short_sweep))
     sweep, sidecar = write_sweep_file(short_sweep, tmp_path / "src" / "sweep.wav")
-    recording = write_wav(tmp_path / "src" / "take.wav", rec.samples, rec.sample_rate, subtype="FLOAT")
+    recording = write_wav(
+        tmp_path / "src" / "take.wav", rec.samples, rec.sample_rate, subtype="FLOAT"
+    )
     out = tmp_path / "session"
     save_measurement(
         out,
@@ -51,9 +53,7 @@ def test_save_copies_sidecar_and_optional_recording(
     assert not (skipped / RECORDING_FILE).is_file()
 
 
-def test_bundle_excludes_wav_when_requested(
-    tmp_path: Path, short_sweep: SweepSettings
-) -> None:
+def test_bundle_excludes_wav_when_requested(tmp_path: Path, short_sweep: SweepSettings) -> None:
     ir = make_rir(short_sweep.sample_rate, rt60_s=0.3)
     rec = synthetic_recording(short_sweep, ir, noise_rms=1e-5)
     result = analyze(rec, Reference.from_settings(short_sweep))

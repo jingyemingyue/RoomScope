@@ -242,12 +242,7 @@ def _unquote(fragment: str) -> str:
     text = fragment.strip()
     if text.startswith('"') and text.endswith('"'):
         text = text[1:-1]
-    return (
-        text.replace(r"\n", "\n")
-        .replace(r"\t", "\t")
-        .replace(r"\"", '"')
-        .replace(r"\\", "\\")
-    )
+    return text.replace(r"\n", "\n").replace(r"\t", "\t").replace(r"\"", '"').replace(r"\\", "\\")
 
 
 class _PoTranslations(gettext.NullTranslations):

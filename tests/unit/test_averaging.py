@@ -34,7 +34,9 @@ def test_average_decay_means_valid_t_only(short_sweep: SweepSettings) -> None:
     averaged = average_decay([a, b], session_labels=["a", "b"])
     assert averaged.n_sessions == 2
     assert averaged.iso_3382_2_class == "survey"
-    broadband = next(band for band in averaged.bands if band.band_label == a.decay.broadband.band_label)
+    broadband = next(
+        band for band in averaged.bands if band.band_label == a.decay.broadband.band_label
+    )
     assert broadband.t20.validity is Validity.VALID
     assert broadband.t20.count == 2
     assert broadband.t20.seconds is not None

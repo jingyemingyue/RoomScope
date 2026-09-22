@@ -15,7 +15,6 @@ from PySide6.QtWidgets import QApplication
 from roomscope.core.pipeline import synthetic_recording
 from roomscope.io.wav import write_wav
 from roomscope.models.configuration import SweepSettings
-from roomscope.settings import load_settings
 from roomscope.ui.main_window import MainWindow
 from tests.conftest import make_rir
 
@@ -159,8 +158,8 @@ def test_settings_dialog_saves(
     app: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("ROOMSCOPE_HOME", str(tmp_path / "home"))
-    from roomscope.ui.settings_dialog import SettingsDialog
     from roomscope.settings import load_settings
+    from roomscope.ui.settings_dialog import SettingsDialog
 
     window = MainWindow()
     window.show()

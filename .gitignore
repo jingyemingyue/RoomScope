@@ -79,6 +79,9 @@ scratch/
 *.bak
 .cache/
 
+# --- gettext (compiled at packaging time; do not commit) ---
+*.mo
+
 # --- Packaging outputs ---
 *.dmg
 *.app/

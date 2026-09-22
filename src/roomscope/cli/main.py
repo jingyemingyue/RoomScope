@@ -10,7 +10,6 @@ import argparse
 import json
 import logging
 import sys
-import warnings
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -387,11 +386,10 @@ def _use_json(args: argparse.Namespace) -> bool:
     if getattr(args, "format", None) == "json":
         return True
     if getattr(args, "json", False):
-        warnings.warn(
-            "'--json' is deprecated and will be removed in a future minor release; "
-            "use --format json",
-            DeprecationWarning,
-            stacklevel=2,
+        print(
+            "warning: --json is deprecated; use --format json "
+            "(--json will be removed in a future minor release)",
+            file=sys.stderr,
         )
         return True
     return False

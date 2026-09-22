@@ -40,10 +40,10 @@ KNOWN_NOTICES = {
         "Copyright (c) 1999-2011 Ross Bencina and Phil Burk\n\n"
         "Permission is hereby granted, free of charge, to any person obtaining\n"
         "a copy of this software and associated documentation files (the\n"
-        "\"Software\"), to deal in the Software without restriction, including\n"
+        '"Software"), to deal in the Software without restriction, including\n'
         "without limitation the rights to use, copy, modify, merge, publish,\n"
         "distribute, sublicense, and/or sell copies of the Software.\n\n"
-        "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND.\n"
+        'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.\n'
         "Source: http://www.portaudio.com/license.html\n"
     ),
     "freetype": (
@@ -84,15 +84,21 @@ def _license_files(name: str) -> list[tuple[str, bytes]]:
     except PackageNotFoundError:
         return []
     found: list[tuple[str, bytes]] = []
+    seen: set[str] = set()
     for file in dist.files or []:
         upper = file.name.upper()
-        if file.parent.name.endswith(".dist-info") and any(
-            token in upper for token in ("LICENSE", "LICENCE", "COPYING", "NOTICE")
-        ):
-            try:
-                found.append((file.name, Path(file.locate()).read_bytes()))
-            except OSError:
-                continue
+        if ".dist-info" not in str(file):
+            continue
+        if not any(token in upper for token in ("LICENSE", "LICENCE", "COPYING", "NOTICE")):
+            continue
+        stored = str(file).replace("/", "_")
+        if stored in seen:
+            continue
+        try:
+            found.append((stored, Path(file.locate()).read_bytes()))
+        except OSError:
+            continue
+        seen.add(stored)
     return found
 
 

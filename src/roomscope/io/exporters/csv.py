@@ -41,7 +41,9 @@ def _write(path: Path, header: list[str], rows: list[list[object]]) -> Path:
     return path
 
 
-def _metric_row(band: BandDecay, name: str, seconds: float | None, validity: object) -> list[object]:
+def _metric_row(
+    band: BandDecay, name: str, seconds: float | None, validity: object
+) -> list[object]:
     return [band.band_label, name, seconds if seconds is not None else "", str(validity)]
 
 
@@ -91,7 +93,7 @@ def _write_noise_psd(path: Path, result: AnalysisResult) -> Path | None:
     noise = result.noise
     if noise.psd_frequencies_hz is None or noise.psd_db is None:
         return None
-    rows = [
+    rows: list[list[object]] = [
         [float(freq), float(level)]
         for freq, level in zip(noise.psd_frequencies_hz, noise.psd_db, strict=False)
     ]
@@ -99,12 +101,14 @@ def _write_noise_psd(path: Path, result: AnalysisResult) -> Path | None:
 
 
 def _write_reflections(path: Path, result: AnalysisResult) -> Path:
-    rows = [[r.delay_ms, r.relative_db] for r in result.reflections.reflections]
+    rows: list[list[object]] = [
+        [r.delay_ms, r.relative_db] for r in result.reflections.reflections
+    ]
     return _write(path, ["delay_ms", "relative_db"], rows)
 
 
 def _write_resonances(path: Path, result: AnalysisResult) -> Path:
-    rows = [
+    rows: list[list[object]] = [
         [
             c.frequency_hz,
             c.level_above_baseline_db,
@@ -115,6 +119,11 @@ def _write_resonances(path: Path, result: AnalysisResult) -> Path:
     ]
     return _write(
         path,
-        ["frequency_hz", "level_above_baseline_db", "narrowband_decay_20db_s", "decay_distinguishable"],
+        [
+            "frequency_hz",
+            "level_above_baseline_db",
+            "narrowband_decay_20db_s",
+            "decay_distinguishable",
+        ],
         rows,
     )

@@ -285,9 +285,7 @@ def test_session_bundle_export_and_project(
     assert payload["iso_3382_2_class"] in {"below_survey", "survey", "engineering", "precision"}
 
 
-def test_lang_zh_cn_translates_report(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_lang_zh_cn_translates_report(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     sweep = tmp_path / "sweep.wav"
     assert main(["sweep", "--out", str(sweep), "--duration", "2", "--post-silence", "1.5"]) == 0
     signal = read_wav(sweep)

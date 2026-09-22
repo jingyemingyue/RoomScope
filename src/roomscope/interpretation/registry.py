@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from roomscope.errors import ConfigurationError
 from roomscope.interpretation.profiles import (
@@ -51,8 +50,8 @@ def _entry_points() -> dict[str, RecordingProfile]:
 
 
 def profile_origins() -> dict[str, str]:
-    origins = {name: "builtin" for name in _BUILTINS}
-    origins.update({name: "entry_point" for name in _entry_points()})
+    origins = dict.fromkeys(_BUILTINS, "builtin")
+    origins.update(dict.fromkeys(_entry_points(), "entry_point"))
     return origins
 
 
@@ -61,7 +60,7 @@ def available_profiles() -> list[str]:
 
 
 def get_profile(name: str) -> RecordingProfile:
-    table: dict[str, Any] = {**_entry_points(), **_BUILTINS}
+    table: dict[str, RecordingProfile] = {**_entry_points(), **_BUILTINS}
     try:
         return table[name]
     except KeyError as exc:
