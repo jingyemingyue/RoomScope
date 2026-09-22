@@ -15,6 +15,7 @@ from pathlib import Path
 from roomscope import __version__
 from roomscope.cli.report import format_report
 from roomscope.errors import RoomScopeError
+from roomscope.interpretation import available_profiles
 from roomscope.logging_config import configure_logging
 from roomscope.models.configuration import (
     DEFAULT_SAMPLE_RATE,
@@ -92,10 +93,49 @@ def _add_analysis_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--json", action="store_true", help="print the result as JSON instead of a report"
     )
+    parser.add_argument(
+        "--speaker-distance",
+        type=float,
+        default=None,
+        metavar="M",
+        help=(
+            "straight line from the loudspeaker to the microphone capsule (m), measured "
+            "with a tape. Without it no geometry can be derived from the reflections"
+        ),
+    )
+    parser.add_argument(
+        "--mic-height",
+        type=float,
+        default=None,
+        metavar="M",
+        help=(
+            "microphone capsule above the first solid horizontal surface below it (m) -- "
+            "the desk top at a desk, otherwise the floor. Needs --speaker-distance"
+        ),
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        metavar="C",
+        help="air temperature (C); 20 C is assumed, and reported as assumed, without it",
+    )
+    parser.add_argument(
+        "--profile",
+        default="generic",
+        choices=available_profiles(),
+        help="recording profile that shapes the interpretation (default generic)",
+    )
 
 
 def _analysis_settings(args: argparse.Namespace) -> AnalysisSettings:
-    return AnalysisSettings(channel=args.channel, fr_smoothing_fraction=args.smoothing)
+    return AnalysisSettings(
+        channel=args.channel,
+        fr_smoothing_fraction=args.smoothing,
+        placement_distance_m=args.speaker_distance,
+        placement_mic_height_m=args.mic_height,
+        placement_temperature_c=args.temperature,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -194,7 +234,7 @@ def _run_analysis(
         reference = load_reference(reference_path)
     settings = _analysis_settings(args)
     result = analyze(recording, reference, settings)
-    findings = interpret(result)
+    findings = interpret(result, args.profile)
 
     if out_dir is not None:
         session = MeasurementSession(
@@ -217,7 +257,7 @@ def _run_analysis(
         payload["findings"] = [f.to_dict() for f in findings]
         print(json.dumps(payload, indent=1))
     else:
-        print(format_report(result, findings))
+        print(format_report(result, findings, args.profile))
         if out_dir is not None:
             print(f"\nSaved session to {out_dir}")
     return 0
