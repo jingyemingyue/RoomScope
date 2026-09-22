@@ -541,9 +541,10 @@ an automated check).
   loopback was used, the interface response on the Frequency Response tab.
   Core diagnostics appear verbatim under a translated heading (§5.6).
 * **Compare:** pick two sessions in the browser; side-by-side tables with
-  deltas and their validity, the difference curve, the matched reflections;
-  the "input gain unchanged" declaration is an explicit checkbox because it
-  decides whether the noise delta may be shown.
+  deltas and their validity, the difference curve, the matched reflections
+  and resonances; the "input gain unchanged" declaration is an explicit
+  checkbox because it decides whether the noise delta may be shown.
+  `roomscope show comparison.json` re-derives findings (they are not stored).
 * **Settings dialog:** language, default profile, audio backend, default
   output folder, copy-recording default.
 * **Session browser / project view:** the browser from PR #2, extended to
@@ -642,8 +643,9 @@ is asked on every measurement, as the brief's safety rules require.
   1.0 is not called 1.0 without at least the macOS notarization or an
   explicit maintainer decision to ship unsigned.
 * **Smoke test:** every bundle is launched on its own runner
-  (`roomscope --version`, `roomscope analyze` on the synthetic example, the
-  GUI offscreen) before it is attached to a release.
+  (`roomscope --version`, `roomscope --backend fake measure` on the
+  synthetic room, `roomscope gui --smoke` offscreen) before it is attached
+  to a release. Nothing is sent to a loudspeaker.
 
 ### 6.3 Release workflow
 

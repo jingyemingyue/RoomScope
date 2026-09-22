@@ -206,12 +206,21 @@ def test_compare_and_schema_commands(tmp_path: Path, capsys: pytest.CaptureFixtu
         == 0
     )
     capsys.readouterr()
-    out = tmp_path / "cmp.json"
+    out = tmp_path / "comparison.json"
     assert main(["compare", str(a), str(b), "--out", str(out), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert "comparable" in payload
     assert all("validity" in item for item in payload["decay"])
+    assert "findings" in payload
     assert out.is_file()
+    assert main(["show", str(out)]) == 0
+    shown = capsys.readouterr().out
+    assert "RoomScope comparison" in shown
+    assert main(["show", str(out), "--json"]) == 0
+    reloaded = json.loads(capsys.readouterr().out)
+    assert reloaded["comparable"] == payload["comparable"]
+    assert "findings" in reloaded
+    assert "findings" not in json.loads(out.read_text(encoding="utf-8"))
     assert main(["schema", "comparison"]) == 0
     schema = capsys.readouterr().out
     assert '"title": "RoomScope comparison.json"' in schema

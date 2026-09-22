@@ -33,6 +33,15 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 15: 2026-09-22 — 1.0-rc compare / robustness / guide:
+`load_comparison` (findings re-derived on `roomscope show
+comparison.json`); Compare GUI lists matched resonances; user
+guide names every Results tab plus wrong-reference and
+multiple-pass troubleshooting; robustness covers comparison.json,
+more WAV/sidecar cases, and a microphone used as loopback;
+`roomscope gui --smoke` is the §6.2 offscreen bundle smoke.
+API/schema not frozen. Hardware cells empty.
+
 Snapshot 14: 2026-09-22 — 1.0-rc §8 / M9 packaging remainder:
 JSON depth cap, shared untrusted-file reader, src safety script,
 unsigned zip/tar/dmg/Inno scaffolding and bundle smoke (fake
@@ -78,7 +87,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | Early reflections | ETC peak candidates (delay ms, level dB re direct) with local-trend prominence |
 | Placement geometry | Excess path per candidate; with a tape-measured loudspeaker distance the exact product of perpendicular distances and its two-sided bracket; with a microphone height the vertical axis (loudspeaker height, plane above the devices, horizontal separation). No coordinates, no room length or width, no wall named |
 | Low-frequency resonances | Candidate peaks (< 300 Hz) with narrow-band decay vs. filter ringing comparison |
-| Models & storage | Validated settings; result model with JSON export and `from_dict` load; MeasurementSession; self-contained session directory (session.json, result.json, IR WAV, optional recording.wav, always-copied sweep sidecar); `load_measurement` / `list_sessions` / `bundle_session`; recent list and `settings.json` under `$ROOMSCOPE_HOME`; shipped JSON Schemas; `comparison.json`; `project.json` |
+| Models & storage | Validated settings; result model with JSON export and `from_dict` load; MeasurementSession; self-contained session directory (session.json, result.json, IR WAV, optional recording.wav, always-copied sweep sidecar); `load_measurement` / `load_comparison` / `list_sessions` / `bundle_session`; recent list and `settings.json` under `$ROOMSCOPE_HOME`; shipped JSON Schemas; `comparison.json` (findings not stored); `project.json` |
 | Interpretation | Finding model (`message_id` / `params` / `locale`); messages through gettext `_()`; RecordingProfile registry + entry points; seven profiles; `interpret_comparison` |
 | CLI | `roomscope sweep / analyze / analyze-ir / show / compare / schema / devices / measure / gui / session bundle / export / project`; global `--lang`, `--format`, `--backend`, `--copy-recording` |
 | Public API | Lazy Tier 1 exports from `import roomscope` (ARCHITECTURE_V1.md §5.1) |
@@ -87,16 +96,16 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | Averaging | `average_decay`: VALID T values only; ISO 3382-2 class labelled from Table 1 (secondary-source transcription) |
 | Export | CSV exporter for decay, FR, noise PSD, reflections, resonances; `roomscope.exporters` entry points |
 | i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG` |
-| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate |
+| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections and resonances, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate, `gui --smoke` |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
-| Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags (zip / tar / dmg / Inno script, `scripts/smoke_bundle.py`) |
+| Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags (zip / tar / dmg / Inno script, `scripts/smoke_bundle.py` version + fake measure + offscreen GUI) |
 | Documentation | Hub at `docs/index.md`; themed HTML site from `scripts/build_docs_site.py` (S7) |
 
 ## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      322 passed  (tests/unit 259, tests/integration 42, tests/ui 11 offscreen, tests/robustness 10)
+pytest      334 passed  (tests/unit 260, tests/integration 42, tests/ui 12 offscreen, tests/robustness 20)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
 mypy        Success: no issues found in 69 source files (strict)
@@ -115,7 +124,9 @@ tab, the validation-protocol test and the bundle-lock test (304), then
 the docs-link and fixtures tests (308), then shortcuts, plot
 linestyles and Action SHA pins (311), then the themed docs site,
 dark-mode plot chrome, device-rate display and compare tables (316),
-then JSON depth, src-safety and unsigned-bundle packaging (322).
+then JSON depth, src-safety and unsigned-bundle packaging (322),
+then comparison load/show, resonance table, richer robustness and
+`gui --smoke` (334).
 GUI tests also check that
 matplotlib's QtAgg backend loads against PySide6_Essentials (no Addons).
 

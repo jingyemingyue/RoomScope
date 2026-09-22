@@ -409,3 +409,111 @@ msgstr "第三方许可证"
 
 msgid "No THIRD_PARTY_LICENSES directory was found next to this executable. See docs/DEPENDENCIES.md in the source tree."
 msgstr "可执行文件旁没有 THIRD_PARTY_LICENSES 目录。源码树中见 docs/DEPENDENCIES.md。"
+
+msgid "construct the window offscreen and exit (bundle smoke; no loudspeaker)"
+msgstr "离屏构建窗口后退出（打包冒烟测试；不对扬声器发声）"
+
+msgid "Compare two sessions. Select two rows, or pick each path."
+msgstr "对比两个会话。选中两行，或分别填写路径。"
+
+msgid "Baseline session"
+msgstr "基线会话"
+
+msgid "Candidate session"
+msgstr "候选会话"
+
+msgid "Baseline..."
+msgstr "基线…"
+
+msgid "Candidate..."
+msgstr "候选…"
+
+msgid "Input gain unchanged"
+msgstr "输入增益未变"
+
+msgid "Required for a VALID noise delta. Leave unchecked if the preamp gain may have changed."
+msgstr "噪声差值要为 VALID 必须勾选。若前置增益可能变过，请不要勾选。"
+
+msgid "Compare"
+msgstr "对比"
+
+msgid "Save comparison.json..."
+msgstr "保存 comparison.json…"
+
+msgid "Back"
+msgstr "返回"
+
+msgid "Metric"
+msgstr "指标"
+
+msgid "Baseline"
+msgstr "基线"
+
+msgid "Candidate"
+msgstr "候选"
+
+msgid "Delta"
+msgstr "差值"
+
+msgid "Validity"
+msgstr "有效性"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Baseline (ms / dB)"
+msgstr "基线（ms / dB）"
+
+msgid "Candidate (ms / dB)"
+msgstr "候选（ms / dB）"
+
+msgid "Δ level (dB)"
+msgstr "电平差（dB）"
+
+msgid "Baseline (Hz)"
+msgstr "基线（Hz）"
+
+msgid "Candidate (Hz)"
+msgstr "候选（Hz）"
+
+msgid "Decay distinguishable"
+msgstr "衰减可区分"
+
+msgid "Choose two sessions first."
+msgstr "请先选择两个会话。"
+
+msgid "Cannot compare"
+msgstr "无法对比"
+
+msgid "Frequency-response difference (candidate − baseline)"
+msgstr "频率响应差值（候选 − 基线）"
+
+msgid "Mean absolute difference per octave: {bits}"
+msgstr "每个倍频程的平均绝对差：{bits}"
+
+msgid "No difference curve"
+msgstr "没有差值曲线"
+
+msgid "Save comparison"
+msgstr "保存对比"
+
+msgid "Run a comparison first."
+msgstr "请先运行一次对比。"
+
+msgid "Save comparison.json"
+msgstr "保存 comparison.json"
+
+msgid "JSON files (*.json)"
+msgstr "JSON 文件 (*.json)"
+
+msgid "Cannot save"
+msgstr "无法保存"
+
+msgid "Wrote {path}"
+msgstr "已写入 {path}"
+
+msgid "Open session"
+msgstr "打开会话"
+
+msgid "Session files (session.json);;JSON files (*.json);;All files (*)"
+msgstr "会话文件 (session.json);;JSON 文件 (*.json);;所有文件 (*)"

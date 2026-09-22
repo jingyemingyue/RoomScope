@@ -35,6 +35,7 @@ def test_smoke_bundle_finds_explicit_binary(tmp_path: Path) -> None:
     fake.write_text("#!/bin/sh\n", encoding="utf-8")
     assert module.find_binary(tmp_path, None) == fake
     assert module.find_binary(None, fake) == fake
+    assert module.smoke_gui_argv(fake) == [str(fake), "gui", "--smoke"]
 
 
 def test_settings_refuse_deep_json_and_fall_back(tmp_path: Path, monkeypatch) -> None:

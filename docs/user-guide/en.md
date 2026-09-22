@@ -59,6 +59,21 @@ Core diagnostics (`warnings`, `notes`, `reason`) stay in English in
 `result.json` so bug reports compare across languages. The UI shows them
 verbatim under a heading that says so.
 
+The Results page has seven tabs:
+
+| Tab | What it shows |
+| --- | --- |
+| Overview | Broadband and octave-band EDT / T20 / T30 / RT60 with validity; the text report; core diagnostics (always English). |
+| Impulse Response | The deconvolved IR. The peak is the direct sound; it is not normalised to 1.0. |
+| Frequency Response | Raw (dotted) and smoothed (solid) magnitude. A dashed curve is the electrical loopback when compensation ran. 0 dB is the interface, not “flat in the room”. |
+| Decay | Schroeder / energy-decay curves. Broadband is a solid line; octave bands use changing dash patterns so colour is not the only cue. |
+| Noise | Quiet-segment spectrum and 50/60 Hz hum candidates. |
+| Early Reflections | ETC peaks (delay ms, level dB re direct). Open markers for candidates. |
+| Placement | Excess path, and — only with a tape-measured loudspeaker distance — loudspeaker height, the plane above both devices, and horizontal separation. No wall is named. |
+
+Low-frequency resonance candidates stay in the Overview text report (and in
+`resonances.csv` after `roomscope export`). They are not a separate tab.
+
 ## Placement
 
 The Results page has a Placement tab. Without a tape-measured loudspeaker
@@ -77,6 +92,12 @@ on the CLI.
 page). A decay delta is only VALID when both sides are VALID. The noise delta
 needs an explicit “input gain unchanged” declaration. A change is never called
 significant; ISO 3382-1’s just-noticeable difference for T is quoted as context.
+
+The Compare page lists matched early reflections (delay ±0.5 ms) and
+low-frequency resonances (within 1/6 octave, with decay-distinguishable
+flags). `roomscope compare … --out comparison.json` writes the numbers only;
+`roomscope show comparison.json` prints the report again and **re-derives**
+findings (they are never stored in the file).
 
 ## Projects and averaging
 
@@ -98,10 +119,12 @@ digits stay ASCII.
 | Symptom | What to check |
 | --- | --- |
 | Direct-sound confidence not high | Wrong sweep sidecar; loudspeaker distortion; trim the recording? Do not trim. |
+| Wrong reference | The `.roomscope-sweep.json` next to the WAV must be the file RoomScope wrote for *this* sweep (same duration, band and fades). A sweep from another session, or the recording used as the reference, will mis-locate the IR. |
+| Multiple passes in one bounce | Play the sweep once. Two passes in the same WAV look like two IRs; RoomScope keeps the strongest peak and the rest becomes “room”. Bounce a single take. |
 | Clipping warning | Lower playback or input gain. |
 | Insufficient decay range | Longer sweep, slightly louder playback, or a quieter room. |
 | Device rate mismatch | The GUI shows the device rate next to the requested one; pick a supported rate. |
-| Loopback refused | The return must look like an electrical pulse, not a room. |
+| Loopback refused | The return must look like an electrical pulse, not a room. If the second channel is another microphone, compensation is refused and the analysis continues uncompensated. |
 
 ## Bug-report bundle
 

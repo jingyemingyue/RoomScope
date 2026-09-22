@@ -294,7 +294,10 @@ def test_compare_two_saved_sessions(
     assert "RoomScope comparison" in window.compare.text.toPlainText()
     assert window.compare.table.rowCount() > 0
     assert window.compare.reflections.columnCount() == 4
+    assert window.compare.resonances.columnCount() == 4
+    assert window.compare.resonances.horizontalHeaderItem(3).text()
     assert window.compare._comparison is not None
+    assert window.compare.resonances.rowCount() == len(window.compare._comparison.resonances)
     assert all(item.validity is not None for item in window.compare._comparison.decay)
     window.close()
 
@@ -331,3 +334,11 @@ def test_help_licenses_and_core_diagnostics_heading(app: QApplication) -> None:
     heading = window.results.diagnostics_heading.text()
     assert "English" in heading or "英文" in heading
     window.close()
+
+
+def test_gui_smoke_flag_constructs_and_exits(app: QApplication) -> None:
+    from roomscope.cli.main import main
+    from roomscope.ui.app import run_app
+
+    assert run_app(smoke=True) == 0
+    assert main(["gui", "--smoke"]) == 0

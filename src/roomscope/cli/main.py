@@ -244,10 +244,12 @@ def build_parser() -> argparse.ArgumentParser:
     _add_analysis_arguments(p_me)
 
     p_show = sub.add_parser(
-        "show", help="print a saved session report, or list sessions in a folder"
+        "show", help="print a saved session or comparison.json report, or list sessions"
     )
     p_show.add_argument(
-        "path", type=Path, help="session directory, session.json, or folder to list"
+        "path",
+        type=Path,
+        help="session directory, session.json, comparison.json, or folder to list",
     )
     p_show.add_argument(
         "--list",
@@ -309,7 +311,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_ir.add_argument("--out", type=Path, default=None, help="session directory")
     _add_analysis_arguments(p_ir)
 
-    sub.add_parser("gui", help=_("start the desktop GUI (needs the 'gui' extra)"))
+    p_gui = sub.add_parser("gui", help=_("start the desktop GUI (needs the 'gui' extra)"))
+    p_gui.add_argument(
+        "--smoke",
+        action="store_true",
+        help=_("construct the window offscreen and exit (bundle smoke; no loudspeaker)"),
+    )
 
     p_sess = sub.add_parser("session", help=_("session folder tools"))
     sess_sub = p_sess.add_subparsers(dest="session_command", required=True)
@@ -567,9 +574,18 @@ def cmd_measure(args: argparse.Namespace) -> int:
     )
 
 
+def _is_comparison_path(path: Path) -> bool:
+    """True when ``path`` is ``comparison.json`` or a folder that holds only that file."""
+    if path.is_file():
+        return path.name == "comparison.json"
+    if path.is_dir():
+        return (path / "comparison.json").is_file() and not (path / "session.json").is_file()
+    return False
+
+
 def cmd_show(args: argparse.Namespace) -> int:
-    from roomscope.interpretation import interpret
-    from roomscope.io.session_store import list_sessions, load_measurement
+    from roomscope.interpretation import interpret, interpret_comparison
+    from roomscope.io.session_store import list_sessions, load_comparison, load_measurement
 
     if args.list:
         listings = list_sessions(args.path)
@@ -578,6 +594,18 @@ def cmd_show(args: argparse.Namespace) -> int:
             return 0
         for item in listings:
             print(f"{item.path}\t{item.label}")
+        return 0
+
+    if _is_comparison_path(args.path):
+        comparison = load_comparison(args.path)
+        profile = _resolve_profile(args, "generic")
+        findings = interpret_comparison(comparison, profile)
+        if _use_json(args):
+            payload = comparison.to_dict()
+            payload["findings"] = [f.to_dict() for f in findings]
+            print(json.dumps(payload, indent=1))
+        else:
+            print(format_comparison_report(comparison, findings, profile))
         return 0
 
     loaded = load_measurement(args.path)
@@ -762,7 +790,7 @@ def cmd_project(args: argparse.Namespace) -> int:
     raise RoomScopeError(f"unknown project command {command}")
 
 
-def cmd_gui(_: argparse.Namespace) -> int:
+def cmd_gui(args: argparse.Namespace) -> int:
     try:
         from roomscope.ui.app import run_app
     except ImportError as exc:
@@ -771,7 +799,7 @@ def cmd_gui(_: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    return int(run_app())
+    return int(run_app(smoke=bool(getattr(args, "smoke", False))))
 
 
 COMMANDS = {

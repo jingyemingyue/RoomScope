@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
 
 
-def run_app(argv: list[str] | None = None) -> int:
+def run_app(argv: list[str] | None = None, *, smoke: bool = False) -> int:
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication
 
@@ -13,6 +14,8 @@ def run_app(argv: list[str] | None = None) -> int:
     from roomscope.ui.main_window import MainWindow
     from roomscope.ui.theme import apply_application_chrome
 
+    if smoke:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     activate(None)
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
@@ -22,6 +25,10 @@ def run_app(argv: list[str] | None = None) -> int:
     apply_application_chrome(app)
     window = MainWindow()
     window.show()
+    if smoke:
+        app.processEvents()
+        window.close()
+        return 0
     return int(app.exec())
 
 

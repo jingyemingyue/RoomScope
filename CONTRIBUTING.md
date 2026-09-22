@@ -42,6 +42,8 @@ pytest                    # unit + integration + offscreen GUI smoke tests
 ruff check . && ruff format --check .
 mypy
 python scripts/build_docs_site.py --out site   # themed docs (S7)
+python scripts/smoke_bundle.py --no-gui --out /tmp/smoke-session   # fake measure
+# add --no-gui only for a CLI-only install; bundles run gui --smoke offscreen
 ```
 
 On Linux, Standalone Mode and the GUI tests also need PortAudio and a few Qt

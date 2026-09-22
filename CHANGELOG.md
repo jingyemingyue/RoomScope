@@ -27,6 +27,12 @@ All notable changes to RoomScope are documented here. The format follows
   pickle, eval and shell-outs under `src/`. Unsigned-bundle packaging
   adds Inno Setup, a Linux desktop/AppRun, a macOS dmg script, zip/tar
   archives, and `scripts/smoke_bundle.py` (fake-backend measure).
+  `load_comparison` and `roomscope show comparison.json` re-derive
+  findings (they are never stored); the Compare GUI lists matched
+  resonances; the user guide names every Results tab and the
+  wrong-reference / multiple-pass failures; robustness tests cover
+  comparison.json, more WAV/sidecar cases, and a microphone used as
+  loopback; bundle smoke runs `roomscope gui --smoke` offscreen.
   The campaign has not been run; hardware cells stay empty; the
   repository stays private. The API and schemas are **not** frozen.
 - v0.4 for everyone (ARCHITECTURE_V1.md milestone 0.4): gettext with a
