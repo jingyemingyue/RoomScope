@@ -1,28 +1,107 @@
-"""Reverberation analysis: Schroeder integration, noise truncation, EDT/T20/T30.
+"""Reverberation analysis: decay onset, Schroeder integration, noise truncation,
+EDT/T20/T30 and their validity.
 
-Method (see docs/MEASUREMENT_METHODOLOGY.md for references)
---------------------------------------------------------------
-1. The band-limited impulse response ``h`` is squared and the energy decay
-   curve is obtained by backward integration (Schroeder 1965):
-   ``EDC(t) = integral_t^inf h^2(tau) dtau``.
-2. Before integrating, the noise floor is estimated and the integration is
-   truncated at the point where the decay meets the noise, following the
-   iterative procedure of Lundeby et al. (1995). The energy of the decay after
-   the truncation point is estimated from the fitted late slope and added back
-   (late-decay compensation).
-3. EDT, T20 and T30 are least-squares line fits over the ranges
-   0..-10 dB, -5..-25 dB and -5..-35 dB of the EDC, extrapolated to 60 dB
-   (ISO 3382-1). A metric is only reported when the lower limit of its range
-   lies at least ``noise_margin_db`` (10 dB) above the noise floor; otherwise
-   it is marked "insufficient decay range".
-4. Band filtering uses time-reversed Butterworth filters. The product of
-   filter bandwidth and reverberation time (B*T) is reported; results with
-   B*T < 4 are flagged as unreliable because the filter's own decay is then
-   comparable to the room decay (Jacobsen & Rindel 1987).
+Method (see docs/MEASUREMENT_METHODOLOGY.md for the references)
+------------------------------------------------------------------
+1. **Analysis segment and band filtering.** The caller passes a signal that
+   contains the impulse response and the index of the (broadband) direct
+   sound. Octave bands are IEC 61260-1 base-10 bands (``filters.iec_band``)
+   filtered with time-reversed Butterworth band-passes (Jacobsen & Rindel
+   1987). A time-reversed filter is anti-causal: the band signal at any time
+   depends only on the input from that time on, and the filter's ringing
+   appears *before* each input event (about ``4/B`` at -40 dB for bandwidth
+   ``B``). The signal is therefore given a lead-in of :func:`decay_lead_in_s`
+   (at least ``DECAY_LEAD_IN_MIN_S`` = 0.2 s and ``DECAY_LEAD_IN_BANDWIDTHS/B``
+   of the lowest band) before the direct sound, zero-padded where the signal
+   has less. The result does not depend on how much signal before the direct
+   sound the caller kept (for example the display pre-delay
+   ``ir_pre_delay_ms``).
+2. **Onset** (start of the Schroeder integration), found separately for the
+   broadband response and for each band: the first sample at which the
+   squared response rises to within ``ONSET_LEVEL_DB`` (20 dB) of its
+   maximum, before the direct sound. This follows the start-point rule of
+   ISO 3382-1:2009, Annex A (clause not verified against the standard text;
+   wording as restated by Christensen, Koutsouris & Rindel, ISRA 2013). When
+   the direct sound is known, the search starts ``2 ms + 4/B`` before it
+   (``B`` = the band's bandwidth, or the excitation bandwidth for the
+   broadband response), so that noise, other sweep passes or harmonic
+   pre-responses further ahead cannot start the decay. Without a known
+   direct sound the search starts at the beginning of the signal. The EDC is
+   normalised at the onset, so a band's 0 dB includes all of its
+   direct-sound energy.
+3. **Noise truncation** (Lundeby et al. 1995, steps as summarised by
+   Karjalainen et al. 2002) on the squared response from the onset: 20 ms
+   block averages, preliminary regression from the loudest block to the first
+   block at noise + 10 dB (noise from the last 10 %), then iterated block length / noise / late-slope estimates
+   until the crosspoint moves by less than ``LUNDEBY_CONVERGENCE_DB`` (1 dB)
+   of decay at the late slope (at least 1 ms). The iterative estimate is
+   rejected, and the preliminary crosspoint, slope and noise level are used
+   instead, when the iteration does not converge within 6 passes, when the
+   late slope is less than ``LUNDEBY_MIN_SLOPE_RATIO`` (0.5) times the
+   preliminary slope, or when the crosspoint lies more than
+   ``10 dB / |preliminary slope|`` plus two blocks after the first block at
+   noise + 5 dB (a stationary tonal floor such as mains hum drags the late
+   slope towards zero and the crosspoint to the end of the response). The
+   metrics are then also computed with the rejected estimate; if any VALID
+   metric changes by more than ``TRUNCATION_SENSITIVITY`` (5 %) or loses or
+   gains its number, the band's metrics are marked unreliable. (Marking every
+   rejected estimate unreliable would flag most bands of clean measurements
+   with more than about 100 dB of range, where the late slope is fitted to a
+   few blocks and oscillates without affecting the metrics.) The energy of
+   the decay after the truncation point is estimated from the slope and added
+   back (late-decay compensation).
+4. **Schroeder curve** ``EDC(t) = sum_{tau >= t} h^2(tau)`` from the onset to
+   the truncation point (Schroeder 1965), normalised to 0 dB at the onset.
+   All times (curve, onset, truncation) are measured from the direct sound
+   (from the start of the signal when no direct sound is given; see
+   ``DecayResult.time_origin``).
+5. **Fits.** EDT, T20 and T30 are least-squares line fits over 0..-10 dB,
+   -5..-25 dB and -5..-35 dB, extrapolated to 60 dB (ISO 3382-1). A fit
+   never starts before the end of the direct sound (the direct sound plus
+   the excitation pulse spread ``4/B_exc + 0.5 ms``): before it, a
+   time-reversed band response contains only the band filter's pre-ringing
+   of the direct sound, not room decay. This reproduces what an ideal,
+   non-smearing band filter would give, where the direct sound is a step of
+   the EDC at time 0; for the broadband curve it changes nothing. The degree
+   of non-linearity ``xi = 1000 * (1 - r^2)`` and the curvature
+   ``C = 100 * (T30 / T20 - 1)`` are defined in ISO 3382-2:2008, Annex B.
+6. **Validity** (a metric is only VALID when none of these applies):
+
+   * *insufficient decay range*: the range from the loudest block to the
+     noise floor is less than ``|lower limit| + noise_margin_db`` (ISO 3382:
+     the evaluation range must end at least 10 dB above the noise);
+   * fewer than 3 samples in the range, or a non-negative slope;
+   * EDT only: the EDC drops by more than ``EDT_MAX_DIRECT_STEP_DB`` (5 dB)
+     across the direct sound, i.e. the direct sound carries more than about
+     70 % of the (band) energy. Less than half of the 0..-10 dB range is then
+     room decay and EDT describes the direct sound rather than the room (with
+     a step of 10 dB or more there is no room decay in the range at all);
+   * B*T < ``MIN_BT_PRODUCT`` (4) for time-reversed filtering (Jacobsen &
+     Rindel 1987; value confirmed only through citing works);
+   * the metrics depend on a rejected Lundeby estimate (item 3);
+   * *non-straight decay*: ISO 3382-2 Annex B introduces the curvature C and
+     the non-linearity xi to warn when a decay is not straight and a single
+     reverberation time does not describe it (for example a double slope);
+     such results should be marked as less reliable. When ``|C|`` exceeds its
+     limit (10 % for wide bands, growing as ``1/sqrt(B * T30)`` for narrow
+     bands and short decays, see :func:`straightness_limits`), T20 and T30
+     are both marked unreliable and no RT60 is estimated; when the xi of one
+     fit exceeds its limit (15 permille, growing the same way), that metric
+     is marked unreliable. A band warning says why. The numerical guidance of
+     Annex B was not verified; the limits are RoomScope's choice, calibrated
+     as documented next to the constants;
+   * the band is not fully inside the excitation range
+     (``Validity.OUTSIDE_EXCITATION``, no numbers at all);
+   * the caller marks everything unreliable
+     (:meth:`~roomscope.models.result.DecayResult.with_all_unreliable`), e.g.
+     for a low direct-sound confidence or a clipped recording.
+
+   The estimated RT60 is the VALID T30, else the VALID T20, else none.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -32,22 +111,95 @@ from roomscope.core.filters import (
     apply_bandpass,
     band_fits,
     bandpass_sos,
-    fractional_octave_band,
+    iec_band,
 )
 from roomscope.models.audio import FloatArray
 from roomscope.models.configuration import AnalysisSettings
-from roomscope.models.result import BandDecay, DecayMetric, DecayResult, Validity
+from roomscope.models.result import (
+    DECAY_TIME_ORIGIN,
+    BandDecay,
+    DecayMetric,
+    DecayResult,
+    ExcitationBand,
+    Validity,
+)
 
+#: ``DecayResult.time_origin`` when no direct sound was given.
+TIME_ORIGIN_SIGNAL_START = "start of the analysed signal (no direct sound given)"
 _EPS = 1e-300
 _EDT_RANGE = (0.0, -10.0)
 _T20_RANGE = (-5.0, -25.0)
 _T30_RANGE = (-5.0, -35.0)
 #: Minimum bandwidth-time product for time-reversed filtering (Jacobsen & Rindel 1987).
 MIN_BT_PRODUCT = 4.0
+#: The decay starts where the squared response first rises to within this
+#: many dB of its maximum (ISO 3382-1 start-point rule, clause not verified).
+ONSET_LEVEL_DB = 20.0
+#: The onset search starts this long ...
+ONSET_SEARCH_MARGIN_S = 0.002
+#: ... plus this many inverse bandwidths before the direct sound.
+ONSET_SEARCH_BANDWIDTHS = 4.0
+#: The direct sound lasts this long plus ``ONSET_SEARCH_BANDWIDTHS`` inverse
+#: excitation bandwidths after its peak (band-limited pulse spread).
+DIRECT_SOUND_MARGIN_S = 0.0005
+#: Lead-in before the direct sound for band filtering: at least this long ...
+DECAY_LEAD_IN_MIN_S = 0.2
+#: ... and at least this many inverse bandwidths of the lowest band.
+DECAY_LEAD_IN_BANDWIDTHS = 5.0
+#: EDT is unreliable when the EDC drops by more than this (dB) across the
+#: direct sound (less than half of the EDT range is then room decay).
+EDT_MAX_DIRECT_STEP_DB = 5.0
+#: Lundeby iteration: converged when the crosspoint moves by less than this
+#: much decay (dB at the late slope), or by less than 1 ms.
+LUNDEBY_CONVERGENCE_DB = 1.0
+LUNDEBY_MAX_ITERATIONS = 6
+#: Lundeby estimate rejected when |late slope| < this ratio * |preliminary slope| ...
+LUNDEBY_MIN_SLOPE_RATIO = 0.5
+#: ... or when the crosspoint lies more than this decay (dB, at the
+#: preliminary slope) plus two blocks after the first block at noise + 5 dB.
+LUNDEBY_CROSSPOINT_ALLOWANCE_DB = 10.0
+_NOISE_REACHED_DB = 5.0
+#: With a rejected Lundeby estimate, metrics that change by more than this
+#: fraction between the preliminary and the rejected truncation are unreliable.
+TRUNCATION_SENSITIVITY = 0.05
+#: Non-straight decay (ISO 3382-2:2008 Annex B measures). T20 and T30 are
+#: both marked unreliable when |C| exceeds
+#: ``max(MAX_CURVATURE_PERCENT, CURVATURE_SPREAD_PERCENT / sqrt(B * T30))``;
+#: a single metric is marked unreliable when its own xi exceeds
+#: ``max(MAX_NONLINEARITY_PERMILLE, NONLINEARITY_SPREAD_PERMILLE / sqrt(B * T30))``.
+#:
+#: Calibration (RoomScope's choice; the numerical guidance of Annex B was not
+#: verified against the standard text):
+#:
+#: * the 10 % floor for C is the value the Annex is commonly cited with. In
+#:   simulations of single-slope rooms with strong early reflections, curves
+#:   with |C| > 10 % had a median T30 error of -10 % or worse;
+#: * the xi floor is 15 permille rather than the commonly cited 10: in the
+#:   same simulations the median T30 error stayed below 10 % up to about
+#:   15 permille and exceeded it above (T20: above about 20 permille);
+#: * the 1/sqrt(B*T) terms follow the statistics of band-limited noise
+#:   decays, whose relative scatter falls with the number of degrees of
+#:   freedom B*T. The constants were set with a Monte Carlo of single-slope
+#:   decays (Gaussian noise with exponential envelopes, RT 0.15-2.5 s,
+#:   direct-to-reverberant ratios from none to +21 dB, noise 60 and 85 dB
+#:   below the start, default octave bands, 48 and 96 kHz, plus full
+#:   sweep/deconvolution runs): below 1 % of the single-slope results are
+#:   flagged overall (at most about 2 % in any band), while a double slope of
+#:   0.3 s and 2.0 s with the slow part 25 dB down is flagged in every run for
+#:   the broadband curve and the 250 Hz-8 kHz bands, but only in 60-90 % of
+#:   the runs at 63 and 125 Hz, where a single decay already scatters that
+#:   much (B*T of about 20). Low-band values need that caution anyway.
+MAX_CURVATURE_PERCENT = 10.0
+MAX_NONLINEARITY_PERMILLE = 15.0
+CURVATURE_SPREAD_PERCENT = 500.0
+NONLINEARITY_SPREAD_PERMILLE = 1000.0
+
 DECAY_METHOD = (
-    "Schroeder backward integration with Lundeby noise truncation and late-decay "
-    "compensation; EDT/T20/T30 by least-squares fit per ISO 3382-1; "
-    "time-reversed Butterworth octave-band filtering"
+    "ISO 3382-1 onset (-20 dB) per band; Schroeder backward integration with Lundeby "
+    "noise truncation (plausibility-checked) and late-decay compensation; EDT/T20/T30 by "
+    "least-squares fit per ISO 3382-1, fits starting after the direct sound; straightness "
+    "check with xi and C (ISO 3382-2 Annex B); time-reversed Butterworth IEC 61260-1 "
+    "base-10 octave-band filtering"
 )
 
 
@@ -79,10 +231,21 @@ def _linear_fit(x: FloatArray, y: FloatArray) -> tuple[float, float, float]:
     return float(slope), float(intercept), float(r2)
 
 
+def _level_db(power: FloatArray) -> float:
+    return float(_to_db(np.array([np.mean(power)]))[0])
+
+
 @dataclass(frozen=True)
 class TruncationEstimate:
-    """Result of the Lundeby noise-floor / crosspoint iteration."""
+    """Result of the Lundeby noise-floor / crosspoint iteration.
 
+    Indices refer to the power array passed to :func:`estimate_truncation`.
+    When the iterative estimate was rejected (``problem`` is set),
+    ``truncation_index``, ``late_slope_db_per_s`` and ``noise_floor_db`` hold
+    the preliminary values and the ``iterative_*`` fields the rejected ones.
+    """
+
+    #: Start of the loudest 20 ms block (the preliminary regression starts there).
     start_index: int
     truncation_index: int
     noise_floor_db: float
@@ -90,32 +253,57 @@ class TruncationEstimate:
     late_slope_db_per_s: float | None
     converged: bool
     iterations: int
+    #: Why the iterative estimate was rejected, or why there is none.
+    problem: str | None = None
+    iterative_truncation_index: int | None = None
+    iterative_slope_db_per_s: float | None = None
+    iterative_noise_floor_db: float | None = None
+
+    def rejected_estimate(self) -> TruncationEstimate | None:
+        """The rejected iterative estimate, if there is one."""
+        if (
+            self.problem is None
+            or self.iterative_truncation_index is None
+            or self.iterative_noise_floor_db is None
+        ):
+            return None
+        return TruncationEstimate(
+            start_index=self.start_index,
+            truncation_index=self.iterative_truncation_index,
+            noise_floor_db=self.iterative_noise_floor_db,
+            peak_db=self.peak_db,
+            late_slope_db_per_s=self.iterative_slope_db_per_s,
+            converged=self.converged,
+            iterations=self.iterations,
+        )
 
 
 def estimate_truncation(
     power: FloatArray,
     sample_rate: int,
     *,
-    max_iterations: int = 6,
+    max_iterations: int = LUNDEBY_MAX_ITERATIONS,
     intervals_per_10db: float = 5.0,
 ) -> TruncationEstimate:
     """Lundeby et al. (1995) iterative estimate of the noise floor and the
-    point where the decay meets it.
+    point where the decay meets it, with plausibility checks.
 
-    ``power`` is the squared impulse response starting at (or shortly before)
-    the direct sound. Levels are in dB relative to 1 (same scale for peak and
-    noise so that their difference is the usable dynamic range).
+    ``power`` is the squared response starting at the decay onset. Levels are
+    in dB relative to 1 (same scale for peak and noise so that their
+    difference is the usable dynamic range). See the module docstring for the
+    conditions under which the preliminary estimate replaces the iterative one.
     """
     n = power.shape[0]
     if n < 16:
         return TruncationEstimate(
             0,
             n,
-            float(_to_db(np.array([np.mean(power)]))[0]),
+            _level_db(power),
             float(_to_db(np.array([np.max(power)]))[0]),
             None,
             False,
             0,
+            problem="the response is too short for a noise-floor estimate",
         )
 
     # 1. First local averages (about 20 ms blocks).
@@ -125,25 +313,48 @@ def estimate_truncation(
     start_block = int(np.argmax(level_db))
     peak_db = float(level_db[start_block])
     start_index = int(min(n - 1, max(0, centres[start_block] - block / 2.0)))
+    start_t = start_index / sample_rate
 
     # 2. Noise from the last 10 %.
-    tail = power[int(0.9 * n) :]
-    noise_db = float(_to_db(np.array([np.mean(tail)]))[0])
+    noise_db = _level_db(power[int(0.9 * n) :])
 
-    # 3. Preliminary slope from the peak down to noise + 10 dB.
-    usable = np.nonzero(level_db[start_block:] > noise_db + 10.0)[0]
+    # 3. Preliminary slope from the peak down to noise + 10 dB: the blocks
+    #    before the first one at or below that level (a fluctuating floor may
+    #    rise above it again later; that is not part of the decay).
+    reached = np.flatnonzero(level_db[start_block:] <= noise_db + 10.0)
+    usable = np.arange(reached[0] if reached.shape[0] else level_db.shape[0] - start_block)
     if usable.shape[0] < 2:
-        return TruncationEstimate(start_index, n, noise_db, peak_db, None, False, 0)
+        return TruncationEstimate(
+            start_index,
+            n,
+            noise_db,
+            peak_db,
+            None,
+            False,
+            0,
+            problem="no decay above the noise floor was found",
+        )
     stop_block = start_block + int(usable[-1]) + 1
     t = centres[start_block:stop_block] / sample_rate
     slope, intercept, _ = _linear_fit(t, level_db[start_block:stop_block])
     if not np.isfinite(slope) or slope >= 0.0:
-        return TruncationEstimate(start_index, n, noise_db, peak_db, None, False, 0)
+        return TruncationEstimate(
+            start_index,
+            n,
+            noise_db,
+            peak_db,
+            None,
+            False,
+            0,
+            problem="the response does not decay",
+        )
     cross_t = (noise_db - intercept) / slope
+    preliminary = (cross_t, slope, noise_db)
 
     converged = False
     iterations = 0
     late_slope = slope
+    times = centres / sample_rate
     while iterations < max_iterations:
         iterations += 1
         # 5./6. New block length: `intervals_per_10db` intervals per 10 dB of decay.
@@ -160,12 +371,12 @@ def estimate_truncation(
         noise_start = int(noise_start_t * sample_rate)
         noise_start = min(noise_start, int(0.9 * n))
         noise_start = max(noise_start, 0)
-        noise_db = float(_to_db(np.array([np.mean(power[noise_start:])]))[0])
+        noise_db = _level_db(power[noise_start:])
 
         # 8. Late slope over 10-20 dB starting 5-10 dB above the noise.
         lower = noise_db + 7.5
         upper = lower + 15.0
-        mask = (level_db <= upper) & (level_db >= lower) & (times >= start_index / sample_rate)
+        mask = (level_db <= upper) & (level_db >= lower) & (times >= start_t)
         if int(np.count_nonzero(mask)) < 3:
             break
         new_slope, new_intercept, _ = _linear_fit(times[mask], level_db[mask])
@@ -173,43 +384,131 @@ def estimate_truncation(
             break
         new_cross_t = (noise_db - new_intercept) / new_slope
         late_slope = new_slope
-        if abs(new_cross_t - cross_t) < 0.001:
-            cross_t = new_cross_t
+        tolerance = max(0.001, LUNDEBY_CONVERGENCE_DB / abs(new_slope))
+        moved = abs(new_cross_t - cross_t)
+        cross_t = new_cross_t
+        if moved < tolerance:
             converged = True
             break
-        cross_t = new_cross_t
 
-    truncation = int(np.clip(round(cross_t * sample_rate), start_index + 1, n))
+    problem: str | None = None
+    if not converged:
+        problem = f"the Lundeby noise-floor iteration did not converge in {iterations} iteration(s)"
+    elif abs(late_slope) < LUNDEBY_MIN_SLOPE_RATIO * abs(preliminary[1]):
+        problem = (
+            f"the late decay slope ({late_slope:.1f} dB/s) is less than "
+            f"{LUNDEBY_MIN_SLOPE_RATIO:g} times the early slope ({preliminary[1]:.1f} dB/s)"
+        )
+    else:
+        reached = np.nonzero((level_db <= noise_db + _NOISE_REACHED_DB) & (times >= start_t))[0]
+        if reached.shape[0] > 0:
+            first_reached_t = float(times[reached[0]])
+            allowance = LUNDEBY_CROSSPOINT_ALLOWANCE_DB / abs(preliminary[1])
+            allowance += 2.0 * block / sample_rate
+            if cross_t > first_reached_t + allowance:
+                problem = (
+                    f"the noise crosspoint ({cross_t:.2f} s after the onset) lies far beyond the "
+                    f"first point where the decay reaches the noise floor ({first_reached_t:.2f} s)"
+                )
+
+    def index_of(t_s: float) -> int:
+        return int(np.clip(round(t_s * sample_rate), start_index + 1, n))
+
+    if problem is None:
+        return TruncationEstimate(
+            start_index=start_index,
+            truncation_index=index_of(cross_t),
+            noise_floor_db=noise_db,
+            peak_db=peak_db,
+            late_slope_db_per_s=late_slope,
+            converged=converged,
+            iterations=iterations,
+        )
     return TruncationEstimate(
-        start_index, truncation, noise_db, peak_db, late_slope, converged, iterations
+        start_index=start_index,
+        truncation_index=index_of(preliminary[0]),
+        noise_floor_db=preliminary[2],
+        peak_db=peak_db,
+        late_slope_db_per_s=preliminary[1],
+        converged=converged,
+        iterations=iterations,
+        problem=problem,
+        iterative_truncation_index=index_of(cross_t),
+        iterative_slope_db_per_s=late_slope,
+        iterative_noise_floor_db=noise_db,
     )
+
+
+def find_onset(
+    power: FloatArray, *, search_start: int = 0, level_db: float = ONSET_LEVEL_DB
+) -> int:
+    """First index ``>= search_start`` where ``power`` rises to within
+    ``level_db`` of its maximum (the maximum is taken from ``search_start`` on)."""
+    search_start = int(np.clip(search_start, 0, max(0, power.shape[0] - 1)))
+    tail = power[search_start:]
+    if tail.shape[0] == 0:
+        return search_start
+    peak = float(np.max(tail))
+    if peak <= 0.0:
+        return search_start
+    above = np.flatnonzero(tail >= peak * 10.0 ** (-level_db / 10.0))
+    return search_start + int(above[0])
+
+
+def pulse_spread_s(bandwidth_hz: float | None) -> float:
+    """Time a band-limited pulse of ``bandwidth_hz`` spreads on each side of its
+    peak at a significant level (``ONSET_SEARCH_BANDWIDTHS / B``; 0 if unknown)."""
+    if bandwidth_hz is None or bandwidth_hz <= 0.0:
+        return 0.0
+    return ONSET_SEARCH_BANDWIDTHS / bandwidth_hz
+
+
+def onset_search_window_s(bandwidth_hz: float | None) -> float:
+    """How far before the direct sound the onset search starts (s)."""
+    return ONSET_SEARCH_MARGIN_S + pulse_spread_s(bandwidth_hz)
+
+
+def decay_lead_in_s(settings: AnalysisSettings) -> float:
+    """Signal needed before the direct sound for the band analysis (s)."""
+    narrowest = min(iec_band(center, 1).bandwidth_hz for center in settings.octave_bands_hz)
+    return max(DECAY_LEAD_IN_MIN_S, DECAY_LEAD_IN_BANDWIDTHS / narrowest)
 
 
 @dataclass(frozen=True)
 class SchroederCurve:
+    #: Time of each EDC sample (s from the time origin).
     time_s: FloatArray
     edc_db: FloatArray
+    #: Lundeby estimate; its indices are relative to :attr:`onset_index`.
     truncation: TruncationEstimate
     compensation_energy: float
+    #: Onset (integration start) and time origin, as indices of the input signal.
+    onset_index: int = 0
+    time_origin_index: int = 0
+
+    @property
+    def truncation_index(self) -> int:
+        """Truncation point as an index of the input signal."""
+        return self.onset_index + self.truncation.truncation_index
 
 
-def schroeder_curve(
-    band_ir: FloatArray,
+def _curve_from_truncation(
+    power: FloatArray,
     sample_rate: int,
+    onset: int,
+    trunc: TruncationEstimate,
     *,
-    compensate: bool = True,
+    compensate: bool,
+    time_origin_index: int,
 ) -> SchroederCurve:
-    """Energy decay curve (dB, 0 dB at the decay start) with noise truncation."""
-    power = np.asarray(band_ir, dtype=np.float64) ** 2
-    trunc = estimate_truncation(power, sample_rate)
-    segment = power[trunc.start_index : trunc.truncation_index]
+    segment = power[onset : onset + trunc.truncation_index]
     if segment.shape[0] == 0:
-        segment = power[trunc.start_index : trunc.start_index + 1]
+        segment = power[onset : onset + 1]
     compensation = 0.0
     if (
         compensate
         and trunc.late_slope_db_per_s is not None
-        and trunc.truncation_index < power.shape[0]
+        and onset + trunc.truncation_index < power.shape[0]
     ):
         # Energy of the extrapolated exponential decay after the truncation:
         # p(t) = p_c * 10^(slope * (t - t_c) / 10)  ->  integral = p_c * (-10 / (slope * ln 10)).
@@ -218,9 +517,42 @@ def schroeder_curve(
         compensation = p_c * (-10.0 / (slope * np.log(10.0))) * sample_rate
     edc = np.cumsum(segment[::-1])[::-1] + compensation
     edc_db = _to_db(edc / max(float(edc[0]), _EPS))
-    time_s = np.arange(segment.shape[0], dtype=np.float64) / sample_rate
+    time_s = (
+        np.arange(segment.shape[0], dtype=np.float64) + onset - time_origin_index
+    ) / sample_rate
     return SchroederCurve(
-        time_s=time_s, edc_db=edc_db, truncation=trunc, compensation_energy=compensation
+        time_s=time_s,
+        edc_db=edc_db,
+        truncation=trunc,
+        compensation_energy=compensation,
+        onset_index=onset,
+        time_origin_index=time_origin_index,
+    )
+
+
+def schroeder_curve(
+    band_ir: FloatArray,
+    sample_rate: int,
+    *,
+    compensate: bool = True,
+    onset_index: int | None = None,
+    time_origin_index: int = 0,
+) -> SchroederCurve:
+    """Energy decay curve (dB, 0 dB at the onset) with noise truncation.
+
+    ``onset_index`` defaults to :func:`find_onset` over the whole signal;
+    ``time_s`` is measured from ``time_origin_index``.
+    """
+    power = np.asarray(band_ir, dtype=np.float64) ** 2
+    onset = find_onset(power) if onset_index is None else int(onset_index)
+    trunc = estimate_truncation(power[onset:], sample_rate)
+    return _curve_from_truncation(
+        power,
+        sample_rate,
+        onset,
+        trunc,
+        compensate=compensate,
+        time_origin_index=time_origin_index,
     )
 
 
@@ -230,9 +562,14 @@ def fit_decay_metric(
     evaluation_range_db: tuple[float, float],
     *,
     noise_margin_db: float,
+    first_index: int = 0,
 ) -> DecayMetric:
     """Fit one metric; report INSUFFICIENT_RANGE instead of a number when the
-    evaluation range is not at least ``noise_margin_db`` above the noise."""
+    evaluation range is not at least ``noise_margin_db`` above the noise.
+
+    The fit starts at the first curve sample at or below the upper limit, but
+    not before curve index ``first_index`` (the end of the direct sound).
+    """
     upper, lower = evaluation_range_db
     available = curve.truncation.peak_db - curve.truncation.noise_floor_db
     needed = abs(lower) + noise_margin_db
@@ -258,7 +595,7 @@ def fit_decay_metric(
             evaluation_range_db=evaluation_range_db,
             reason="Insufficient decay range: the decay curve does not reach the evaluation range",
         )
-    i0 = int(below_upper[0])
+    i0 = max(int(below_upper[0]), first_index)
     i1 = int(below_lower[0])
     if i1 - i0 < 3:
         return DecayMetric(
@@ -266,7 +603,11 @@ def fit_decay_metric(
             seconds=None,
             validity=Validity.UNRELIABLE,
             evaluation_range_db=evaluation_range_db,
-            reason="Evaluation range covers fewer than 3 samples",
+            reason=(
+                "Evaluation range covers fewer than 3 samples after the direct sound"
+                if first_index > int(below_upper[0])
+                else "Evaluation range covers fewer than 3 samples"
+            ),
         )
     slope, _, r2 = _linear_fit(curve.time_s[i0 : i1 + 1], edc[i0 : i1 + 1])
     if not np.isfinite(slope) or slope >= 0.0:
@@ -288,6 +629,22 @@ def fit_decay_metric(
     )
 
 
+def _fit_all(
+    curve: SchroederCurve, noise_margin_db: float, first_index: int
+) -> tuple[DecayMetric, DecayMetric, DecayMetric]:
+    return (
+        fit_decay_metric(
+            "EDT", curve, _EDT_RANGE, noise_margin_db=noise_margin_db, first_index=first_index
+        ),
+        fit_decay_metric(
+            "T20", curve, _T20_RANGE, noise_margin_db=noise_margin_db, first_index=first_index
+        ),
+        fit_decay_metric(
+            "T30", curve, _T30_RANGE, noise_margin_db=noise_margin_db, first_index=first_index
+        ),
+    )
+
+
 def _decimate_curve(
     curve: SchroederCurve, sample_rate: int, step_s: float = 0.001
 ) -> tuple[FloatArray, FloatArray]:
@@ -295,17 +652,79 @@ def _decimate_curve(
     return curve.time_s[::step], curve.edc_db[::step]
 
 
-def _mark_unreliable(metric: DecayMetric, reason: str) -> DecayMetric:
-    if metric.validity is not Validity.VALID:
-        return metric
-    return DecayMetric(
-        name=metric.name,
-        seconds=metric.seconds,
-        validity=Validity.UNRELIABLE,
-        evaluation_range_db=metric.evaluation_range_db,
-        nonlinearity_permille=metric.nonlinearity_permille,
-        reason=reason,
+def _truncation_sensitivity(
+    chosen: Sequence[DecayMetric], alternative: Sequence[DecayMetric]
+) -> list[str]:
+    """Differences between metrics fitted with two truncation estimates."""
+    changes: list[str] = []
+    for metric, other in zip(chosen, alternative, strict=True):
+        if metric.validity is not Validity.VALID or metric.seconds is None:
+            continue
+        if other.seconds is None:
+            changes.append(f"{metric.name} {metric.seconds:.2f} s vs no value")
+        elif abs(metric.seconds / other.seconds - 1.0) > TRUNCATION_SENSITIVITY:
+            changes.append(f"{metric.name} {metric.seconds:.2f} s vs {other.seconds:.2f} s")
+    return changes
+
+
+def _edt_direct_check(edt: DecayMetric, direct_step_db: float | None) -> DecayMetric:
+    """Mark EDT unreliable when the direct sound covers most of its range."""
+    if direct_step_db is None or direct_step_db <= EDT_MAX_DIRECT_STEP_DB:
+        return edt
+    share = 100.0 * (1.0 - 10.0 ** (-direct_step_db / 10.0))
+    return edt.marked_unreliable(
+        f"the decay curve drops {direct_step_db:.1f} dB across the direct sound (it carries "
+        f"{share:.0f} % of the energy; limit {EDT_MAX_DIRECT_STEP_DB:g} dB): EDT describes the "
+        "direct sound rather than the room at this position"
     )
+
+
+def straightness_limits(bandwidth_hz: float, t30_s: float) -> tuple[float, float]:
+    """(max |C| in percent, max xi in permille) for a decay of ``t30_s`` in a
+    band of ``bandwidth_hz``; see :data:`CURVATURE_SPREAD_PERCENT`."""
+    root_bt = float(np.sqrt(max(bandwidth_hz * t30_s, 1e-12)))
+    return (
+        max(MAX_CURVATURE_PERCENT, CURVATURE_SPREAD_PERCENT / root_bt),
+        max(MAX_NONLINEARITY_PERMILLE, NONLINEARITY_SPREAD_PERMILLE / root_bt),
+    )
+
+
+def _straightness_check(
+    t20: DecayMetric, t30: DecayMetric, bandwidth_hz: float
+) -> tuple[DecayMetric, DecayMetric, float | None, list[str]]:
+    """Curvature from VALID T20/T30 and the non-straight-decay rules."""
+    if not (
+        t20.validity is Validity.VALID
+        and t30.validity is Validity.VALID
+        and t20.seconds is not None
+        and t30.seconds is not None
+        and t20.seconds > 0.0
+    ):
+        return t20, t30, None, []
+    curvature = 100.0 * (t30.seconds / t20.seconds - 1.0)
+    max_curvature, max_xi = straightness_limits(bandwidth_hz, t30.seconds)
+    warnings: list[str] = []
+    if abs(curvature) > max_curvature:
+        warning = (
+            f"the decay curve is not straight (curvature C = {curvature:.0f} %, limit "
+            f"{max_curvature:.0f} %): possibly a double slope, coupled volumes or strong early "
+            "reflections; no single reverberation time describes it"
+        )
+        warnings.append(warning)
+        t20 = t20.marked_unreliable(warning)
+        t30 = t30.marked_unreliable(warning)
+    checked: list[DecayMetric] = []
+    for metric in (t20, t30):
+        xi = metric.nonlinearity_permille
+        if metric.validity is Validity.VALID and xi is not None and xi > max_xi:
+            warning = (
+                f"the {metric.name} fit is not straight (xi = {xi:.0f} permille, limit "
+                f"{max_xi:.0f}): {metric.name} is not a reliable reverberation time here"
+            )
+            warnings.append(warning)
+            metric = metric.marked_unreliable(warning)
+        checked.append(metric)
+    return checked[0], checked[1], curvature, warnings
 
 
 def analyze_band(
@@ -314,11 +733,80 @@ def analyze_band(
     band: Band | None,
     *,
     noise_margin_db: float,
+    direct_index: int | None = None,
+    time_origin_index: int | None = None,
+    onset_search_start: int | None = None,
+    direct_spread_s: float = DIRECT_SOUND_MARGIN_S,
+    broadband_bandwidth_hz: float | None = None,
 ) -> BandDecay:
-    curve = schroeder_curve(band_ir, sample_rate)
-    edt = fit_decay_metric("EDT", curve, _EDT_RANGE, noise_margin_db=noise_margin_db)
-    t20 = fit_decay_metric("T20", curve, _T20_RANGE, noise_margin_db=noise_margin_db)
-    t30 = fit_decay_metric("T30", curve, _T30_RANGE, noise_margin_db=noise_margin_db)
+    """Decay analysis of one (band-filtered) response.
+
+    ``direct_index`` is the broadband direct sound in ``band_ir``. When it is
+    ``None`` the plain ISO ranges are fitted from the onset and the EDT
+    direct-sound check is skipped. ``time_origin_index`` (default:
+    ``direct_index`` if given, else 0) is time 0 of all reported times.
+    ``onset_search_start`` (default: :func:`onset_search_window_s` of the band
+    before a given ``direct_index``, else 0) is where the onset search begins.
+    ``direct_spread_s`` is how long the direct sound lasts after its peak.
+    ``broadband_bandwidth_hz`` (default: Nyquist) is the bandwidth used for
+    the straightness limits when ``band`` is ``None``.
+    """
+    signal = np.asarray(band_ir, dtype=np.float64)
+    power = signal**2
+    if broadband_bandwidth_hz is None:
+        broadband_bandwidth_hz = sample_rate / 2.0
+    if direct_index is None:
+        origin = 0 if time_origin_index is None else time_origin_index
+        search_start = 0 if onset_search_start is None else onset_search_start
+    else:
+        origin = direct_index if time_origin_index is None else time_origin_index
+        if onset_search_start is None:
+            window = onset_search_window_s(band.bandwidth_hz if band is not None else None)
+            search_start = max(0, direct_index - round(window * sample_rate))
+        else:
+            search_start = onset_search_start
+    onset = find_onset(power, search_start=search_start)
+    trunc = estimate_truncation(power[onset:], sample_rate)
+    curve = _curve_from_truncation(
+        power, sample_rate, onset, trunc, compensate=True, time_origin_index=origin
+    )
+    # First curve sample after the direct sound (and its pulse spread); without
+    # a known direct sound the plain ISO ranges are used.
+    first_index = 0
+    if direct_index is not None:
+        first_index = max(0, direct_index + round(direct_spread_s * sample_rate) + 1 - onset)
+    edt, t20, t30 = _fit_all(curve, noise_margin_db, first_index)
+    warnings: list[str] = []
+
+    direct_step_db: float | None = None
+    if direct_index is not None and first_index < curve.edc_db.shape[0]:
+        direct_step_db = float(-curve.edc_db[first_index])
+    edt = _edt_direct_check(edt, direct_step_db)
+
+    if trunc.problem is not None:
+        rejected = trunc.rejected_estimate()
+        if rejected is None:
+            changes = [
+                f"{m.name} has no truncation-independent value"
+                for m in (edt, t20, t30)
+                if m.validity is Validity.VALID
+            ]
+        else:
+            alternative = _curve_from_truncation(
+                power, sample_rate, onset, rejected, compensate=True, time_origin_index=origin
+            )
+            changes = _truncation_sensitivity(
+                (edt, t20, t30), _fit_all(alternative, noise_margin_db, first_index)
+            )
+        if changes:
+            reason = (
+                f"the noise truncation is not trustworthy ({trunc.problem}) and the result "
+                f"depends on it ({'; '.join(changes)})"
+            )
+            warnings.append(reason)
+            edt = edt.marked_unreliable(reason)
+            t20 = t20.marked_unreliable(reason)
+            t30 = t30.marked_unreliable(reason)
 
     bt_product: float | None = None
     filter_warning: str | None = None
@@ -331,9 +819,14 @@ def analyze_band(
                     f"B*T = {bt_product:.1f} < {MIN_BT_PRODUCT:g}: the band filter's own decay is "
                     "comparable to the measured decay; values in this band are unreliable"
                 )
-                edt = _mark_unreliable(edt, filter_warning)
-                t20 = _mark_unreliable(t20, filter_warning)
-                t30 = _mark_unreliable(t30, filter_warning)
+                edt = edt.marked_unreliable(filter_warning)
+                t20 = t20.marked_unreliable(filter_warning)
+                t30 = t30.marked_unreliable(filter_warning)
+
+    t20, t30, curvature, straightness_warnings = _straightness_check(
+        t20, t30, band.bandwidth_hz if band is not None else broadband_bandwidth_hz
+    )
+    warnings.extend(straightness_warnings)
 
     rt60: float | None = None
     basis: str | None = None
@@ -342,19 +835,16 @@ def analyze_band(
             rt60 = metric.seconds
             basis = metric.name
             break
-    curvature: float | None = None
-    if t20.seconds is not None and t30.seconds is not None and t20.seconds > 0.0:
-        curvature = 100.0 * (t30.seconds / t20.seconds - 1.0)
 
     edc_time, edc_db = _decimate_curve(curve, sample_rate)
     return BandDecay(
         band_label=band.label if band is not None else "broadband",
-        center_hz=band.center_hz if band is not None else None,
+        center_hz=band.label_hz if band is not None else None,
         low_hz=band.low_hz if band is not None else None,
         high_hz=band.high_hz if band is not None else None,
-        noise_floor_db=float(curve.truncation.noise_floor_db - curve.truncation.peak_db),
-        peak_to_noise_db=float(curve.truncation.peak_db - curve.truncation.noise_floor_db),
-        truncation_time_s=float(curve.truncation.truncation_index / sample_rate),
+        noise_floor_db=float(trunc.noise_floor_db - trunc.peak_db),
+        peak_to_noise_db=float(trunc.peak_db - trunc.noise_floor_db),
+        truncation_time_s=float((curve.truncation_index - origin) / sample_rate),
         edt=edt,
         t20=t20,
         t30=t30,
@@ -365,22 +855,145 @@ def analyze_band(
         filter_warning=filter_warning,
         edc_time_s=edc_time,
         edc_db=edc_db,
+        onset_time_s=float((onset - origin) / sample_rate),
+        mid_band_hz=band.center_hz if band is not None else None,
+        warnings=tuple(warnings),
     )
 
 
-def analyze_decay(ir: FloatArray, sample_rate: int, settings: AnalysisSettings) -> DecayResult:
-    """Broadband and octave-band decay analysis of an impulse response."""
-    broadband = analyze_band(ir, sample_rate, None, noise_margin_db=settings.decay_noise_margin_db)
+def _outside_excitation_band(band: Band, excitation: ExcitationBand) -> BandDecay:
+    reason = (
+        f"the {band.label} band ({band.low_hz:.0f}-{band.high_hz:.0f} Hz) is not fully inside "
+        f"the excitation range ({excitation.low_hz:.0f}-{excitation.high_hz:.0f} Hz, "
+        f"{excitation.source}): it contains only leakage and noise, so no decay values are reported"
+    )
+
+    def withheld(name: str, evaluation_range: tuple[float, float]) -> DecayMetric:
+        return DecayMetric(
+            name=name,
+            seconds=None,
+            validity=Validity.OUTSIDE_EXCITATION,
+            evaluation_range_db=evaluation_range,
+            reason=reason,
+        )
+
+    return BandDecay(
+        band_label=band.label,
+        center_hz=band.label_hz,
+        low_hz=band.low_hz,
+        high_hz=band.high_hz,
+        noise_floor_db=None,
+        peak_to_noise_db=None,
+        truncation_time_s=None,
+        edt=withheld("EDT", _EDT_RANGE),
+        t20=withheld("T20", _T20_RANGE),
+        t30=withheld("T30", _T30_RANGE),
+        rt60_estimate_s=None,
+        rt60_basis=None,
+        curvature_percent=None,
+        filter_bt_product=None,
+        filter_warning=None,
+        edc_time_s=np.zeros(0, dtype=np.float64),
+        edc_db=np.zeros(0, dtype=np.float64),
+        onset_time_s=None,
+        mid_band_hz=band.center_hz,
+        warnings=(reason,),
+    )
+
+
+def _result_notes(
+    broadband: BandDecay,
+    bands: Sequence[BandDecay],
+    excitation: ExcitationBand | None,
+) -> tuple[str, ...]:
+    notes: list[str] = []
+    outside = [b for b in bands if b.t30.validity is Validity.OUTSIDE_EXCITATION]
+    if outside and excitation is not None:
+        labels = ", ".join(b.band_label for b in outside)
+        notes.append(
+            f"decay analysis: the {labels} band(s) are not fully inside the excitation range "
+            f"({excitation.low_hz:.0f}-{excitation.high_hz:.0f} Hz); no decay values are "
+            "reported for them"
+        )
+    for band in (broadband, *bands):
+        if band.t30.validity is Validity.OUTSIDE_EXCITATION:
+            continue
+        notes.extend(f"decay analysis, {band.band_label}: {w}" for w in band.warnings)
+    return tuple(notes)
+
+
+def analyze_decay(
+    ir: FloatArray,
+    sample_rate: int,
+    settings: AnalysisSettings,
+    *,
+    direct_index: int | None = None,
+    excitation_band: ExcitationBand | None = None,
+) -> DecayResult:
+    """Broadband and octave-band decay analysis.
+
+    ``ir`` should contain :func:`decay_lead_in_s` of signal before the direct
+    sound at ``direct_index`` (missing lead-in is zero-padded). Without
+    ``direct_index`` the onset search starts at the beginning of ``ir``, the
+    plain ISO ranges are fitted and times are measured from its first sample. Bands that are not fully inside ``excitation_band`` are
+    returned with ``Validity.OUTSIDE_EXCITATION`` and no numbers; bands above
+    0.9 * Nyquist are skipped.
+    """
+    signal = np.asarray(ir, dtype=np.float64)
+    known = direct_index is not None
+    lead = round(decay_lead_in_s(settings) * sample_rate)
+    pad = max(0, lead - (direct_index if direct_index is not None else 0))
+    if pad:
+        signal = np.concatenate([np.zeros(pad, dtype=np.float64), signal])
+    direct = (direct_index if direct_index is not None else 0) + pad
+    origin = direct
+    excitation_bw = (
+        excitation_band.high_hz - excitation_band.low_hz if excitation_band is not None else None
+    )
+    spread_s = DIRECT_SOUND_MARGIN_S + pulse_spread_s(excitation_bw)
+    noise_margin = settings.decay_noise_margin_db
+
+    def search_start(bandwidth_hz: float | None) -> int:
+        if not known:
+            return 0
+        return max(0, direct - round(onset_search_window_s(bandwidth_hz) * sample_rate))
+
+    broadband = analyze_band(
+        signal,
+        sample_rate,
+        None,
+        noise_margin_db=noise_margin,
+        direct_index=direct if known else None,
+        time_origin_index=origin,
+        onset_search_start=search_start(excitation_bw),
+        direct_spread_s=spread_s,
+        broadband_bandwidth_hz=excitation_bw,
+    )
     bands: list[BandDecay] = []
     for center in settings.octave_bands_hz:
-        band = fractional_octave_band(center, 1)
+        band = iec_band(center, 1)
         if not band_fits(band, sample_rate):
             continue
-        sos = bandpass_sos(band, sample_rate)
-        filtered = apply_bandpass(ir, sos, time_reversed=True)
+        if excitation_band is not None and not excitation_band.contains(band.low_hz, band.high_hz):
+            bands.append(_outside_excitation_band(band, excitation_band))
+            continue
+        filtered = apply_bandpass(signal, bandpass_sos(band, sample_rate), time_reversed=True)
         bands.append(
             analyze_band(
-                filtered, sample_rate, band, noise_margin_db=settings.decay_noise_margin_db
+                filtered,
+                sample_rate,
+                band,
+                noise_margin_db=noise_margin,
+                direct_index=direct if known else None,
+                time_origin_index=origin,
+                onset_search_start=search_start(band.bandwidth_hz),
+                direct_spread_s=spread_s,
             )
         )
-    return DecayResult(method=DECAY_METHOD, broadband=broadband, bands=tuple(bands))
+    return DecayResult(
+        method=DECAY_METHOD,
+        broadband=broadband,
+        bands=tuple(bands),
+        notes=_result_notes(broadband, bands, excitation_band),
+        time_origin=DECAY_TIME_ORIGIN if known else TIME_ORIGIN_SIGNAL_START,
+    )
