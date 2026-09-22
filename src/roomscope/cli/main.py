@@ -14,7 +14,7 @@ from pathlib import Path
 
 from roomscope import __version__
 from roomscope.cli.report import format_comparison_report, format_report
-from roomscope.errors import RoomScopeError
+from roomscope.errors import MeasurementCancelled, RoomScopeError
 from roomscope.interpretation import available_profiles
 from roomscope.logging_config import configure_logging
 from roomscope.models.configuration import (
@@ -128,13 +128,32 @@ def _add_analysis_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _analysis_settings(args: argparse.Namespace) -> AnalysisSettings:
+def _add_loopback_file_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--loopback",
+        type=Path,
+        default=None,
+        help="separate loopback WAV from the same take (same sample rate)",
+    )
+    parser.add_argument(
+        "--loopback-channel",
+        type=int,
+        default=None,
+        help="0-based loopback channel of the recording (or of --loopback if it is multi-channel)",
+    )
+
+
+def _analysis_settings(
+    args: argparse.Namespace, *, loopback_channel: int | None = None
+) -> AnalysisSettings:
+    channel = getattr(args, "loopback_channel", None)
     return AnalysisSettings(
         channel=args.channel,
         fr_smoothing_fraction=args.smoothing,
         placement_distance_m=args.speaker_distance,
         placement_mic_height_m=args.mic_height,
         placement_temperature_c=args.temperature,
+        loopback_channel=loopback_channel if loopback_channel is not None else channel,
     )
 
 
@@ -145,6 +164,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"roomscope {__version__}")
     parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
+    parser.add_argument(
+        "--backend",
+        default=None,
+        help="audio backend for Standalone Mode: portaudio (default) or fake",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_sweep = sub.add_parser("sweep", help="write the ESS test signal WAV (+ JSON sidecar)")
@@ -162,6 +186,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--out", type=Path, default=None, help="directory for session.json, result.json, IR WAV"
     )
     _add_analysis_arguments(p_an)
+    _add_loopback_file_arguments(p_an)
 
     sub.add_parser("devices", help="list audio devices (Standalone Mode)")
 
@@ -177,7 +202,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--input-channel", type=int, default=1, help="input channel, 1-based (default 1)"
     )
     p_me.add_argument(
+        "--input-channels",
+        default=None,
+        help="1-based input channels, comma-separated (e.g. 1,2); overrides --input-channel",
+    )
+    p_me.add_argument(
         "--output-channel", type=int, default=1, help="output channel, 1-based (default 1)"
+    )
+    p_me.add_argument(
+        "--loopback-channel",
+        type=int,
+        default=None,
+        dest="measure_loopback_channel",
+        help="1-based loopback input channel (recorded with the microphone)",
     )
     p_me.add_argument(
         "--acknowledge-level",
@@ -300,7 +337,10 @@ def _run_analysis(
         assert reference_path is not None
         reference = load_reference(reference_path)
     settings = _analysis_settings(args)
-    result = analyze(recording, reference, settings)
+    loopback_signal = None
+    if getattr(args, "loopback", None) is not None:
+        loopback_signal = read_wav(args.loopback)
+    result = analyze(recording, reference, settings, loopback=loopback_signal)
     findings = interpret(result, args.profile)
 
     if out_dir is not None:
@@ -315,6 +355,7 @@ def _run_analysis(
             sweep_path=str(reference_path) if reference_path else None,
             recording_path=str(recording_path),
             input_channel=result.analysis_settings.get("channel_analysed"),
+            loopback_channel=settings.loopback_channel,
             recording_profile=args.profile,
         )
         session_path = save_measurement(out_dir, session, result, include_curves=not args.no_curves)
@@ -336,10 +377,10 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     return _run_analysis(args.recording, args.sweep, args, out_dir=args.out)
 
 
-def cmd_devices(_: argparse.Namespace) -> int:
-    from roomscope.audio.devices import list_devices
+def cmd_devices(args: argparse.Namespace) -> int:
+    from roomscope.audio.backend import get_backend
 
-    devices = list_devices()
+    devices = get_backend(args.backend).list_devices()
     print(f"{'idx':>3}  {'in':>3} {'out':>3}  {'rate':>7}  name  [host API]")
     for d in devices:
         flags = ("*in" if d.is_default_input else "") + ("*out" if d.is_default_output else "")
@@ -351,8 +392,7 @@ def cmd_devices(_: argparse.Namespace) -> int:
 
 
 def cmd_measure(args: argparse.Namespace) -> int:
-    from roomscope.audio.devices import check_sample_rate
-    from roomscope.audio.playrec import SAFE_MAX_LEVEL_DBFS, SAFETY_MESSAGE, play_and_record
+    from roomscope.audio.backend import SAFE_MAX_LEVEL_DBFS, SAFETY_MESSAGE, get_backend
     from roomscope.core.sweep import measurement_signal
     from roomscope.io.wav import write_sweep_file, write_wav
 
@@ -364,25 +404,48 @@ def cmd_measure(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    backend = get_backend(args.backend)
     print(SAFETY_MESSAGE)
     if args.input_device is not None:
-        check_sample_rate(args.input_device, settings.sample_rate, kind="input")
+        backend.check_sample_rate(args.input_device, settings.sample_rate, kind="input")
     if args.output_device is not None:
-        check_sample_rate(args.output_device, settings.sample_rate, kind="output")
+        backend.check_sample_rate(args.output_device, settings.sample_rate, kind="output")
+    if args.input_channels:
+        channels = [int(part.strip()) for part in str(args.input_channels).split(",") if part.strip()]
+    else:
+        channels = [int(args.input_channel)]
+    hardware_loopback = getattr(args, "measure_loopback_channel", None)
+    if hardware_loopback is not None and hardware_loopback not in channels:
+        channels.append(hardware_loopback)
+    analysis_loopback = None if hardware_loopback is None else channels.index(hardware_loopback)
+    # so _analysis_settings does not read a missing 0-based flag
+    args.loopback_channel = analysis_loopback
+    args.channel = 0 if hardware_loopback is None else (0 if channels[0] != hardware_loopback else 1)
+    if args.channel >= len(channels):
+        args.channel = 0
     out_dir: Path = args.out
     out_dir.mkdir(parents=True, exist_ok=True)
     sweep_path, _ = write_sweep_file(settings, out_dir / "sweep.wav")
     print(
-        f"Playing sweep on output channel {args.output_channel}, recording input channel {args.input_channel} ..."
+        f"Playing sweep on output channel {args.output_channel}, recording input "
+        f"channel(s) {','.join(str(c) for c in channels)} via {backend.name} ..."
     )
-    recording = play_and_record(
+    fractions: list[float] = []
+
+    def _progress(fraction: float) -> None:
+        fractions.append(fraction)
+        if len(fractions) == 1 or fraction >= 1.0 or len(fractions) % 8 == 0:
+            print(f"  {fraction * 100.0:5.1f} %", file=sys.stderr)
+
+    recording = backend.play_and_record(
         measurement_signal(settings),
         settings.sample_rate,
         input_device=args.input_device,
         output_device=args.output_device,
-        input_channel=args.input_channel,
+        input_channels=channels,
         output_channel=args.output_channel,
         level_dbfs=settings.level_dbfs,
+        progress=_progress,
     )
     recording_path = write_wav(
         out_dir / "recording.wav", recording.samples, settings.sample_rate, subtype="FLOAT"
@@ -535,6 +598,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     configure_logging(logging.DEBUG if args.verbose else logging.WARNING)
     try:
         return COMMANDS[args.command](args)
+    except MeasurementCancelled as exc:
+        print(f"stopped: {exc}", file=sys.stderr)
+        return 130
     except RoomScopeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

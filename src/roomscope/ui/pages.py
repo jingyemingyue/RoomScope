@@ -75,10 +75,16 @@ class HomePage(QWidget):
         standalone.setToolTip(
             "RoomScope plays the sweep and records the microphone through your audio interface."
         )
+        demo = QPushButton("Demo (no interface)")
+        demo.setToolTip(
+            "Run Standalone Mode on the fake backend. Nothing is sent to a loudspeaker."
+        )
         daw.clicked.connect(lambda: self.choose_mode.emit("universal_daw"))
         standalone.clicked.connect(lambda: self.choose_mode.emit("standalone"))
+        demo.clicked.connect(lambda: self.choose_mode.emit("demo"))
         layout.addWidget(daw)
         layout.addWidget(standalone)
+        layout.addWidget(demo)
         layout.addSpacing(16)
         layout.addWidget(QLabel("Saved sessions"))
         session_row = QHBoxLayout()
@@ -182,9 +188,12 @@ class DawModePage(QWidget):
         self.reference_label.setWordWrap(True)
         self.channel = QComboBox()
         self.channel.addItem("Auto (highest level)", None)
+        self.loopback_channel = QComboBox()
+        self.loopback_channel.addItem("None", None)
         form3.addRow(self.recording_button, self.recording_label)
         form3.addRow(self.reference_button, self.reference_label)
-        form3.addRow("Channel", self.channel)
+        form3.addRow("Microphone channel", self.channel)
+        form3.addRow("Loopback channel", self.loopback_channel)
         layout.addWidget(step3)
 
         # Step 4
@@ -263,8 +272,11 @@ class DawModePage(QWidget):
         self.state.recording_path = path
         self.channel.clear()
         self.channel.addItem("Auto (highest level)", None)
+        self.loopback_channel.clear()
+        self.loopback_channel.addItem("None", None)
         for index in range(recording.n_channels):
             self.channel.addItem(f"Channel {index + 1}", index)
+            self.loopback_channel.addItem(f"Channel {index + 1}", index)
         self.recording_label.setText(
             f"{path.name}: {recording.duration_s:.1f} s, {recording.sample_rate} Hz, {recording.n_channels} channel(s)"
         )
@@ -300,9 +312,11 @@ class DawModePage(QWidget):
             )
             return
         channel = self.channel.currentData()
+        loopback = self.loopback_channel.currentData()
         self.state.profile = str(self.profile.currentData())
         self.state.analysis_settings = AnalysisSettings(
-            channel=None if channel is None else int(channel)
+            channel=None if channel is None else int(channel),
+            loopback_channel=None if loopback is None else int(loopback),
         )
         self.state.session = MeasurementSession(
             mode="universal_daw",
@@ -349,9 +363,18 @@ class StandalonePage(QWidget):
     def __init__(self, state: MeasurementState, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.state = state
+        self.demo_mode = False
         self._measure_worker: MeasureWorker | None = None
         self._analysis_worker: AnalysisWorker | None = None
         layout = QVBoxLayout(self)
+
+        self.demo_banner = QLabel(
+            "Demo mode: the fake backend synthesises a room. Nothing is sent to a loudspeaker."
+        )
+        self.demo_banner.setWordWrap(True)
+        self.demo_banner.setStyleSheet("font-weight: bold;")
+        self.demo_banner.hide()
+        layout.addWidget(self.demo_banner)
 
         safety = QLabel(SAFETY_MESSAGE)
         safety.setWordWrap(True)
@@ -372,13 +395,19 @@ class StandalonePage(QWidget):
         )
         self.input_channel = QSpinBox()
         self.input_channel.setRange(1, 64)
+        self.loopback_channel = QSpinBox()
+        self.loopback_channel.setRange(0, 64)
+        self.loopback_channel.setSpecialValueText("unused")
         self.output_channel = QSpinBox()
         self.output_channel.setRange(1, 64)
+        self.device_rate = QLabel("Device rate: unknown")
         form.addRow("Input device", self.input_device)
         form.addRow("Output device", self.output_device)
         form.addRow(self.refresh_button)
         form.addRow("Sample rate", self.sample_rate)
+        form.addRow(self.device_rate)
         form.addRow("Input channel (mic)", self.input_channel)
+        form.addRow("Loopback channel (1-based)", self.loopback_channel)
         form.addRow("Output channel (speaker)", self.output_channel)
         layout.addWidget(devices)
 
@@ -410,12 +439,16 @@ class StandalonePage(QWidget):
         self.back_button.clicked.connect(self.back.emit)
         self.run_button = QPushButton("Run Measurement")
         self.run_button.clicked.connect(self.start_measurement)
+        self.stop_button = QPushButton("Stop")
+        self.stop_button.setEnabled(False)
+        self.stop_button.clicked.connect(self.stop_measurement)
         row.addWidget(self.back_button)
         row.addStretch(1)
+        row.addWidget(self.stop_button)
         row.addWidget(self.run_button)
         layout.addLayout(row)
         self.progress = QProgressBar()
-        self.progress.setRange(0, 0)
+        self.progress.setRange(0, 100)
         self.progress.hide()
         self.status = QLabel("")
         self.status.setWordWrap(True)
@@ -425,26 +458,37 @@ class StandalonePage(QWidget):
         self.refresh_devices()
 
     def refresh_devices(self) -> None:
-        from roomscope.audio.devices import list_devices
+        from roomscope.audio.backend import get_backend
 
+        self.demo_banner.setVisible(self.demo_mode)
         self.input_device.clear()
         self.output_device.clear()
         self.input_device.addItem("System default", None)
         self.output_device.addItem("System default", None)
         try:
-            devices = list_devices()
+            backend = get_backend("fake" if self.demo_mode else None)
+            devices = backend.list_devices()
         except RoomScopeError as exc:
             self.status.setText(f"Audio backend unavailable: {exc}")
             self.run_button.setEnabled(False)
             return
+        default_rate = None
         for d in devices:
             label = f"[{d.index}] {d.name} ({d.host_api})"
             if d.is_input:
                 self.input_device.addItem(label + f" - {d.max_input_channels} in", d.index)
             if d.is_output:
                 self.output_device.addItem(label + f" - {d.max_output_channels} out", d.index)
+            if d.is_default_input or d.is_default_output:
+                default_rate = d.default_sample_rate
+        self.device_rate.setText(
+            f"Device rate: {default_rate:.0f} Hz" if default_rate else "Device rate: unknown"
+        )
         self.run_button.setEnabled(True)
-        self.status.setText(f"{len(devices)} audio device(s) found.")
+        if self.demo_mode:
+            self.status.setText("Demo mode: fake backend, no loudspeaker.")
+        else:
+            self.status.setText(f"{len(devices)} audio device(s) found.")
 
     def current_sweep_settings(self) -> SweepSettings:
         return SweepSettings(
@@ -470,7 +514,16 @@ class StandalonePage(QWidget):
         self.state.mode = "standalone"
         self.state.sweep_settings = settings
         self.state.reference = Reference.from_settings(settings)
-        self.state.analysis_settings = AnalysisSettings()
+        channels = [int(self.input_channel.value())]
+        hardware_loopback = int(self.loopback_channel.value())
+        analysis_loopback = None
+        if hardware_loopback > 0:
+            if hardware_loopback not in channels:
+                channels.append(hardware_loopback)
+            analysis_loopback = channels.index(hardware_loopback)
+        self.state.analysis_settings = AnalysisSettings(
+            channel=0, loopback_channel=analysis_loopback
+        )
         self.state.profile = str(self.profile.currentData())
         self._set_busy(True, "Playing the sweep and recording...")
         self._measure_worker = MeasureWorker(
@@ -478,13 +531,26 @@ class StandalonePage(QWidget):
             settings.sample_rate,
             input_device=self.input_device.currentData(),
             output_device=self.output_device.currentData(),
-            input_channel=int(self.input_channel.value()),
+            input_channels=channels,
             output_channel=int(self.output_channel.value()),
             level_dbfs=settings.level_dbfs,
+            backend="fake" if self.demo_mode else None,
         )
         self._measure_worker.succeeded.connect(self._on_recorded)
         self._measure_worker.failed.connect(self._on_failure)
+        self._measure_worker.progress.connect(self._on_progress)
+        self._measure_worker.stopped.connect(self._on_stopped)
         self._measure_worker.start()
+
+    def stop_measurement(self) -> None:
+        if self._measure_worker is not None:
+            self._measure_worker.request_stop()
+
+    def _on_progress(self, fraction: float) -> None:
+        self.progress.setValue(int(fraction * 100.0))
+
+    def _on_stopped(self) -> None:
+        self._set_busy(False, "Stopped.")
 
     def _on_recorded(self, recording: AudioSignal) -> None:
         self.state.recording = recording
@@ -495,6 +561,11 @@ class StandalonePage(QWidget):
             measurement_position=self.position.text(),
             microphone_name=self.mic.text(),
             input_channel=int(self.input_channel.value()),
+            loopback_channel=(
+                None
+                if int(self.loopback_channel.value()) <= 0
+                else int(self.loopback_channel.value())
+            ),
             output_channel=int(self.output_channel.value()),
             sweep_settings=self.state.sweep_settings,
             analysis_settings=self.state.analysis_settings,
@@ -511,7 +582,11 @@ class StandalonePage(QWidget):
 
     def _set_busy(self, busy: bool, text: str = "") -> None:
         self.run_button.setEnabled(not busy)
+        if hasattr(self, "stop_button"):
+            self.stop_button.setEnabled(busy)
         self.progress.setVisible(busy)
+        if not busy and hasattr(self, "progress") and self.progress.maximum() == 100:
+            self.progress.setValue(0)
         self.status.setText(text)
 
     def _on_success(self, result: AnalysisResult) -> None:

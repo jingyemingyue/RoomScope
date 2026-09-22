@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import threading
+from collections.abc import Sequence
+
 from PySide6.QtCore import QThread, Signal
 
 from roomscope.core.pipeline import Reference, analyze
-from roomscope.errors import RoomScopeError
+from roomscope.errors import MeasurementCancelled, RoomScopeError
 from roomscope.models.audio import AudioSignal, FloatArray
 from roomscope.models.configuration import AnalysisSettings
 
@@ -19,15 +22,20 @@ class AnalysisWorker(QThread):
         recording: AudioSignal,
         reference: Reference,
         settings: AnalysisSettings,
+        *,
+        loopback: AudioSignal | None = None,
     ) -> None:
         super().__init__()
         self._recording = recording
         self._reference = reference
         self._settings = settings
+        self._loopback = loopback
 
     def run(self) -> None:
         try:
-            result = analyze(self._recording, self._reference, self._settings)
+            result = analyze(
+                self._recording, self._reference, self._settings, loopback=self._loopback
+            )
         except RoomScopeError as exc:
             self.failed.emit(str(exc))
         except Exception as exc:
@@ -39,6 +47,8 @@ class AnalysisWorker(QThread):
 class MeasureWorker(QThread):
     succeeded = Signal(object)
     failed = Signal(str)
+    progress = Signal(float)
+    stopped = Signal()
 
     def __init__(
         self,
@@ -47,32 +57,42 @@ class MeasureWorker(QThread):
         *,
         input_device: int | None,
         output_device: int | None,
-        input_channel: int,
+        input_channels: Sequence[int],
         output_channel: int,
         level_dbfs: float,
+        backend: str | None = None,
     ) -> None:
         super().__init__()
         self._signal = signal
         self._sample_rate = sample_rate
         self._input_device = input_device
         self._output_device = output_device
-        self._input_channel = input_channel
+        self._input_channels = list(input_channels)
         self._output_channel = output_channel
         self._level_dbfs = level_dbfs
+        self._backend = backend
+        self._cancel = threading.Event()
+
+    def request_stop(self) -> None:
+        self._cancel.set()
 
     def run(self) -> None:
-        from roomscope.audio.playrec import play_and_record
+        from roomscope.audio.backend import get_backend
 
         try:
-            recording = play_and_record(
+            recording = get_backend(self._backend).play_and_record(
                 self._signal,
                 self._sample_rate,
                 input_device=self._input_device,
                 output_device=self._output_device,
-                input_channel=self._input_channel,
+                input_channels=self._input_channels,
                 output_channel=self._output_channel,
                 level_dbfs=self._level_dbfs,
+                progress=self.progress.emit,
+                cancel=self._cancel,
             )
+        except MeasurementCancelled:
+            self.stopped.emit()
         except RoomScopeError as exc:
             self.failed.emit(str(exc))
         except Exception as exc:

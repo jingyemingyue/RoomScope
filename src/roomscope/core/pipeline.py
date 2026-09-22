@@ -37,6 +37,12 @@ from roomscope.core.deconvolution import (
     locate_impulse_response,
 )
 from roomscope.core.frequency_response import frequency_response
+from roomscope.core.loopback import (
+    LOOPBACK_FR_REFERENCE,
+    assess_loopback,
+    compensate,
+    make_loopback_result,
+)
 from roomscope.core.linearity import aliased_distortion_levels, detect_clipping
 from roomscope.core.noise import analyze_noise, quiet_segment_candidates, sweep_level_dbfs
 from roomscope.core.placement import estimate_placement
@@ -66,7 +72,11 @@ from roomscope.models.result import (
     ExcitationBand,
     HarmonicDistortion,
     ImpulseResponseResult,
+    LoopbackResult,
     NoiseResult,
+    PlacementLength,
+    PlacementResult,
+    Validity,
 )
 from roomscope.version import __version__
 
@@ -384,17 +394,148 @@ def _decay_unreliable_reasons(
     return reasons
 
 
+def _select_mic_and_loopback(
+    recording: AudioSignal,
+    settings: AnalysisSettings,
+    loopback: AudioSignal | None,
+) -> tuple[FloatArray, int, str | None, FloatArray | None, int | None]:
+    """Return ``(mic, mic_channel, warning, loopback_samples, loopback_channel)``.
+
+    ``loopback`` is a separate file; ``settings.loopback_channel`` is a 0-based
+    channel of ``recording``. They must not name the same samples as the
+    microphone. A two-channel DAW export uses the channel setting.
+    """
+    lb_channel = settings.loopback_channel
+    if loopback is not None and recording.sample_rate != loopback.sample_rate:
+        raise SampleRateMismatchError(
+            "the loopback file and the recording have different sample rates; "
+            "export both from the same take"
+        )
+    if lb_channel is not None and lb_channel >= recording.n_channels:
+        raise InvalidAudioError(
+            f"loopback_channel {lb_channel} does not exist "
+            f"(recording has {recording.n_channels} channel(s))"
+        )
+    if lb_channel is not None and settings.channel is not None and lb_channel == settings.channel:
+        raise ConfigurationError("loopback_channel must differ from the microphone channel")
+
+    if settings.channel is None and lb_channel is not None and recording.n_channels > 1:
+        rms = np.sqrt(np.mean(recording.samples.astype(np.float64) ** 2, axis=0))
+        scores = rms.copy()
+        scores[lb_channel] = -1.0
+        channel = int(np.argmax(scores))
+        warning = (
+            f"recording has {recording.n_channels} channels; channel {channel} (highest RMS "
+            f"excluding loopback channel {lb_channel}) was analysed"
+        )
+        mono = recording.channel(channel)
+    else:
+        mono, channel, warning = recording.select_channel(settings.channel)
+
+    lb_samples: FloatArray | None = None
+    reported_channel: int | None = None
+    if loopback is not None:
+        if loopback.n_channels == 1:
+            lb_samples = loopback.channel(0)
+        elif lb_channel is not None and lb_channel < loopback.n_channels:
+            lb_samples = loopback.channel(lb_channel)
+            reported_channel = lb_channel
+        else:
+            lb_samples = loopback.channel(0)
+        reported_channel = reported_channel if reported_channel is not None else None
+        tol = round(RECORDING_START_TOLERANCE_S * recording.sample_rate)
+        if abs(lb_samples.shape[0] - mono.shape[0]) > tol:
+            raise InvalidAudioError(
+                "the loopback file and the recording differ in length by more than "
+                f"{RECORDING_START_TOLERANCE_S * 1000.0:.0f} ms; export both from the same take"
+            )
+        if lb_samples.shape[0] < mono.shape[0]:
+            lb_samples = np.pad(lb_samples, (0, mono.shape[0] - lb_samples.shape[0]))
+        elif lb_samples.shape[0] > mono.shape[0]:
+            lb_samples = np.asarray(lb_samples[: mono.shape[0]], dtype=np.float64)
+    elif lb_channel is not None:
+        lb_samples = recording.channel(lb_channel)
+        reported_channel = lb_channel
+    return mono, channel, warning, lb_samples, reported_channel
+
+
+def _locate_pass(
+    h_full: FloatArray,
+    *,
+    recording_length: int,
+    prepared: _PreparedReference,
+    settings: AnalysisSettings,
+    sample_rate: int,
+) -> LocatedImpulseResponse:
+    fade_in_s = prepared.sweep_settings.fade_in_s if prepared.sweep_settings is not None else 0.0
+    return locate_impulse_response(
+        h_full,
+        recording_length=recording_length,
+        reference_length=prepared.reference_length,
+        sample_rate=sample_rate,
+        pre_delay_ms=settings.ir_pre_delay_ms,
+        max_length_s=settings.ir_max_length_s,
+        sweep_rate_s=prepared.sweep_rate_s,
+        start_tolerance_samples=round((fade_in_s + RECORDING_START_TOLERANCE_S) * sample_rate),
+    )
+
+
+def _placement_against_loopback_bound(
+    placement: PlacementResult,
+    loopback: LoopbackResult,
+    distance_m: float | None,
+) -> PlacementResult:
+    """Mark placement unreliable when the tape is longer than the path-delay bound."""
+    bound = loopback.distance_upper_bound_m
+    if (
+        not loopback.compensation_applied
+        or bound is None
+        or distance_m is None
+        or distance_m <= bound
+    ):
+        return placement
+    from dataclasses import replace
+
+    reason = (
+        f"the tape-measured loudspeaker distance ({distance_m:.2f} m) exceeds the "
+        f"loopback path-delay bound ({bound:.2f} m); the tape cannot be longer than "
+        "what sound had time to travel"
+    )
+
+    def mark(length: PlacementLength) -> PlacementLength:
+        joined = "; ".join(part for part in (length.reason, reason) if part)
+        if length.validity is Validity.VALID:
+            return replace(length, validity=Validity.UNRELIABLE, reason=joined)
+        return replace(length, reason=joined or reason)
+
+    return replace(
+        placement,
+        source_height_m=mark(placement.source_height_m),
+        ceiling_height_m=mark(placement.ceiling_height_m),
+        horizontal_separation_m=mark(placement.horizontal_separation_m),
+        notes=(*placement.notes, reason),
+    )
+
+
 def analyze(
     recording: AudioSignal,
     reference: Reference,
     settings: AnalysisSettings | None = None,
+    *,
+    loopback: AudioSignal | None = None,
 ) -> AnalysisResult:
-    """Run the full v0.1 analysis chain and return an :class:`AnalysisResult`."""
+    """Run the analysis chain and return an :class:`AnalysisResult`.
+
+    ``loopback`` is an optional separate electrical-return recording. A channel
+    of ``recording`` can be used instead via ``settings.loopback_channel``.
+    """
     settings = settings or AnalysisSettings()
     sample_rate = recording.sample_rate
     warnings: list[str] = []
 
-    mono, channel, channel_warning = recording.select_channel(settings.channel)
+    mono, channel, channel_warning, lb_samples, lb_channel = _select_mic_and_loopback(
+        recording, settings, loopback
+    )
     if channel_warning:
         warnings.append(channel_warning)
     clipping, validation_warnings = _validate_recording(mono, sample_rate)
@@ -404,17 +545,64 @@ def analyze(
     warnings.extend(prepared.warnings)
 
     h_full = deconvolve(mono, prepared.inverse)
-    fade_in_s = prepared.sweep_settings.fade_in_s if prepared.sweep_settings is not None else 0.0
-    located = locate_impulse_response(
+    located = _locate_pass(
         h_full,
         recording_length=mono.shape[0],
-        reference_length=prepared.reference_length,
+        prepared=prepared,
+        settings=settings,
         sample_rate=sample_rate,
-        pre_delay_ms=settings.ir_pre_delay_ms,
-        max_length_s=settings.ir_max_length_s,
-        sweep_rate_s=prepared.sweep_rate_s,
-        start_tolerance_samples=round((fade_in_s + RECORDING_START_TOLERANCE_S) * sample_rate),
     )
+    loopback_result: LoopbackResult | None = None
+    if lb_samples is not None:
+        try:
+            lb_clipping, _lb_notes = _validate_recording(lb_samples, sample_rate)
+            h_lb = deconvolve(lb_samples, prepared.inverse)
+            lb_located = _locate_pass(
+                h_lb,
+                recording_length=lb_samples.shape[0],
+                prepared=prepared,
+                settings=settings,
+                sample_rate=sample_rate,
+            )
+            assessment = assess_loopback(
+                lb_located, h_lb, sample_rate, clipped=lb_clipping.clipped
+            )
+        except (InvalidAudioError, AnalysisError) as exc:
+            loopback_result = LoopbackResult(
+                channel=lb_channel,
+                compensation_applied=False,
+                reason=str(exc),
+            )
+        else:
+            mic_peak = located.peak_index
+            if assessment.accepted and assessment.fir is not None:
+                h_full = compensate(
+                    h_full, assessment.fir, sample_rate, prepared.excitation_band
+                )
+                located = _locate_pass(
+                    h_full,
+                    recording_length=mono.shape[0],
+                    prepared=prepared,
+                    settings=settings,
+                    sample_rate=sample_rate,
+                )
+            loopback_result = make_loopback_result(
+                channel=lb_channel,
+                assessment=assessment,
+                sample_rate=sample_rate,
+                reference_length=prepared.reference_length,
+                mic_peak_index=mic_peak,
+                temperature_c=settings.placement_temperature_c,
+                compensation_applied=bool(assessment.accepted and assessment.fir is not None),
+            )
+        if loopback_result.compensation_applied:
+            warnings.append(
+                "loopback compensation applied: the frequency response is relative to "
+                "the interface return"
+            )
+        elif loopback_result.reason:
+            warnings.append(loopback_result.reason)
+
     ir = located.samples
     ir_notes: list[str] = []
     # The excitation band is what later stages (decay, frequency response,
@@ -502,6 +690,7 @@ def analyze(
         first_sweep_start_in_recording_s=located.first_sweep_start_index_in_recording / sample_rate,
         harmonic_distortion=harmonics,
         aliased_distortion=aliased,
+        loopback=loopback_result,
     )
 
     decay = _analyze_decay_of_pass(h_full, located, sample_rate, settings, band)
@@ -518,6 +707,11 @@ def analyze(
     fr_segment, fr_direct = _segment_around_pass(
         h_full, located, sample_rate, frequency_response_lead_in_s(band, settings)
     )
+    fr_reference = (
+        LOOPBACK_FR_REFERENCE
+        if loopback_result is not None and loopback_result.compensation_applied
+        else None
+    )
     response = frequency_response(
         fr_segment,
         sample_rate,
@@ -525,6 +719,7 @@ def analyze(
         window_s=settings.fr_window_s,
         smoothing_fraction=settings.fr_smoothing_fraction,
         excitation_band=band,
+        reference=fr_reference,
     )
     # A gate hides exactly the long decays the resonance search looks for, so
     # that search always uses the ungated response.
@@ -588,6 +783,10 @@ def analyze(
         mic_height_m=settings.placement_mic_height_m,
         temperature_c=settings.placement_temperature_c,
     )
+    if loopback_result is not None:
+        placement = _placement_against_loopback_bound(
+            placement, loopback_result, settings.placement_distance_m
+        )
     resonances = detect_potential_resonances(
         fr_segment,
         sample_rate,

@@ -6,9 +6,9 @@ Mode work on systems without a usable PortAudio backend.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
+from roomscope.audio.backend import DeviceInfo
 from roomscope.errors import AudioBackendUnavailableError, AudioDeviceError
 
 
@@ -21,26 +21,6 @@ def sounddevice_module() -> Any:
             "Standalone Mode needs it, Universal DAW Mode does not"
         ) from exc
     return sounddevice
-
-
-@dataclass(frozen=True)
-class DeviceInfo:
-    index: int
-    name: str
-    host_api: str
-    max_input_channels: int
-    max_output_channels: int
-    default_sample_rate: float
-    is_default_input: bool
-    is_default_output: bool
-
-    @property
-    def is_input(self) -> bool:
-        return self.max_input_channels > 0
-
-    @property
-    def is_output(self) -> bool:
-        return self.max_output_channels > 0
 
 
 def list_devices() -> list[DeviceInfo]:

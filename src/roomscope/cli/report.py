@@ -81,6 +81,26 @@ def format_report(
         f"(pre-peak margin {margin})"
     )
     lines.append(f"Sweep found at {ir.sweep_start_in_recording_s:.2f} s in the recording.")
+    if ir.loopback is not None:
+        lb = ir.loopback
+        if lb.compensation_applied:
+            delay = (
+                f"{lb.path_delay_ms:.2f} ms" if lb.path_delay_ms is not None else "n/a"
+            )
+            bound = (
+                f"{lb.distance_upper_bound_m:.2f} m"
+                if lb.distance_upper_bound_m is not None
+                else "n/a"
+            )
+            lines.append(
+                f"Loopback: compensated; electrical path delay {delay}; "
+                f"distance upper bound {bound}."
+            )
+        else:
+            lines.append(
+                "Loopback: offered but not applied"
+                + (f" ({lb.reason})" if lb.reason else ".")
+            )
     lines.append("")
     lines.append("Reverberation (extrapolated to 60 dB; 'insuff.' = insufficient decay range)")
     lines.append(
