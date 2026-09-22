@@ -55,10 +55,65 @@ def _from_names(name: str, version: str, names: Iterable[str]) -> PackageAudit:
     return PackageAudit(name, version, natives, licenses, asio, ttconv)
 
 
+def _on_disk_natives(dist: object) -> list[str]:
+    """Native files next to an installed dist (RECORD may omit ``.dylibs/``)."""
+    name = str(getattr(dist, "name", "") or "")
+    candidates = [name, name.lower(), name.replace("-", "_")]
+    if name.lower() == "pillow":
+        candidates.append("PIL")
+    if name.lower() == "soundfile":
+        candidates.append("_soundfile_data")
+    if name.lower() == "sounddevice":
+        candidates.append("_sounddevice_data")
+    roots: list[Path] = []
+    locate = getattr(dist, "locate_file", None)
+    if locate is None:
+        return []
+    site: Path | None = None
+    for rel in candidates:
+        if not rel:
+            continue
+        try:
+            path = Path(locate(rel))
+        except (OSError, TypeError, ValueError):
+            continue
+        if path.is_dir():
+            roots.append(path)
+            site = path.parent
+            dylibs = path / ".dylibs"
+            if dylibs.is_dir():
+                roots.append(dylibs)
+            libs = path.parent / f"{path.name}.libs"
+            if libs.is_dir():
+                roots.append(libs)
+    if not roots:
+        return []
+    found: list[str] = []
+    seen: set[str] = set()
+    for root in roots:
+        for path in root.rglob("*"):
+            if not path.is_file():
+                continue
+            try:
+                rel_name = (
+                    str(path.relative_to(site)).replace("\\", "/")
+                    if site is not None
+                    else path.name
+                )
+            except ValueError:
+                rel_name = path.name
+            if rel_name in seen or not _is_native(rel_name):
+                continue
+            seen.add(rel_name)
+            found.append(rel_name)
+    return found
+
+
 def audit_installed(name: str) -> PackageAudit:
     dist = distribution(name)
-    files = [str(item) for item in (dist.files or ())]
-    return _from_names(name, dist.version, files)
+    names = [str(item).replace("\\", "/") for item in (dist.files or ())]
+    names.extend(_on_disk_natives(dist))
+    return _from_names(name, dist.version, list(dict.fromkeys(names)))
 
 
 def audit_wheel(path: Path) -> PackageAudit:

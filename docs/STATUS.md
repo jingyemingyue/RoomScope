@@ -33,6 +33,11 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 20: 2026-09-22 — macOS wheel audit walks `.dylibs/`:
+`importlib.metadata` RECORD on the runner omitted numpy's hidden
+`.dylibs/` folder, so the OS-aware test still failed. `audit_installed`
+now merges on-disk natives next to the package. Hardware cells empty.
+
 Snapshot 19: 2026-09-22 — M7 CLI output + README §6.4:
 remaining CLI messages (sweep next steps, devices table,
 measure/progress, error prefixes, argparse -h/--version) go

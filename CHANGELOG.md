@@ -41,7 +41,9 @@ All notable changes to RoomScope are documented here. The format follows
   ASIO present, macOS `.dylibs/`) instead of the Linux list only.
   Remaining CLI messages (sweep next steps, devices table, measure
   progress, error prefixes, argparse `-h` / `--version`) go through
-  gettext. README states the §6.4 platform set.
+  gettext. README states the §6.4 platform set. The wheel audit
+  merges on-disk natives so macOS ``.dylibs/`` is visible when RECORD
+  omits that hidden folder.
   `load_comparison` and `roomscope show comparison.json` re-derive
   findings (they are never stored); the Compare GUI lists matched
   resonances; the user guide names every Results tab and the
