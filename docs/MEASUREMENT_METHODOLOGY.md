@@ -198,20 +198,129 @@ distinguishable only when it is ≥ 2× the filter ringing.
 **Limitations.** "Potential resonance" only. Identifying a room mode needs
 room dimensions and several positions; RoomScope does not claim it.
 
+## 7a. Placement geometry
+
+**Source.** The image-source construction for a plane reflector is standard
+(Allen & Berkley 1979 [17] is the canonical *forward* method). The identity
+used here is elementary algebra from it and was implemented clean-room; no
+code was taken from any image-source library (see `docs/CODE_PROVENANCE.md`).
+The published route to *full* room geometry from echoes — room-shape-from-
+echoes / echo sorting, Dokmanić et al. (2013) [18] and the echo-labelling
+work following it — requires a microphone array or several positions and is
+deliberately **not** implemented (§9).
+
+**What is identifiable.** With `s` and `r` the perpendicular distances of
+loudspeaker and microphone from a plane, `d` their straight-line separation,
+`u = s + r` and `v = s − r`, a first-order arrival of excess path `c·δ` gives
+
+    L² − d² = u² − v² = 4·s·r ,   so   P := s·r = c·δ·(2d + c·δ)/4
+
+exactly, with no assumption about room shape. Four independent arrival
+equations constrain six unknowns: the deficit is **three** without a measured
+`d` and **two** with it. The residual freedom is exactly the *direction* of
+the loudspeaker-to-microphone vector, and every direction reproduces the
+measured arrival times, so no coordinate, room length, room width or wall
+distance is derivable from one omnidirectional microphone at one position.
+The rank of the observation map is asserted in
+`tests/unit/test_placement.py::test_single_position_identifiability_is_what_the_docstring_claims`
+rather than only stated here.
+
+**Procedure** (`core/placement.py`), one code path degrading by tier:
+
+* **Tier 0** (temperature only): each candidate's excess path in metres,
+  `c = 331.3·√(1 + T/273.15)` (343.2 m/s at 20 °C; numerically the ISO 9613-1
+  form). 20 °C is assumed when none is given, and `temperature_assumed`
+  records that it was.
+* **Tier 1** (`--speaker-distance`): per candidate `P`, its square root
+  `√P` — the geometric mean of the two perpendicular distances, so the nearer
+  of the pair is at most `√P` and the farther at least `√P` — the exact
+  two-sided bracket `[√P, L/2]` on their *arithmetic* mean, and the specular
+  ceiling `20·log₁₀(d/L)`.
+* **Tier 2** (`--mic-height`): `s = P/h`, the plane above both devices
+  `H = (u + √(L_upper² − d² + v²))/2`, and `q = √(d² − v²)`.
+
+The tier-2 question is phrased as *the first solid horizontal surface below
+the microphone* — the desk top at a desk, otherwise the floor. That dissolves
+the desk-versus-floor ambiguity by definition; no acoustic evidence from one
+omnidirectional microphone could resolve it.
+
+**Thresholds by tier of justification.** Tier 1, no free choice: the specular
+ceiling. Tier 2, physical plausibility deliberately wide: loudspeaker
+0.10–3.00 m, plane above 1.80–6.00 m with 0.30 m clearance. Tier 3,
+RoomScope engineering choices calibrated against synthetic arrivals, not
+standards: `MAX_SURFACE_ATTENUATION_DB = 12`,
+`SPECULAR_EXCESS_TOLERANCE_DB = 2`, `HEIGHT_AGREEMENT_M = 0.08`,
+`CEILING_AGREEMENT_M = 0.12`, `MAX_HYPOTHESIS_CANDIDATES = 8`.
+
+The level screen is **tier 3, not geometry**: it assumes a point source in a
+free field, an infinite rigid plane, and that a broadband peak-held envelope
+peak may be compared with an on-axis level. It is used only to *withhold* an
+attribution, never to assert what an arrival is.
+
+**Refusals.** Unique-or-refuse throughout: when two arrivals both survive the
+gates and disagree by more than the agreement threshold, every competing value
+is listed and none is chosen — picking the earliest is wrong exactly in the
+commonest setup (a desk edge arrives before the desk top) and picking the
+loudest is wrong whenever the lower plane is carpeted. Nothing at all is
+reported when direct-sound confidence is not `high`, because every delay is
+measured from that origin.
+
+**Limitations.** The reported `input_uncertainty_m` propagates the stated
+tape, temperature and peak-location uncertainties **only**; model error
+(flatness, rigidity, first-order specularity, and the user having measured to
+a different plane than the one that reflected) is excluded and is usually
+larger. The reflection search resolves arrivals no closer than 0.3 ms, so a
+microphone near the vertical midpoint of a room produces one merged peak
+instead of a floor and a ceiling arrival; when no separate upper plane is
+found and a plausible one would have merged with the arrival used, the height
+is marked `unreliable` and the user is told to move the microphone 20–30 cm
+and measure again. A truncated search window does not drop arrivals at
+random — it drops the longest paths first — so any height derived from what
+remains is biased low, and that is stated rather than implied.
+
 ## 8. Interpretation layer
 
 Findings are produced from the result by a recording profile
-(`interpretation/profiles.py`), never by the DSP. The generic profile flags:
-low direct-sound confidence, clipping, insufficient decay range, early
-reflections ≥ −10 dB within 30 ms, RT60 ≥ 0.6 s (notice) or ≥ 1.0 s
-(warning), low bands decaying > 1.5× slower than mid bands, mains hum, and
-distinguishable resonance candidates. Thresholds are coarse engineering
-choices and are stated in each finding's evidence.
+(`interpretation/profiles.py`), never by the DSP. The interface is fixed in
+v0.1 so profiles can be added without touching the DSP; every profile shares
+the measurement-integrity checks — low direct-sound confidence, clipping,
+insufficient decay range — and the low-band / mid-band imbalance rule
+(low bands decaying > 1.5× slower than mid bands), and keeps its own
+thresholds and wording for reflections, decay, noise and resonances.
+Thresholds are coarse engineering choices and are stated in each finding's
+evidence.
+
+The seven profiles and their section thresholds:
+
+| Profile | Reflection (≥ dB re direct, ≤ ms) | RT60 notice / warning (s) | Notes |
+| --- | --- | --- | --- |
+| generic | −10 / 30 | 0.6 / 1.0 | Default; any close-miked recording |
+| vocal | −12 / 25 | 0.5 / 0.8 | Close-miked lead or backing vocals; noise advice assumes compression |
+| voiceover | −14 / 20 | 0.4 / 0.7 | Voice-over, narration, audiobook; flags the weakest reflections |
+| acoustic_guitar | −10 / 30 | 0.7 / 1.1 | Comb filtering from early reflections |
+| drums | −6 / 20 | 0.8 / 1.2 | Only a hard slap is reported; noise findings skipped (the kit masks the floor) |
+| room_mic | −5 / 40 | 0.9 / 1.4 | The room is the instrument; long decay is not automatically a defect |
+| choir | −12 / 30 | 0.8 / 1.3 | Ensembles: decay helps ambience but blurs diction |
+
+The default is `generic`; `roomscope analyze --profile vocal` and the GUI
+profile selector pick another. The report prints the profile name
+(`Interpretation (vocal profile):`) so the advice is never mistaken for
+room-agnostic truth.
 
 ## 9. Things RoomScope deliberately does not do
 
 No room score, no auto-EQ or correction, no dB SPL without calibration, no
 room-mode identification, no plug-in hosting, no spatial averaging.
+
+No room geometry beyond the vertical axis of §7a: no coordinates, no room
+length or width, and no wall is ever named. The published method for the full
+problem — room shape from echoes / echo sorting, Dokmanić et al. (2013) [18] —
+needs a microphone array or several measurement positions, which RoomScope
+does not require of its users. Two microphone positions with a fixed
+loudspeaker would be *exactly* determined (twelve equations, twelve unknowns),
+which means a zero residual would prove nothing about whether the surfaces
+were assigned correctly; any future multi-position support must therefore ship
+with a redundant third position, not with two.
 
 ## 10. Patents
 
@@ -227,6 +336,9 @@ receiver devices). Room-*correction* filter design is densely patented
 and reports only.
 
 ## References
+
+17. J. B. Allen and D. A. Berkley, "Image method for efficiently simulating small-room acoustics," J. Acoust. Soc. Am. 65(4), 943-950, 1979. (confirmed, primary text) — forward image-source model; cited as the origin of the construction, not as a method for the inverse problem.
+18. I. Dokmanić, R. Parhizkar, A. Walther, Y. M. Lu and M. Vetterli, "Acoustic echoes reveal room shape," PNAS 110(30), 12186-12191, 2013. (confirmed, primary text) — the canonical published route to full room geometry from echoes; named here because RoomScope declines it, see §9.
 
 1. A. Farina, "Simultaneous Measurement of Impulse Response and Distortion with a Swept-Sine Technique," AES 108th Convention, Paris, 2000, preprint 5093. (confirmed, primary text)
 2. A. Farina, "Advancements in Impulse Response Measurements by Sine Sweeps," AES 122nd Convention, Vienna, 2007, paper 7121. (confirmed, primary text)
