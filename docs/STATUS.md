@@ -100,8 +100,12 @@ as evidence):
   selection; WAV-only reference (spectral inverse) and resampled reference;
   loudspeaker distortion (2nd/3rd order) leaves the linear IR clean; CLI
   round trip incl. JSON; session save/load/re-open (`load_measurement`,
-  `roomscope show`, GUI File → Open and Home recent/browse); GUI DAW-mode
-  flow offscreen.
+  `roomscope show`, GUI File → Open and Home recent/browse); two synthetic
+  positions compare with a validity on every decay delta and a noise delta
+  that stays UNRELIABLE until `same_input_gain` is declared; `roomscope
+  schema` matches the shipped files; the Tier 1 export list matches
+  ARCHITECTURE_V1.md §5.1; GUI DAW-mode flow and pick-two compare
+  offscreen.
 * macOS basic run: `roomscope sweep`, `roomscope analyze`,
   `roomscope devices` (12 Core Audio devices listed), the example script,
   and the GUI (offscreen) ran successfully. **Not run:** a real Standalone
