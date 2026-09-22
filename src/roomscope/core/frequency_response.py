@@ -3,6 +3,25 @@
 The raw magnitude is the FFT of the (optionally time-windowed) impulse
 response and is always kept. Smoothing is a configurable fractional-octave
 power average computed *from* the raw curve and stored separately.
+
+Gating and resolution
+---------------------
+The analysed segment starts ``lead_in_s`` before the *direct sound* and ends
+``window_s`` after it. Counting the gate from the direct sound instead of from
+the first sample makes it independent of the display pre-delay, and the end
+taper can no longer eat into the direct sound: a window shorter than the taper
+plus :data:`MIN_DIRECT_SOUND_S` is refused instead of silently returning an
+empty or attenuated response.
+
+The lead-in keeps the pre-ringing of the band-limited direct sound, which is
+part of its low-frequency content: cutting a few milliseconds before the peak
+costs about 1.5 dB at 31.5 Hz on a loopback.
+
+The FFT is zero-padded to a fine bin spacing, which *interpolates* the
+spectrum; it does not add resolution. Both numbers are reported:
+``bin_spacing_hz`` (the distance between exported points) and
+``resolution_hz`` = 1 / analysed duration (the width of the narrowest feature
+that can be separated).
 """
 
 from __future__ import annotations
@@ -10,10 +29,15 @@ from __future__ import annotations
 import numpy as np
 
 from roomscope.core.filters import fractional_octave_smooth
+from roomscope.errors import ConfigurationError
 from roomscope.models.audio import FloatArray
-from roomscope.models.result import FrequencyResponseResult
+from roomscope.models.result import ExcitationBand, FrequencyResponseResult
 
 _EPS = 1e-300
+
+#: A gate must keep at least this much of the impulse response after the
+#: direct sound, on top of the end taper.
+MIN_DIRECT_SOUND_S = 0.001
 
 
 def _taper_end(segment: FloatArray, sample_rate: int, taper_ms: float) -> FloatArray:
@@ -31,24 +55,44 @@ def frequency_response(
     ir: FloatArray,
     sample_rate: int,
     *,
+    direct_index: int = 0,
     window_s: float | None = None,
     smoothing_fraction: int = 6,
     min_resolution_hz: float = 1.0,
     end_taper_ms: float = 5.0,
+    excitation_band: ExcitationBand | None = None,
 ) -> FrequencyResponseResult:
     """Magnitude response (dB, relative) of ``ir``.
 
-    ``window_s`` limits the analysed part of the IR (a form of gating); when
-    ``None`` the whole IR is used. The FFT length is chosen so that the
-    frequency resolution is at least ``min_resolution_hz``.
+    ``direct_index`` is the position of the direct sound in ``ir``; everything
+    before it is lead-in and is always analysed. ``window_s`` limits the
+    analysed part *after* the direct sound (a form of gating); ``None`` uses
+    the whole impulse response. The FFT length is chosen so that the bin
+    spacing is at most ``min_resolution_hz``.
+
+    Raises :class:`~roomscope.errors.ConfigurationError` for a window that is
+    shorter than its own end taper plus :data:`MIN_DIRECT_SOUND_S`, which
+    would attenuate or exclude the direct sound.
     """
+    if not 0 <= direct_index < ir.shape[0]:
+        raise ConfigurationError("direct_index is outside the impulse response")
+    taper_s = end_taper_ms / 1000.0
     if window_s is not None:
-        n = max(2, min(ir.shape[0], round(window_s * sample_rate)))
-        segment = _taper_end(ir[:n], sample_rate, end_taper_ms)
-        effective_window = n / sample_rate
+        if window_s < taper_s + MIN_DIRECT_SOUND_S:
+            raise ConfigurationError(
+                f"the frequency-response window ({window_s * 1000.0:.1f} ms) is shorter than its "
+                f"{end_taper_ms:g} ms end taper plus {MIN_DIRECT_SOUND_S * 1000.0:g} ms: it would "
+                "attenuate or exclude the direct sound. Use a longer window"
+            )
+        stop = min(ir.shape[0], direct_index + max(2, round(window_s * sample_rate)) + 1)
+        segment = _taper_end(ir[:stop], sample_rate, end_taper_ms)
     else:
+        stop = ir.shape[0]
         segment = np.asarray(ir, dtype=np.float64)
-        effective_window = segment.shape[0] / sample_rate
+    lead_in_s = direct_index / sample_rate
+    window_after_s = (stop - 1 - direct_index) / sample_rate
+    duration_s = segment.shape[0] / sample_rate
+
     n_min = int(np.ceil(sample_rate / min_resolution_hz))
     nfft = 1 << max(segment.shape[0], n_min).bit_length()
     spectrum = np.fft.rfft(segment, nfft)
@@ -65,5 +109,10 @@ def frequency_response(
         magnitude_db_raw=magnitude_db,
         magnitude_db_smoothed=smoothed,
         smoothing_fraction=smoothing_fraction,
-        window_s=float(effective_window),
+        window_s=float(window_after_s),
+        lead_in_s=float(lead_in_s),
+        resolution_hz=float(1.0 / duration_s) if duration_s > 0.0 else float("inf"),
+        bin_spacing_hz=float(sample_rate / nfft),
+        gated=window_s is not None,
+        excitation_band=excitation_band,
     )

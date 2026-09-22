@@ -1,4 +1,9 @@
-"""Impulse response helpers (envelopes, direct-sound detection)."""
+"""Impulse response envelopes.
+
+The direct sound is *not* located here: it is found on the deconvolved signal
+together with the sweep passes and the detection margin
+(:func:`roomscope.core.deconvolution.locate_impulse_response`).
+"""
 
 from __future__ import annotations
 
@@ -8,10 +13,6 @@ from scipy.signal import hilbert
 from roomscope.models.audio import FloatArray
 
 _EPS = 1e-300
-
-
-def direct_sound_index(ir: FloatArray) -> int:
-    return int(np.argmax(np.abs(ir)))
 
 
 def moving_average(x: FloatArray, window_samples: int) -> FloatArray:

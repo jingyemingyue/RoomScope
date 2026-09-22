@@ -11,7 +11,10 @@ Method
    trend is used as its prominence.
 4. Peaks between ``min_delay_ms`` and ``max_delay_ms`` after the direct sound
    that are above ``threshold_db`` (relative to the direct sound) and have an
-   excess of at least ``prominence_db`` are reported.
+   excess of at least ``prominence_db`` are reported. When the impulse
+   response ends before ``max_delay_ms``, the window that was actually
+   analysed is reported (``analysed_window_ms``, ``window_truncated``): a
+   shorter search must not look like "no reflections found".
 
 The result is a list of *candidate* reflections (delay, level relative to the
 direct sound). In a dense diffuse tail, statistical envelope peaks can still
@@ -67,7 +70,15 @@ def detect_early_reflections(
 
     start = direct_index + round(min_delay_ms * sample_rate / 1000.0)
     stop = min(rel_db.shape[0], direct_index + round(max_delay_ms * sample_rate / 1000.0) + 1)
+    analysed_max_ms = max(0.0, (stop - 1 - direct_index) * 1000.0 / sample_rate)
+    truncated = analysed_max_ms < max_delay_ms - 1e-9
+    analysed_window = (min_delay_ms, analysed_max_ms)
     notes: list[str] = []
+    if truncated:
+        notes.append(
+            f"the impulse response ends {analysed_max_ms:.1f} ms after the direct sound, so only "
+            f"that part of the {min_delay_ms:.0f}-{max_delay_ms:.0f} ms window could be searched"
+        )
     if stop - start < 3:
         notes.append("impulse response is too short after the direct sound for reflection analysis")
         return ReflectionsResult(
@@ -77,6 +88,8 @@ def detect_early_reflections(
             threshold_db=threshold_db,
             reflections=(),
             notes=tuple(notes),
+            analysed_window_ms=analysed_window,
+            window_truncated=truncated,
         )
 
     trend_len = max(3, round(trend_ms * sample_rate / 1000.0))
@@ -114,4 +127,6 @@ def detect_early_reflections(
         threshold_db=threshold_db,
         reflections=tuple(found),
         notes=tuple(notes),
+        analysed_window_ms=analysed_window,
+        window_truncated=truncated,
     )
