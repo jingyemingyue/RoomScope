@@ -158,6 +158,15 @@ class AnalysisSettings:
     #: Required margin between the evaluation range and the noise floor (dB).
     #: ISO 3382-1 requires the decay range to be at least 10 dB above noise.
     decay_noise_margin_db: float = 10.0
+    #: Straight line from the loudspeaker's acoustic centre to the microphone
+    #: capsule (m), measured with a tape. Without it no geometry is reported.
+    placement_distance_m: float | None = None
+    #: Microphone capsule above the first solid horizontal surface below it
+    #: (m) -- the desk top at a desk, otherwise the floor. Needs
+    #: ``placement_distance_m``; on its own it buys nothing.
+    placement_mic_height_m: float | None = None
+    #: Air temperature (C). ``None`` assumes 20 C and records that it did.
+    placement_temperature_c: float | None = None
 
     def __post_init__(self) -> None:
         _require(self.channel is None or self.channel >= 0, "channel must be >= 0 or None")
@@ -181,6 +190,23 @@ class AnalysisSettings:
         _require(self.resonance_max_hz > 20.0, "resonance_max_hz must be > 20 Hz")
         _require(self.resonance_min_prominence_db > 0.0, "resonance_min_prominence_db must be > 0")
         _require(self.decay_noise_margin_db >= 0.0, "decay_noise_margin_db must be >= 0")
+        _require(
+            self.placement_distance_m is None or 0.20 <= self.placement_distance_m <= 15.0,
+            "placement_distance_m must be between 0.20 m and 15 m",
+        )
+        _require(
+            self.placement_mic_height_m is None or 0.02 <= self.placement_mic_height_m <= 5.0,
+            "placement_mic_height_m must be between 0.02 m and 5 m",
+        )
+        _require(
+            self.placement_temperature_c is None or -20.0 <= self.placement_temperature_c <= 50.0,
+            "placement_temperature_c must be between -20 C and 50 C",
+        )
+        _require(
+            self.placement_mic_height_m is None or self.placement_distance_m is not None,
+            "placement_mic_height_m needs placement_distance_m: a height on its own "
+            "cannot be turned into geometry",
+        )
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
