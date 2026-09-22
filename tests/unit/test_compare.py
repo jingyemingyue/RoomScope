@@ -47,7 +47,9 @@ def test_compare_two_synthetic_positions(short_sweep: SweepSettings) -> None:
     findings = interpret_comparison(comparison)
     assert findings
     assert all(f.message for f in findings)
-    assert "significant" not in " ".join(f.message.lower() for f in findings)
+    joined = " ".join(f.message.lower() for f in findings)
+    assert "not enough to call the change significant" in joined
+    assert "the change is significant" not in joined
 
 
 def test_compare_not_comparable_when_band_too_narrow(short_sweep: SweepSettings) -> None:

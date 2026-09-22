@@ -65,8 +65,15 @@ Issues = "https://github.com/jingyemingyue/RoomScope/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/roomscope"]
 
+# JSON files are not picked up by the default Python-package walker.
+# Include each schema file, not the directory: force-including
+# src/roomscope/schemas would add __init__.py twice and fail the wheel.
 [tool.hatch.build.targets.wheel.force-include]
-"src/roomscope/schemas" = "roomscope/schemas"
+"src/roomscope/schemas/result.schema.json" = "roomscope/schemas/result.schema.json"
+"src/roomscope/schemas/session.schema.json" = "roomscope/schemas/session.schema.json"
+"src/roomscope/schemas/comparison.schema.json" = "roomscope/schemas/comparison.schema.json"
+"src/roomscope/schemas/project.schema.json" = "roomscope/schemas/project.schema.json"
+"src/roomscope/schemas/sweep-sidecar.schema.json" = "roomscope/schemas/sweep-sidecar.schema.json"
 
 [tool.hatch.build.targets.sdist]
 include = [
