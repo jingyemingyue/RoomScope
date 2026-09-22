@@ -17,6 +17,12 @@ Snapshot 5: 2026-09-22 — v0.2 reopen and compare: Tier 1 lazy exports,
 lenient loaders, shipped JSON Schemas, `compare()` / CLI / GUI, and
 comparison findings. Hardware validation is still not claimed.
 
+Snapshot 6: 2026-09-22 — 0.2 follow-up after CI on `0ad2a4e`: the
+comparison test now requires the ISO 3382-1 "not significant" disclaimer
+instead of forbidding the word "significant", and the wheel `force-include`
+lists each schema JSON file so `roomscope/schemas/__init__.py` is not
+added twice. Re-verified on Linux x86_64 (Ubuntu, Python 3.12.3).
+
 ## Implemented
 
 | Area | What exists |
@@ -41,20 +47,21 @@ comparison findings. Hardware validation is still not claimed.
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      246 passed  (tests/unit 200, tests/integration 42, tests/ui 4 offscreen)
+pytest      259 passed  (tests/unit 212, tests/integration 42, tests/ui 5 offscreen)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
-mypy        Success: no issues found in 44 source files (strict)
+mypy        Success: no issues found in 54 source files (strict)
 ```
 
-The 2026-09-17 macOS log recorded 256 tests. The suite on this revision
-collects 246: later DSP work replaced a peak-normalised inverse with unit
-in-band gain and consolidated some assertions; the two loopback tests that
-still expected a time-domain peak of 1.0 were updated on 2026-09-22 and now
-pass on Linux. Eight session-reopen tests were added the same day (result
-`from_dict`, `load_measurement`, recent list, `roomscope show`, GUI
-re-open). GUI tests also check that matplotlib's QtAgg backend loads
-against PySide6_Essentials (no Addons).
+The 2026-09-17 macOS log recorded 256 tests. Later DSP work replaced a
+peak-normalised inverse with unit in-band gain and consolidated some
+assertions; the two loopback tests that still expected a time-domain peak
+of 1.0 were updated on 2026-09-22 and pass on Linux. Session-reopen tests
+(result `from_dict`, `load_measurement`, recent list, `roomscope show`,
+GUI re-open) plus the 0.2 compare / schema / Tier 1 lock tests bring the
+suite to 259. GUI tests also check that matplotlib's QtAgg backend loads
+against PySide6_Essentials (no Addons). The 0.2 revision was re-run after
+the compare-disclaimer and wheel-include fixes.
 
 What the tests prove with synthetic signals (no real-room recording is used
 as evidence):

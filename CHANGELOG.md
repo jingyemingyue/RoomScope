@@ -71,6 +71,11 @@ All notable changes to RoomScope are documented here. The format follows
   defines `PySide6.__version__` so matplotlib's QtAgg backend still imports.
 
 ### Fixed
+- Comparison findings quote ISO 3382-1's "not enough to call the change
+  significant" disclaimer. The 0.2 test now requires that wording instead
+  of forbidding the word "significant".
+- The wheel build includes each shipped `*.schema.json` file without
+  adding `roomscope/schemas/__init__.py` twice.
 - The results overview now names the recording profile that produced the
   findings. It previously always printed `generic`.
 - Loopback deconvolution tests asserted a time-domain IR peak of 1.0 after
