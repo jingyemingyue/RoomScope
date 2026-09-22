@@ -175,6 +175,9 @@ class ResultsPage(QWidget):
             )
         )
         ov_layout.addWidget(self.table, 1)
+        self.diagnostics_heading = QLabel(_("Warnings (core diagnostics, always English):"))
+        self.diagnostics_heading.setWordWrap(True)
+        ov_layout.addWidget(self.diagnostics_heading)
         ov_layout.addWidget(self.text, 2)
         self.tabs.addTab(overview, _("Overview"))
 

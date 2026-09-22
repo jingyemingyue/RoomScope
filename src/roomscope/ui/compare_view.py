@@ -34,6 +34,7 @@ from roomscope.interpretation.interpreter import Finding
 from roomscope.io.session_store import load_measurement, save_comparison
 from roomscope.models.comparison import CompareSettings, ComparisonResult
 from roomscope.ui.browser import SessionBrowser
+from roomscope.ui.theme import style_figure
 
 
 class ComparePage(QWidget):
@@ -89,9 +90,19 @@ class ComparePage(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         layout.addWidget(self.table, 1)
 
+        self.reflections = QTableWidget(0, 4)
+        self.reflections.setHorizontalHeaderLabels(
+            ["Status", "Baseline (ms / dB)", "Candidate (ms / dB)", "Δ level (dB)"]
+        )
+        self.reflections.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        layout.addWidget(self.reflections, 1)
+
         self.figure = Figure(figsize=(7.0, 3.2), dpi=100)
         self.canvas = FigureCanvasQTAgg(self.figure)
         layout.addWidget(self.canvas)
+        self.band_mad = QLabel("")
+        self.band_mad.setWordWrap(True)
+        layout.addWidget(self.band_mad)
 
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
@@ -136,7 +147,12 @@ class ComparePage(QWidget):
         self.status.setText(f"{left.directory}  vs  {right.directory}")
 
     def _show(self, comparison: ComparisonResult, findings: list[Finding], profile: str) -> None:
-        rows = list(comparison.decay) + list(comparison.noise) + list(comparison.placement)
+        rows = (
+            list(comparison.decay)
+            + list(comparison.noise)
+            + list(comparison.placement)
+            + list(comparison.loopback)
+        )
         self.table.setRowCount(len(rows))
         for r, item in enumerate(rows):
             values = [
@@ -152,20 +168,45 @@ class ComparePage(QWidget):
                 cell.setFlags(cell.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.table.setItem(r, c, cell)
         self.table.resizeColumnsToContents()
+        self.reflections.setRowCount(len(comparison.reflections))
+
+        def _pair(delay_ms: float | None, level_db: float | None) -> str:
+            if delay_ms is None:
+                return ""
+            if level_db is None:
+                return f"{delay_ms:.2f}"
+            return f"{delay_ms:.2f} / {level_db:.1f}"
+
+        for r, match in enumerate(comparison.reflections):
+            baseline = _pair(match.baseline_delay_ms, match.baseline_relative_db)
+            candidate = _pair(match.candidate_delay_ms, match.candidate_relative_db)
+            delta = "" if match.level_delta_db is None else f"{match.level_delta_db:+.1f}"
+            for c, value in enumerate((match.status, baseline, candidate, delta)):
+                cell = QTableWidgetItem(value)
+                cell.setFlags(cell.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.reflections.setItem(r, c, cell)
+        self.reflections.resizeColumnsToContents()
         self.text.setPlainText(format_comparison_report(comparison, findings, profile))
         self.figure.clear()
         axes = self.figure.add_subplot(111)
         fr = comparison.frequency_response
         if fr is not None and fr.frequencies_hz.size:
-            axes.semilogx(fr.frequencies_hz, fr.difference_db)
+            axes.semilogx(fr.frequencies_hz, fr.difference_db, linestyle="-")
             axes.set_xlabel("Hz")
             axes.set_ylabel("Δ dB")
             axes.set_title("Frequency-response difference (candidate − baseline)")
             axes.grid(True, which="both", alpha=0.3)
+            if fr.band_mad_db:
+                bits = ", ".join(f"{name} {mad:.2f} dB" for name, mad in fr.band_mad_db)
+                self.band_mad.setText(f"Mean absolute difference per octave: {bits}")
+            else:
+                self.band_mad.setText("")
         else:
             axes.text(0.5, 0.5, "No difference curve", ha="center", va="center")
             axes.set_axis_off()
+            self.band_mad.setText("")
         self.figure.tight_layout()
+        style_figure(self.figure)
         self.canvas.draw_idle()
 
     def _save(self) -> None:

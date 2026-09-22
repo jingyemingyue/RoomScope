@@ -11,6 +11,7 @@ def run_app(argv: list[str] | None = None) -> int:
 
     from roomscope.i18n import activate
     from roomscope.ui.main_window import MainWindow
+    from roomscope.ui.theme import apply_application_chrome
 
     activate(None)
     QApplication.setHighDpiScaleFactorRoundingPolicy(
@@ -18,6 +19,7 @@ def run_app(argv: list[str] | None = None) -> int:
     )
     app = QApplication.instance() or QApplication(argv if argv is not None else sys.argv)
     app.setDesktopFileName("roomscope")
+    apply_application_chrome(app)
     window = MainWindow()
     window.show()
     return int(app.exec())

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QStackedWidget
 
 from roomscope import __version__
@@ -102,7 +104,10 @@ class MainWindow(QMainWindow):
         help_menu = self.menuBar().addMenu(_("&Help"))
         about_action = QAction(_("&About RoomScope"), self)
         about_action.triggered.connect(self._about)
+        licenses_action = QAction(_("&Third-party licenses..."), self)
+        licenses_action.triggered.connect(self._open_licenses)
         help_menu.addAction(about_action)
+        help_menu.addAction(licenses_action)
         self.show_home()
 
     def show_home(self) -> None:
@@ -173,3 +178,43 @@ class MainWindow(QMainWindow):
 
     def _about(self) -> None:
         QMessageBox.about(self, _("About RoomScope"), ABOUT_TEXT)
+
+    def _open_licenses(self) -> None:
+        target = license_notice_path()
+        if target is None:
+            QMessageBox.information(
+                self,
+                _("Third-party licenses"),
+                _(
+                    "No THIRD_PARTY_LICENSES directory was found next to this "
+                    "executable. See docs/DEPENDENCIES.md in the source tree."
+                ),
+            )
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
+
+
+def license_notice_path() -> Path | None:
+    """Directory or file the About/Help menus should open for third-party texts."""
+    candidates: list[Path] = []
+    if getattr(sys, "frozen", False):
+        exe = Path(sys.executable).resolve().parent
+        candidates.extend(
+            [
+                exe / "THIRD_PARTY_LICENSES",
+                exe.parent / "Resources" / "THIRD_PARTY_LICENSES",
+            ]
+        )
+    source_root: Path | None = None
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "docs" / "DEPENDENCIES.md").is_file():
+            source_root = parent
+            break
+    if source_root is not None:
+        candidates.append(source_root / "THIRD_PARTY_LICENSES")
+    for path in candidates:
+        if path.is_dir():
+            return path
+    if source_root is not None:
+        return source_root / "docs" / "DEPENDENCIES.md"
+    return None

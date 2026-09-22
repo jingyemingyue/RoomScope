@@ -400,3 +400,12 @@ msgstr "否"
 
 msgid "untested"
 msgstr "未检验"
+
+msgid "&Third-party licenses..."
+msgstr "第三方许可证(&T)..."
+
+msgid "Third-party licenses"
+msgstr "第三方许可证"
+
+msgid "No THIRD_PARTY_LICENSES directory was found next to this executable. See docs/DEPENDENCIES.md in the source tree."
+msgstr "可执行文件旁没有 THIRD_PARTY_LICENSES 目录。源码树中见 docs/DEPENDENCIES.md。"

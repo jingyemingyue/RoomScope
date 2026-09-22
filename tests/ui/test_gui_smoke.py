@@ -293,6 +293,41 @@ def test_compare_two_saved_sessions(
     app.processEvents()
     assert "RoomScope comparison" in window.compare.text.toPlainText()
     assert window.compare.table.rowCount() > 0
+    assert window.compare.reflections.columnCount() == 4
     assert window.compare._comparison is not None
     assert all(item.validity is not None for item in window.compare._comparison.decay)
+    window.close()
+
+
+def test_standalone_shows_requested_and_device_rate(app: QApplication) -> None:
+    window = MainWindow()
+    window.show_mode("demo")
+    app.processEvents()
+    page = window.standalone
+    assert "48000" in page.device_rate.text()
+    page.sample_rate.setCurrentIndex(page.sample_rate.findData(44100))
+    app.processEvents()
+    label = page.device_rate.text()
+    assert "44100" in label
+    assert "48000" in label
+    assert "requested" in label
+    page._check_selected_rates(48000)
+    window.close()
+
+
+def test_help_licenses_and_core_diagnostics_heading(app: QApplication) -> None:
+    from roomscope.ui.main_window import license_notice_path
+
+    notice = license_notice_path()
+    assert notice is not None
+    assert notice.name in {"DEPENDENCIES.md", "THIRD_PARTY_LICENSES"}
+    window = MainWindow()
+    texts = [
+        action.text()
+        for menu in (action.menu() for action in window.menuBar().actions() if action.menu())
+        for action in menu.actions()
+    ]
+    assert any("license" in text.lower() or "许可" in text for text in texts)
+    heading = window.results.diagnostics_heading.text()
+    assert "English" in heading or "英文" in heading
     window.close()

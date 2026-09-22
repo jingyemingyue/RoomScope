@@ -41,6 +41,7 @@ pip install -e ".[dev,gui]"
 pytest                    # unit + integration + offscreen GUI smoke tests
 ruff check . && ruff format --check .
 mypy
+python scripts/build_docs_site.py --out site   # themed docs (S7)
 ```
 
 On Linux, Standalone Mode and the GUI tests also need PortAudio and a few Qt

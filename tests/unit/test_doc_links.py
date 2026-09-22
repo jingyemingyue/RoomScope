@@ -23,6 +23,7 @@ def test_docs_index_lists_user_guide_and_architecture() -> None:
     assert "user-guide/en.md" in text
     assert "ARCHITECTURE_V1.md" in text
     assert "VALIDATION.md" in text
+    assert "build_docs_site.py" in text
 
 
 def test_fixtures_readme_states_cc0_and_empty_table() -> None:

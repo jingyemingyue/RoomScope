@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from roomscope.audio.backend import DeviceInfo
 from roomscope.audio.playrec import (
     DEFAULT_STANDALONE_LEVEL_DBFS,
     SAFE_MAX_LEVEL_DBFS,
@@ -430,6 +431,7 @@ class StandalonePage(QWidget):
         super().__init__(parent)
         self.state = state
         self.demo_mode = False
+        self._devices: list[DeviceInfo] = []
         self._measure_worker: MeasureWorker | None = None
         self._analysis_worker: AnalysisWorker | None = None
         layout = QVBoxLayout(self)
@@ -467,6 +469,10 @@ class StandalonePage(QWidget):
         self.output_channel = QSpinBox()
         self.output_channel.setRange(1, 64)
         self.device_rate = QLabel("Device rate: unknown")
+        self.device_rate.setWordWrap(True)
+        self.input_device.currentIndexChanged.connect(self._update_device_rate)
+        self.output_device.currentIndexChanged.connect(self._update_device_rate)
+        self.sample_rate.currentIndexChanged.connect(self._update_device_rate)
         form.addRow("Input device", self.input_device)
         form.addRow("Output device", self.output_device)
         form.addRow(self.refresh_button)
@@ -539,26 +545,73 @@ class StandalonePage(QWidget):
             backend = get_backend("fake" if self.demo_mode else None)
             devices = backend.list_devices()
         except RoomScopeError as exc:
+            self._devices = []
+            self._update_device_rate()
             self.status.setText(f"Audio backend unavailable: {exc}")
             self.run_button.setEnabled(False)
             return
-        default_rate = None
+        self._devices = list(devices)
         for d in devices:
             label = f"[{d.index}] {d.name} ({d.host_api})"
             if d.is_input:
                 self.input_device.addItem(label + f" - {d.max_input_channels} in", d.index)
             if d.is_output:
                 self.output_device.addItem(label + f" - {d.max_output_channels} out", d.index)
-            if d.is_default_input or d.is_default_output:
-                default_rate = d.default_sample_rate
-        self.device_rate.setText(
-            f"Device rate: {default_rate:.0f} Hz" if default_rate else "Device rate: unknown"
-        )
+        self._update_device_rate()
         self.run_button.setEnabled(True)
         if self.demo_mode:
             self.status.setText("Demo mode: fake backend, no loudspeaker.")
         else:
             self.status.setText(f"{len(devices)} audio device(s) found.")
+
+    def _device_for(self, combo: QComboBox, *, kind: str) -> DeviceInfo | None:
+        index = combo.currentData()
+        for device in self._devices:
+            if index is None:
+                if kind == "input" and device.is_default_input:
+                    return device
+                if kind == "output" and device.is_default_output:
+                    return device
+            elif device.index == index:
+                return device
+        return None
+
+    def _update_device_rate(self) -> None:
+        requested = self.sample_rate.currentData()
+        requested_hz = int(requested) if requested is not None else 0
+        inp = self._device_for(self.input_device, kind="input")
+        out = self._device_for(self.output_device, kind="output")
+        parts: list[str] = []
+        if inp is not None:
+            parts.append(f"in {inp.default_sample_rate:.0f} Hz")
+        if out is not None and (
+            inp is None
+            or out.index != inp.index
+            or abs(out.default_sample_rate - inp.default_sample_rate) > 0.5
+        ):
+            parts.append(f"out {out.default_sample_rate:.0f} Hz")
+        device_txt = ", ".join(parts) if parts else "unknown"
+        text = f"Device rate: {device_txt}  (requested {requested_hz} Hz)"
+        mismatch = False
+        for device in (inp, out):
+            if (
+                device is not None
+                and requested_hz
+                and abs(device.default_sample_rate - requested_hz) > 1.0
+            ):
+                mismatch = True
+        if mismatch:
+            text += " — rates differ; the interface may resample"
+        self.device_rate.setText(text)
+
+    def _check_selected_rates(self, sample_rate: int) -> None:
+        from roomscope.audio.backend import get_backend
+
+        backend = get_backend("fake" if self.demo_mode else None)
+        for kind, combo in (("input", self.input_device), ("output", self.output_device)):
+            device = self._device_for(combo, kind=kind)
+            if device is not None:
+                backend.check_sample_rate(device.index, sample_rate, kind=kind)
 
     def current_sweep_settings(self) -> SweepSettings:
         return SweepSettings(
@@ -580,6 +633,11 @@ class StandalonePage(QWidget):
                 f"Levels above {SAFE_MAX_LEVEL_DBFS:g} dBFS need the acknowledgement checkbox. "
                 "Set the monitor level low first.",
             )
+            return
+        try:
+            self._check_selected_rates(settings.sample_rate)
+        except RoomScopeError as exc:
+            QMessageBox.critical(self, "Sample rate not supported", str(exc))
             return
         self.state.mode = "standalone"
         self.state.sweep_settings = settings

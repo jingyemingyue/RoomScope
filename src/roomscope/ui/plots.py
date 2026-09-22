@@ -12,6 +12,7 @@ from matplotlib.figure import Figure
 
 from roomscope.core.reflections import reflection_envelope_db
 from roomscope.models.result import AnalysisResult, Validity
+from roomscope.ui.theme import style_figure
 
 _EPS = 1e-300
 
@@ -41,6 +42,7 @@ def plot_impulse_response(fig: Figure, result: AnalysisResult) -> None:
     ax2.set_title("Energy-time curve")
     ax2.grid(True, alpha=0.3)
     fig.tight_layout()
+    style_figure(fig)
 
 
 def plot_frequency_response(fig: Figure, result: AnalysisResult) -> None:
@@ -88,6 +90,7 @@ def plot_frequency_response(fig: Figure, result: AnalysisResult) -> None:
     ax.grid(True, which="both", alpha=0.3)
     ax.legend(loc="lower left")
     fig.tight_layout()
+    style_figure(fig)
 
 
 def plot_decay(fig: Figure, result: AnalysisResult) -> None:
@@ -115,6 +118,7 @@ def plot_decay(fig: Figure, result: AnalysisResult) -> None:
     ax.grid(True, alpha=0.3)
     ax.legend(loc="upper right", fontsize="small")
     fig.tight_layout()
+    style_figure(fig)
 
 
 def plot_noise(fig: Figure, result: AnalysisResult) -> None:
@@ -127,6 +131,7 @@ def plot_noise(fig: Figure, result: AnalysisResult) -> None:
         )
         ax.set_axis_off()
         fig.tight_layout()
+        style_figure(fig)
         return
     f = noise.psd_frequencies_hz
     mask = f > 0
@@ -148,6 +153,7 @@ def plot_noise(fig: Figure, result: AnalysisResult) -> None:
     ax.set_title(title + "  [uncalibrated]")
     ax.grid(True, which="both", alpha=0.3)
     fig.tight_layout()
+    style_figure(fig)
 
 
 def plot_reflections(fig: Figure, result: AnalysisResult) -> None:
@@ -181,6 +187,7 @@ def plot_reflections(fig: Figure, result: AnalysisResult) -> None:
     ax.grid(True, alpha=0.3)
     ax.legend(loc="upper right")
     fig.tight_layout()
+    style_figure(fig)
 
 
 def decay_table_rows(result: AnalysisResult) -> list[tuple[str, str, str, str, str]]:

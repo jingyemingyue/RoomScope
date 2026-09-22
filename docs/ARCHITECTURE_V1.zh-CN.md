@@ -54,7 +54,7 @@ v1.0 新增四条：
 
 `analyze-ir` 脉冲响应导入；同一房间多次会话的 T 值空间平均（按 ISO 3382-2 标注精度等级）；
 项目文件夹（一个房间、多个位置）；CSV 导出器与导出器 entry point；GUI 的 Placement 标签页；
-CI 加入 Python 3.14；由 `docs/` 生成的文档站。
+CI 加入 Python 3.14；由 `docs/` 生成的文档站（`scripts/build_docs_site.py`）。
 
 ### 3.3 v1.0 不做（设计上拒绝，或带理由推迟）
 

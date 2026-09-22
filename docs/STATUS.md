@@ -33,6 +33,12 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 13: 2026-09-22 — 1.0-rc S7 / §5.8 remainder: themed docs
+site from `docs/`, dark-mode plot and Qt chrome, device rate next to
+the requested rate with `check_sample_rate` before Standalone
+measure, compare reflections / loopback / MAD, Help → licenses.
+API/schema not frozen. Hardware cells empty.
+
 Snapshot 12: 2026-09-22 — 1.0-rc GUI/supply-chain: keyboard shortcuts
 for File and Measure actions, linestyle-coded plots, Actions pinned
 by SHA. API/schema not frozen. Hardware cells empty.
@@ -76,7 +82,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | Averaging | `average_decay`: VALID T values only; ISO 3382-2 class labelled from Table 1 (secondary-source transcription) |
 | Export | CSV exporter for decay, FR, noise PSD, reflections, resonances; `roomscope.exporters` entry points |
 | i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG` |
-| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare, Demo, Stop, Settings, project-folder browser, tape-measure fields |
+| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
 | Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags |
 
@@ -84,10 +90,10 @@ discovery follows files under `.dist-info/licenses/`; macOS
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      308 passed  (tests/unit 250, tests/integration 42, tests/ui 8 offscreen, tests/robustness 8)
+pytest      316 passed  (tests/unit 255, tests/integration 42, tests/ui 11 offscreen, tests/robustness 8)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
-mypy        Success: no issues found in 68 source files (strict)
+mypy        Success: no issues found in 69 source files (strict)
 ```
 
 The 2026-09-17 macOS log recorded 256 tests. Later DSP work replaced a
@@ -100,7 +106,10 @@ the suite to 259. 0.3 added loopback, the backend protocol and robustness
 tests (283). 0.4 adds i18n, settings, bundles, averaging, CSV, license
 gates and the macOS microphone plist (301). 1.0-rc adds the Placement
 tab, the validation-protocol test and the bundle-lock test (304), then
-the docs-link and fixtures tests (308). GUI tests also check that
+the docs-link and fixtures tests (308), then shortcuts, plot
+linestyles and Action SHA pins (311), then the themed docs site,
+dark-mode plot chrome, device-rate display and compare tables (316).
+GUI tests also check that
 matplotlib's QtAgg backend loads against PySide6_Essentials (no Addons).
 
 What the tests prove with synthetic signals (no real-room recording is used
@@ -191,8 +200,9 @@ algebra and the refusals, not the acoustics of any real surface.
 
 VST3/AU/AAX plug-ins, room score, auto-EQ/correction, cloud/accounts, 3D
 room modelling, absorption material calculators, dB SPL, room-mode
-identification, phase display, a generated documentation site, signed
-desktop installers. Unsigned bundle scaffolding exists (`release.yml`);
+identification, phase display, signed desktop installers. A themed
+documentation site is generated from `docs/` (`scripts/build_docs_site.py`).
+Unsigned bundle scaffolding exists (`release.yml`);
 a person installing a frozen bundle on macOS/Windows is not claimed.
 
 ## Dependencies

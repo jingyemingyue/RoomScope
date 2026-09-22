@@ -15,7 +15,13 @@ All notable changes to RoomScope are documented here. The format follows
   environment `pypi`, maintainer approval); `CODEOWNERS`; docs link
   check; 85 % coverage gate on `core` and `models`; `docs/index.md`
   hub; fixtures README; keyboard shortcuts for every main action;
-  plots use linestyle as well as colour; GitHub Actions pinned by SHA.
+  plots use linestyle as well as colour; GitHub Actions pinned by SHA;
+  themed documentation site (`scripts/build_docs_site.py`, S7);
+  matplotlib / Qt chrome follows the system dark mode; Standalone
+  shows the device rate next to the requested rate and calls
+  `check_sample_rate` before a measurement; Compare lists matched
+  reflections, loopback deltas and per-octave MAD; Help opens the
+  license bundle or `docs/DEPENDENCIES.md`.
   The campaign has not been run; hardware cells stay empty; the
   repository stays private. The API and schemas are **not** frozen.
 - v0.4 for everyone (ARCHITECTURE_V1.md milestone 0.4): gettext with a

@@ -1,7 +1,13 @@
 # RoomScope documentation
 
-This is the documentation hub. GitHub renders the Markdown; a generated
-site (S7) can point at the same files.
+This is the documentation hub. GitHub renders the Markdown. A themed HTML
+site (S7) is generated from these files:
+
+```bash
+python scripts/build_docs_site.py --out site
+```
+
+The generator uses only the standard library. Open `site/index.html`.
 
 ## For users
 
