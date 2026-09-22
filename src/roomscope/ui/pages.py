@@ -31,6 +31,7 @@ from roomscope.audio.playrec import (
 from roomscope.core.pipeline import Reference
 from roomscope.core.sweep import measurement_signal
 from roomscope.errors import RoomScopeError
+from roomscope.i18n import _
 from roomscope.interpretation import available_profiles, interpret
 from roomscope.io.wav import load_reference, read_wav, write_sweep_file
 from roomscope.models.audio import AudioSignal
@@ -62,20 +63,20 @@ class HomePage(QWidget):
         layout = QVBoxLayout(self)
         title = QLabel("RoomScope")
         title.setStyleSheet("font-size: 22px; font-weight: bold;")
-        subtitle = QLabel("An open-source, DAW-independent recording environment analyzer")
+        subtitle = QLabel(_("An open-source, DAW-independent recording environment analyzer"))
         layout.addWidget(title)
         layout.addWidget(subtitle)
         layout.addSpacing(16)
-        layout.addWidget(QLabel("New Measurement"))
-        daw = QPushButton("Universal DAW Mode")
+        layout.addWidget(QLabel(_("New Measurement")))
+        daw = QPushButton(_("Universal DAW Mode"))
         daw.setToolTip(
             "Generate a test signal, play and record it in any DAW, import the recording."
         )
-        standalone = QPushButton("Standalone Mode")
+        standalone = QPushButton(_("Standalone Mode"))
         standalone.setToolTip(
             "RoomScope plays the sweep and records the microphone through your audio interface."
         )
-        demo = QPushButton("Demo (no interface)")
+        demo = QPushButton(_("Demo (no interface)"))
         demo.setToolTip(
             "Run Standalone Mode on the fake backend. Nothing is sent to a loudspeaker."
         )
@@ -86,12 +87,12 @@ class HomePage(QWidget):
         layout.addWidget(standalone)
         layout.addWidget(demo)
         layout.addSpacing(16)
-        layout.addWidget(QLabel("Saved sessions"))
+        layout.addWidget(QLabel(_("Saved sessions")))
         session_row = QHBoxLayout()
-        open_button = QPushButton("Open Session...")
+        open_button = QPushButton(_("Open Session..."))
         open_button.setToolTip("Open a session.json or a folder that contains one.")
         open_button.clicked.connect(self.open_session.emit)
-        compare_button = QPushButton("Compare two sessions...")
+        compare_button = QPushButton(_("Compare two sessions..."))
         compare_button.setToolTip("Pick two saved sessions and compare their metrics.")
         compare_button.clicked.connect(self.compare_requested.emit)
         session_row.addWidget(open_button)

@@ -101,12 +101,12 @@ Added for v1.0:
 | M4 | Comparison of two sessions (core, CLI, GUI, interpretation) *(landed in 0.2)* | The third product question of the brief | §5.3.2 |
 | M5 | Loopback reference channel (DAW export with two channels; Standalone two-channel capture) *(landed in 0.3)* | Removes the interface response from the frequency response and gives the electrical time origin; the largest known bias of the chain | §5.3.1 |
 | M6 | Audio backend interface, fake backend, progress, immediate stop *(landed in 0.3)* | Standalone Mode logic must be testable in CI and safe on real hardware | §5.4 |
-| M7 | Internationalisation framework with a Simplified Chinese catalog for findings, GUI and CLI | "Everyone" includes the project's own first audience | §5.6 |
-| M8 | Self-contained sessions, bug-report bundles, user settings | Support without a screen-share | §5.9, §5.10 |
+| M7 | Internationalisation framework with a Simplified Chinese catalog for findings, GUI and CLI *(landed in 0.4)* | "Everyone" includes the project's own first audience | §5.6 |
+| M8 | Self-contained sessions, bug-report bundles, user settings *(landed in 0.4)* | Support without a screen-share | §5.9, §5.10 |
 | M9 | PyPI release with trusted publishing; desktop bundles for macOS, Windows and Linux with the license bundle and the GPL-module gate | Nobody outside the project installs from git | §6 |
 | M10 | Cross-platform CI, robustness tests for untrusted files, hardware test matrix executed at least once per platform | The public will run it on hardware the maintainer does not own | §7 |
 | M11 | Real-room validation campaign published with its data | The methodology's claims have only synthetic evidence today | §7.4 |
-| M12 | User guide (measure, read, compare, troubleshoot) in English and Chinese | A signed binary without a guide produces wrong measurements | §6.5 |
+| M12 | User guide (measure, read, compare, troubleshoot) in English and Chinese *(landed in 0.4)* | A signed binary without a guide produces wrong measurements | §6.5 |
 | M13 | Public-repository checklist executed *(maintainer decision)* | The release is open only if the repository is | §9.1 |
 
 ### 3.2 SHOULD (planned; slips do not block 1.0)
@@ -114,9 +114,9 @@ Added for v1.0:
 | # | Item | Section |
 | --- | --- | --- |
 | S1 | `roomscope analyze-ir`: analyse an impulse response WAV from another tool | §5.3.3 |
-| S2 | Spatial averaging of T values over several sessions of one room (ISO 3382-2 style, with the accuracy class named) | §5.3.4 |
-| S3 | Project folders (one room, several positions) with a project view in the GUI | §5.9 |
-| S4 | CSV exporter for every curve; exporter entry points | §5.7 |
+| S2 | Spatial averaging of T values over several sessions of one room (ISO 3382-2 style, with the accuracy class named) *(landed in 0.4)* | §5.3.4 |
+| S3 | Project folders (one room, several positions) with a project view in the GUI *(landed in 0.4)* | §5.9 |
+| S4 | CSV exporter for every curve; exporter entry points *(landed in 0.4)* | §5.7 |
 | S5 | Placement tab in the GUI (the text report already has the section) | §5.8 |
 | S6 | Python 3.14 in the CI matrix | §7.1 |
 | S7 | Documentation site generated from `docs/` | §6.5 |

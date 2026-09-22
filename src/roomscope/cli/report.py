@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from roomscope.i18n import _
 from roomscope.interpretation import Finding
 from roomscope.models.comparison import ComparisonResult
 from roomscope.models.result import (
@@ -71,9 +72,13 @@ def format_report(
 ) -> str:
     lines: list[str] = []
     ir = result.impulse_response
-    lines.append("RoomScope analysis")
+    lines.append(_("RoomScope analysis"))
     lines.append("=" * 72)
-    lines.append(f"Sample rate: {result.sample_rate} Hz    created: {result.created_at}")
+    lines.append(
+        _("Sample rate: {rate} Hz    created: {created}").format(
+            rate=result.sample_rate, created=result.created_at
+        )
+    )
     margin = f"{ir.pre_peak_margin_db:.1f} dB" if ir.pre_peak_margin_db is not None else "n/a"
     lines.append(
         f"Impulse response: {ir.samples.shape[0] / result.sample_rate:.2f} s analysed, "
@@ -175,12 +180,12 @@ def format_report(
         lines.append("  none")
     if result.warnings:
         lines.append("")
-        lines.append("Warnings:")
+        lines.append(_("Warnings (core diagnostics, always English):"))
         for warning in result.warnings:
             lines.append(f"  - {warning}")
     if findings:
         lines.append("")
-        lines.append(f"Interpretation ({profile_name} profile):")
+        lines.append(_("Interpretation ({profile} profile):").format(profile=profile_name))
         for finding in findings:
             lines.append(f"  [{finding.severity}] {finding.topic}: {finding.message}")
     return "\n".join(lines)
@@ -192,7 +197,7 @@ def format_comparison_report(
     profile_name: str = "generic",
 ) -> str:
     """Plain-text comparison. Wording may change; this is not a Tier 1 interface."""
-    lines = ["RoomScope comparison", "=" * 72]
+    lines = [_("RoomScope comparison"), "=" * 72]
     if comparison.common_band is not None:
         low, high = comparison.common_band
         lines.append(f"Common excitation band: {low:g}–{high:g} Hz")
@@ -250,7 +255,7 @@ def format_comparison_report(
             lines.append(f"  {item.name}: {item.validity}{extra}")
     if findings:
         lines.append("")
-        lines.append(f"Interpretation ({profile_name} profile):")
+        lines.append(_("Interpretation ({profile} profile):").format(profile=profile_name))
         for finding in findings:
             lines.append(f"  [{finding.severity}] {finding.topic}: {finding.message}")
     return "\n".join(lines)

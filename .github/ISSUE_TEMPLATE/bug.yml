@@ -33,7 +33,9 @@ body:
     id: repro
     attributes:
       label: How to reproduce
-      description: Commands, GUI steps, or a short script. Synthetic inputs are ideal.
+      description: |
+        Commands, GUI steps, or a short script. Synthetic inputs are ideal.
+        A session bundle (`roomscope session bundle <session>`) is welcome.
     validations:
       required: true
   - type: textarea

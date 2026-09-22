@@ -166,10 +166,38 @@ time-reversed filtering.
 **Units.** Seconds; the Schroeder curve in dB relative to its start.
 
 **Limitations.** One source and one microphone position correspond to the
-ISO 3382-2 *survey* level at best; no spatial averaging is performed. Very
+ISO 3382-2 *survey* level at best when unaveraged. `average_decay` (SHOULD)
+spatially averages VALID T values only; see §3a. Very
 short decays in low bands are limited by the filters (B·T rule). The
 truncation parameters differ from those in other packages (ODEON, ITA
 Toolbox), so small systematic differences to other tools are expected [19].
+
+### 3a. Spatial averaging of T values (SHOULD)
+
+**Source.** ISO 3382-2:2008, Table 1 (number of source and microphone
+positions for survey / engineering / precision accuracy) and the rule that
+one averages *T values*, not decay curves (ARCHITECTURE.md §5).
+
+**Procedure** (`core/averaging.py`). `average_decay(results)` takes the
+arithmetic mean of EDT, T20 and T30 per band over the metrics marked VALID
+only, with the count, the spread (max − min) and the contributing session
+labels. Decay curves (`edc_db`) are never averaged. The output names the
+ISO 3382-2 accuracy class reached by the declared source and microphone
+counts.
+
+**Table 1 thresholds** (transcribed from secondary sources, **not verified
+against a purchased copy of ISO 3382-2:2008**):
+
+| Class | Min source positions | Min microphone positions | Min combinations |
+| --- | --- | --- | --- |
+| below_survey | — | — | < 2 |
+| survey | ≥ 1 | ≥ 2 | ≥ 2 |
+| engineering | ≥ 2 | ≥ 3 | ≥ 6 |
+| precision | ≥ 2 | ≥ 6 | ≥ 12 |
+
+RoomScope measurements are one source unless the caller passes
+`n_source_positions`. The class is a label, not a claim of compliance.
+Multi-position *placement* stays out of 1.0 (MEASUREMENT_METHODOLOGY.md §7a).
 
 ## 4. Frequency response
 
@@ -351,7 +379,8 @@ room-agnostic truth.
 ## 9. Things RoomScope deliberately does not do
 
 No room score, no auto-EQ or correction, no dB SPL without calibration, no
-room-mode identification, no plug-in hosting, no spatial averaging.
+room-mode identification, no plug-in hosting. Spatial averaging of T values
+is offered as a SHOULD (`average_decay`); it never averages decay curves.
 
 No room geometry beyond the vertical axis of §7a: no coordinates, no room
 length or width, and no wall is ever named. The published method for the full

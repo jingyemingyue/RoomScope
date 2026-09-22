@@ -28,6 +28,12 @@ Snapshot 7: 2026-09-22 — v0.3 trust the chain: loopback compensation,
 OS matrix, hardware matrix started. Hardware cells are not marked PASS.
 Re-verified on Linux x86_64 (Ubuntu, Python 3.12.3).
 
+Snapshot 8: 2026-09-22 — v0.4 for everyone: gettext + zh-CN, self-contained
+sessions and bundles, user settings, projects/averaging (SHOULD), CSV
+export, user guide, unsigned-bundle pipeline (`release.yml`, license
+bundle, GPL-module gate). Hardware cells are not marked PASS. Re-verified
+on Linux x86_64 (Ubuntu, Python 3.12.3).
+
 ## Implemented
 
 | Area | What exists |
@@ -41,14 +47,18 @@ Re-verified on Linux x86_64 (Ubuntu, Python 3.12.3).
 | Early reflections | ETC peak candidates (delay ms, level dB re direct) with local-trend prominence |
 | Placement geometry | Excess path per candidate; with a tape-measured loudspeaker distance the exact product of perpendicular distances and its two-sided bracket; with a microphone height the vertical axis (loudspeaker height, plane above the devices, horizontal separation). No coordinates, no room length or width, no wall named |
 | Low-frequency resonances | Candidate peaks (< 300 Hz) with narrow-band decay vs. filter ringing comparison |
-| Models & storage | Validated settings; result model with JSON export and `from_dict` load; MeasurementSession (optional `recording_profile`, `roomscope_version`, `platform`); session directory (session.json, result.json, impulse_response.wav); `load_measurement` / `list_sessions`; recent list under `$ROOMSCOPE_HOME`; shipped JSON Schemas; `comparison.json` |
-| Interpretation | Finding model (`message_id` / `params` / `locale`); RecordingProfile interface; seven profiles; `interpret_comparison` using each profile's thresholds |
-| CLI | `roomscope sweep / analyze / analyze-ir / show / compare / schema / devices / measure / gui` |
+| Models & storage | Validated settings; result model with JSON export and `from_dict` load; MeasurementSession; self-contained session directory (session.json, result.json, IR WAV, optional recording.wav, always-copied sweep sidecar); `load_measurement` / `list_sessions` / `bundle_session`; recent list and `settings.json` under `$ROOMSCOPE_HOME`; shipped JSON Schemas; `comparison.json`; `project.json` |
+| Interpretation | Finding model (`message_id` / `params` / `locale`); messages through gettext `_()`; RecordingProfile registry + entry points; seven profiles; `interpret_comparison` |
+| CLI | `roomscope sweep / analyze / analyze-ir / show / compare / schema / devices / measure / gui / session bundle / export / project`; global `--lang`, `--format`, `--backend`, `--copy-recording` |
 | Public API | Lazy Tier 1 exports from `import roomscope` (ARCHITECTURE_V1.md §5.1) |
 | Loopback | Optional electrical return: pulse validation, regularised compensation, path-delay bound; refused room-like or clipped channels leave the analysis uncompensated |
 | Audio backends | `AudioBackend` protocol; PortAudio callback stream (progress, Stop); fake backend for CI and Demo |
-| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results, session save/open, Compare two sessions (deltas + difference curve + same-gain checkbox), Demo, Stop |
+| Averaging | `average_decay`: VALID T values only; ISO 3382-2 class labelled from Table 1 (secondary-source transcription) |
+| Export | CSV exporter for decay, FR, noise PSD, reflections, resonances; `roomscope.exporters` entry points |
+| i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG` |
+| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results, session save/open, Compare, Demo, Stop, Settings, project-folder browser |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
+| Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags |
 
 ## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
@@ -191,20 +201,23 @@ were not copied.
   are noted in MEASUREMENT_METHODOLOGY.md §10 so the design does not drift
   into them. Not a legal opinion.
 
-## Next recommended milestone (v0.4)
+## Next recommended milestone (v1.0-rc)
 
-0.3 exit criteria of [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) §10 that
-can be proven without hardware are implemented on this revision: a
-synthetic interface response is removed within 1.0 dB; Stop silences
-within one callback period on the **fake** backend; the Standalone flow
-is invoked in CI via `--backend fake` on Linux, macOS and Windows.
-[HARDWARE_TESTS.md](HARDWARE_TESTS.md) is started and empty — Stop on
-real hardware is **not** claimed.
+0.4 exit criteria of [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) §10 that
+can be proven without a signed installer are implemented on this
+revision: gettext + zh-CN, self-contained sessions and bug-report
+bundles, user settings, projects/averaging, CSV export, the user guide,
+and the unsigned-bundle pipeline (license bundle with no unresolved
+required package, GPL/ASIO gate, `release.yml` on `v*` tags). A person
+installing a frozen bundle on macOS/Windows is **not** claimed here —
+those artifacts are produced by the release workflow when the maintainer
+pushes a tag. [HARDWARE_TESTS.md](HARDWARE_TESTS.md) is still empty.
 
-The next software milestone is 0.4 (for everyone): gettext + zh-CN,
-self-contained sessions and bundles, user settings, projects/averaging
-(SHOULD), CSV export, the user guide, unsigned desktop bundles.
-Opening the GitHub repository remains a **maintainer decision**.
+The remaining MUST items are 1.0-rc: API/schema freeze, the validation
+campaign (M11), the hardware matrix executed at least once per platform
+(M10), signed bundles or an explicit maintainer decision (M9 remainder),
+SECURITY / CONTRIBUTING / STATUS updated for the freeze, repository
+public (M13, maintainer), pre-release on PyPI (maintainer).
 
 Maintainer-only actions that this work does not do: public visibility flip,
 a numbered GitHub Release, a license change, or rewriting published

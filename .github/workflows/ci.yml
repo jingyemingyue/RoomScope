@@ -153,3 +153,27 @@ jobs:
           pip install dist/*.whl
           python -c "import roomscope; print(roomscope.__version__)"
           roomscope --help
+
+  bundle-gates:
+    name: License bundle and GPL-module gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: pip install -e ".[dev,gui]"
+      - name: Build license bundle
+        run: python scripts/build_license_bundle.py --out /tmp/THIRD_PARTY_LICENSES
+      - name: Gate installed PySide6 Essentials
+        run: |
+          python - <<'PY'
+          import PySide6, pathlib
+          from pathlib import Path
+          import subprocess, sys
+          root = pathlib.Path(PySide6.__file__).parent
+          raise SystemExit(subprocess.call([sys.executable, "scripts/check_bundle_contents.py", "--root", str(root)]))
+          PY

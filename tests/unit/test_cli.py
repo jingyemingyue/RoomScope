@@ -238,6 +238,83 @@ def test_measure_refuses_loud_level_without_acknowledgement(
     assert "acknowledge" in capsys.readouterr().err
 
 
+def test_session_bundle_export_and_project(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sweep = tmp_path / "sweep.wav"
+    assert main(["sweep", "--out", str(sweep), "--duration", "2", "--post-silence", "1.5"]) == 0
+    signal = read_wav(sweep)
+    ir = make_rir(signal.sample_rate, rt60_s=0.4, reflections=[(0.018, 0.35)], diffuse_level=0.02)
+    rec = fftconvolve(signal.samples, ir)[: signal.n_samples + ir.shape[0]]
+    recording = write_wav(tmp_path / "recording.wav", rec, signal.sample_rate, subtype="FLOAT")
+    session = tmp_path / "session"
+    assert (
+        main(
+            [
+                "--copy-recording",
+                "analyze",
+                "--recording",
+                str(recording),
+                "--sweep",
+                str(sweep),
+                "--out",
+                str(session),
+                "--room",
+                "Booth",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert (session / "recording.wav").is_file()
+    assert (session / "sweep.roomscope-sweep.json").is_file()
+    bundle = tmp_path / "report.zip"
+    assert main(["session", "bundle", str(session), "--no-audio", "--out", str(bundle)]) == 0
+    assert bundle.is_file()
+    export_dir = tmp_path / "csv"
+    assert main(["export", str(session), "--format", "csv", "--out", str(export_dir)]) == 0
+    assert (export_dir / "decay_metrics.csv").is_file()
+    project = tmp_path / "room"
+    assert main(["project", "init", "--out", str(project), "--name", "Booth"]) == 0
+    assert main(["project", "add", str(project), str(session), "--position", "desk"]) == 0
+    assert main(["project", "show", str(project)]) == 0
+    shown = capsys.readouterr().out
+    assert "desk" in shown
+    assert main(["project", "average", str(project), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["iso_3382_2_class"] in {"below_survey", "survey", "engineering", "precision"}
+
+
+def test_lang_zh_cn_translates_report(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sweep = tmp_path / "sweep.wav"
+    assert main(["sweep", "--out", str(sweep), "--duration", "2", "--post-silence", "1.5"]) == 0
+    signal = read_wav(sweep)
+    ir = make_rir(signal.sample_rate, rt60_s=0.4, diffuse_level=0.02)
+    rec = fftconvolve(signal.samples, ir)[: signal.n_samples + ir.shape[0]]
+    recording = write_wav(tmp_path / "recording.wav", rec, signal.sample_rate, subtype="FLOAT")
+    assert (
+        main(
+            [
+                "--lang",
+                "zh_CN",
+                "analyze",
+                "--recording",
+                str(recording),
+                "--sweep",
+                str(sweep),
+            ]
+        )
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "RoomScope 分析" in out
+    from roomscope.i18n import activate
+
+    activate("en")
+
+
 def test_fake_backend_devices_and_measure(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

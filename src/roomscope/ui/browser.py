@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from roomscope.errors import RoomScopeError
+from roomscope.i18n import _
 
 
 class SessionBrowser(QWidget):
@@ -31,9 +32,9 @@ class SessionBrowser(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         row = QHBoxLayout()
-        browse = QPushButton("Browse Folder...")
+        browse = QPushButton(_("Browse Folder..."))
         browse.clicked.connect(self._browse_folder)
-        recent = QPushButton("Recent")
+        recent = QPushButton(_("Recent"))
         recent.clicked.connect(self.refresh_recent)
         row.addWidget(browse)
         row.addWidget(recent)
@@ -72,18 +73,36 @@ class SessionBrowser(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, str(path))
             self.list.addItem(item)
         if self.list.count() == 0:
-            empty = QListWidgetItem("No recent sessions yet. Save a measurement to see it here.")
+            empty = QListWidgetItem(_("No recent sessions yet. Save a measurement to see it here."))
             empty.setFlags(Qt.ItemFlag.NoItemFlags)
             self.list.addItem(empty)
 
     def list_folder(self, root: Path) -> None:
+        from roomscope.io.project_store import is_project, list_project_sessions
         from roomscope.io.session_store import list_sessions
 
         self.list.clear()
+        if is_project(root):
+            try:
+                entries = list_project_sessions(root)
+            except RoomScopeError as exc:
+                QMessageBox.warning(self, _("Cannot list sessions"), str(exc))
+                self.refresh_recent()
+                return
+            for label, path in entries:
+                prefix = f"{label}  —  " if label else ""
+                item = QListWidgetItem(f"{prefix}{path}")
+                item.setData(Qt.ItemDataRole.UserRole, str(path))
+                self.list.addItem(item)
+            if self.list.count() == 0:
+                empty = QListWidgetItem(_("No sessions in this project"))
+                empty.setFlags(Qt.ItemFlag.NoItemFlags)
+                self.list.addItem(empty)
+            return
         try:
             listings = list_sessions(root)
         except RoomScopeError as exc:
-            QMessageBox.warning(self, "Cannot list sessions", str(exc))
+            QMessageBox.warning(self, _("Cannot list sessions"), str(exc))
             self.refresh_recent()
             return
         for listing in listings:
@@ -91,7 +110,7 @@ class SessionBrowser(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, str(listing.path))
             self.list.addItem(item)
         if self.list.count() == 0:
-            empty = QListWidgetItem(f"No session.json files under {root}")
+            empty = QListWidgetItem(_("No session.json files under {root}").format(root=root))
             empty.setFlags(Qt.ItemFlag.NoItemFlags)
             self.list.addItem(empty)
 

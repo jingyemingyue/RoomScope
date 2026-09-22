@@ -101,8 +101,16 @@ def prepare_playback(
 
 
 def get_backend(name: str | None = None) -> AudioBackend:
-    """Return the named backend, ``ROOMSCOPE_AUDIO_BACKEND``, or PortAudio."""
-    chosen = (name or os.environ.get(ENV_BACKEND) or "portaudio").strip().lower()
+    """Return the named backend, settings, ``ROOMSCOPE_AUDIO_BACKEND``, or PortAudio."""
+    chosen = name or os.environ.get(ENV_BACKEND)
+    if not chosen:
+        try:
+            from roomscope.settings import load_settings
+
+            chosen = load_settings().audio_backend
+        except Exception:
+            chosen = ""
+    chosen = (chosen or "portaudio").strip().lower()
     if chosen == "fake":
         from roomscope.audio.fake import FakeBackend
 

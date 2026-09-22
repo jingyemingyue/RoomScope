@@ -97,9 +97,24 @@ roomscope show results/ --list
 roomscope compare results/ position-b/ --same-input-gain
 roomscope schema result
 
-# Standalone: list devices, then measure
+# Two-channel DAW export: microphone + electrical loopback
+roomscope analyze --recording take.wav --sweep sweep_48k.wav --channel 0 --loopback-channel 1
+
+# Standalone: list devices, then measure (optional loopback on input 2)
 roomscope devices
-roomscope measure --out session1/ --input-device 2 --output-device 3 --sample-rate 48000
+roomscope measure --out session1/ --input-device 2 --output-device 3 \
+  --input-channels 1,2 --loopback-channel 2 --sample-rate 48000
+
+# Demo / CI: no interface
+roomscope --backend fake measure --out demo/ --duration 2 --post-silence 1.5
+
+# Language, bundle, CSV, project
+roomscope --lang zh_CN analyze --recording take.wav --sweep sweep.wav
+roomscope session bundle session1/ --no-audio --out report.zip
+roomscope export session1/ --format csv --out curves/
+roomscope project init --out room/ --name Booth
+roomscope project add room/ session1/ --position desk
+roomscope project average room/
 
 # GUI (needs the gui extra)
 roomscope gui
@@ -174,6 +189,8 @@ for r in result.reflections.reflections:
 | [docs/CODE_PROVENANCE.md](docs/CODE_PROVENANCE.md) | Provenance of any adapted or copied code (currently none) |
 | [docs/LICENSE_DECISION.md](docs/LICENSE_DECISION.md) | Why RoomScope is Apache-2.0 |
 | [docs/STATUS.md](docs/STATUS.md) | Implemented / tested / known limitations / next milestone |
+| [docs/user-guide/en.md](docs/user-guide/en.md) | User guide (English): install, measure, read, compare, bundle |
+| [docs/user-guide/zh-CN.md](docs/user-guide/zh-CN.md) | 用户指南（简体中文） |
 | [docs/PROJECT_BRIEF.zh-CN.md](docs/PROJECT_BRIEF.zh-CN.md) | Original project brief (Chinese) |
 
 ## Contributing

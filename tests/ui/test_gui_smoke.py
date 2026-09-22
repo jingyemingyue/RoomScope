@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QApplication
 from roomscope.core.pipeline import synthetic_recording
 from roomscope.io.wav import write_wav
 from roomscope.models.configuration import SweepSettings
+from roomscope.settings import load_settings
 from roomscope.ui.main_window import MainWindow
 from tests.conftest import make_rir
 
@@ -151,6 +152,28 @@ def test_demo_mode_uses_fake_backend(app: QApplication) -> None:
     assert not window.standalone.demo_banner.isHidden()
     assert window.standalone.stop_button is not None
     assert "fake" in window.standalone.status.text().lower()
+    window.close()
+
+
+def test_settings_dialog_saves(
+    app: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ROOMSCOPE_HOME", str(tmp_path / "home"))
+    from roomscope.ui.settings_dialog import SettingsDialog
+    from roomscope.settings import load_settings
+
+    window = MainWindow()
+    window.show()
+    dialog = SettingsDialog(window)
+    dialog.language.setCurrentIndex(dialog.language.findData("zh_CN"))
+    dialog.copy_recording.setChecked(False)
+    dialog.accept()
+    loaded = load_settings()
+    assert loaded.language == "zh_CN"
+    assert loaded.copy_recording is False
+    from roomscope.i18n import activate
+
+    activate("en")
     window.close()
 
 
