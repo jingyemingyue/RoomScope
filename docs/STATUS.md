@@ -75,7 +75,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      301 passed  (tests/unit 244, tests/integration 42, tests/ui 7 offscreen, tests/robustness 8)
+pytest      304 passed  (tests/unit 246, tests/integration 42, tests/ui 8 offscreen, tests/robustness 8)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
 mypy        Success: no issues found in 68 source files (strict)
@@ -89,7 +89,9 @@ of 1.0 were updated on 2026-09-22 and pass on Linux. Session-reopen tests
 GUI re-open) plus the 0.2 compare / schema / Tier 1 lock tests brought
 the suite to 259. 0.3 added loopback, the backend protocol and robustness
 tests (283). 0.4 adds i18n, settings, bundles, averaging, CSV, license
-gates and the macOS microphone plist (301). GUI tests also check that
+gates and the macOS microphone plist (301). 1.0-rc adds the Placement
+tab, the validation-protocol test and the bundle-lock test (304). GUI
+tests also check that
 matplotlib's QtAgg backend loads against PySide6_Essentials (no Addons).
 
 What the tests prove with synthetic signals (no real-room recording is used

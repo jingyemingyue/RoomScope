@@ -134,7 +134,8 @@ class PlacementInputs(QGroupBox):
     """Optional tape measurements that raise the placement tier (S5)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init(_("Tape measurements (optional)"), parent)
+        super().__init__(parent)
+        self.setTitle(_("Tape measurements (optional)"))
         form = QFormLayout(self)
         self.distance = QDoubleSpinBox()
         self.distance.setRange(0.0, 15.0)
