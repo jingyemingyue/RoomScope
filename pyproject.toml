@@ -93,6 +93,7 @@ include = [
   "docs",
   "examples",
   "scripts",
+  "packaging",
   "README.md",
   "LICENSE",
   "NOTICE",

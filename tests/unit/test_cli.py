@@ -151,7 +151,10 @@ def test_show_prints_saved_session_and_lists_folder(
     assert str(session) in shown
 
     assert main(["show", str(session), "--json", "--no-curves"]) == 0
-    payload = json.loads(capsys.readouterr().out)
+    shown_json = capsys.readouterr()
+    payload = json.loads(shown_json.out)
+    assert "--json is deprecated" in shown_json.err
+    assert "DeprecationWarning" not in shown_json.err
     assert payload["session"]["room_name"] == "Booth"
     assert payload["session"]["recording_profile"] == "vocal"
     assert payload["findings"]

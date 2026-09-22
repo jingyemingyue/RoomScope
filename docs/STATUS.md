@@ -31,8 +31,13 @@ Re-verified on Linux x86_64 (Ubuntu, Python 3.12.3).
 Snapshot 8: 2026-09-22 — v0.4 for everyone: gettext + zh-CN, self-contained
 sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
-bundle, GPL-module gate). Hardware cells are not marked PASS. Re-verified
-on Linux x86_64 (Ubuntu, Python 3.12.3).
+bundle, GPL-module gate). Hardware cells are not marked PASS.
+
+Snapshot 9: 2026-09-22 — 0.4 follow-up after the first local suite: `--json`
+prints JSON again (deprecation on stderr, not `warnings.warn`); license
+discovery follows files under `.dist-info/licenses/`; macOS
+`NSMicrophoneUsageDescription` and the audio-input entitlement are in
+`packaging/macos/`. Re-verified on Linux x86_64 (Ubuntu, Python 3.12.3).
 
 ## Implemented
 
@@ -64,10 +69,10 @@ on Linux x86_64 (Ubuntu, Python 3.12.3).
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      283 passed  (tests/unit 227, tests/integration 42, tests/ui 6 offscreen, tests/robustness 8)
+pytest      300 passed  (tests/unit 243, tests/integration 42, tests/ui 7 offscreen, tests/robustness 8)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
-mypy        Success: no issues found in 59 source files (strict)
+mypy        Success: no issues found in 68 source files (strict)
 ```
 
 The 2026-09-17 macOS log recorded 256 tests. Later DSP work replaced a
@@ -75,10 +80,12 @@ peak-normalised inverse with unit in-band gain and consolidated some
 assertions; the two loopback tests that still expected a time-domain peak
 of 1.0 were updated on 2026-09-22 and pass on Linux. Session-reopen tests
 (result `from_dict`, `load_measurement`, recent list, `roomscope show`,
-GUI re-open) plus the 0.2 compare / schema / Tier 1 lock tests bring the
-suite to 259. GUI tests also check that matplotlib's QtAgg backend loads
-against PySide6_Essentials (no Addons). The 0.2 revision was re-run after
-the compare-disclaimer and wheel-include fixes.
+GUI re-open) plus the 0.2 compare / schema / Tier 1 lock tests brought
+the suite to 259. 0.3 added loopback, the backend protocol and robustness
+tests (283). 0.4 adds i18n, settings, bundles, averaging, CSV, license
+gates and the macOS microphone plist (300 on the pre-plist revision; the
+new plist test is counted on the next run). GUI tests also check that
+matplotlib's QtAgg backend loads against PySide6_Essentials (no Addons).
 
 What the tests prove with synthetic signals (no real-room recording is used
 as evidence):
@@ -139,8 +146,11 @@ algebra and the refusals, not the acoustics of any real surface.
 
 ## Known limitations
 
-* Single source, single position: at most ISO 3382-2 "survey" accuracy; no
-  spatial averaging.
+* A single session is still at most ISO 3382-2 "survey" accuracy.
+  `average_decay` means VALID T values across a project's positions and
+  names the Table 1 class; those thresholds are a secondary-source
+  transcription, not a purchased-standard verification. Decay curves are
+  never averaged.
 * Direct sound = strongest deconvolved sample; a reflection stronger than the
   direct sound would be mis-identified (confidence margin does not catch it).
 * Band filters are Butterworth, not certified IEC 61260 class 1; short
@@ -157,13 +167,17 @@ algebra and the refusals, not the acoustics of any real surface.
 * `result.json` with curves is several MB for long IRs (`--no-curves` to
   shrink); the raw IR WAV is the authoritative record.
 * The GUI is functional but plain. Session re-opening, a folder/recent
-  list and a two-session comparison are in; there is no project library.
+  list, a two-session comparison, Settings, Demo/Stop and a `project.json`
+  folder view are in. There is no Placement tab yet (S5) and no large
+  session database.
 
 ## Not implemented (by design for v0.1 or deferred)
 
 VST3/AU/AAX plug-ins, room score, auto-EQ/correction, cloud/accounts, 3D
 room modelling, absorption material calculators, dB SPL, room-mode
-identification, multi-position averaging, phase display, packaged binaries.
+identification, phase display, a generated documentation site, signed
+desktop installers. Unsigned bundle scaffolding exists (`release.yml`);
+a person installing a frozen bundle on macOS/Windows is not claimed.
 
 ## Dependencies
 

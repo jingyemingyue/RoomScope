@@ -25,9 +25,11 @@ ABOUT_TEXT = (
     "This program uses Qt and PySide6 (Copyright The Qt Company Ltd. and contributors) under the "
     "GNU Lesser General Public License v3; the Qt libraries are loaded as separate shared libraries "
     "and may be replaced by interface-compatible versions. NumPy, SciPy, matplotlib, soundfile "
-    "(libsndfile, LGPL-2.1) and sounddevice (PortAudio) are used under their respective licenses; "
-    "see docs/DEPENDENCIES.md.<br><br>"
-    "Levels are digital (dBFS) unless a calibration is provided; RoomScope never reports dB SPL."
+    "(libsndfile, LGPL-2.1) and sounddevice (PortAudio) are used under their respective licenses.<br><br>"
+    "A desktop bundle ships a <code>THIRD_PARTY_LICENSES/</code> directory next to the "
+    "executable (and inside <code>RoomScope.app</code> on macOS). From a source checkout "
+    "see docs/DEPENDENCIES.md. Levels are digital (dBFS) unless a calibration is provided; "
+    "RoomScope never reports dB SPL."
 )
 
 

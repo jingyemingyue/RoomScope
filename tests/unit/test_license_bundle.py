@@ -27,6 +27,16 @@ def test_license_bundle_has_no_unresolved(tmp_path: Path) -> None:
         assert "PySide6" not in "".join(unresolved)
 
 
+def test_macos_info_plist_declares_microphone() -> None:
+    plist = Path("packaging/macos/Info.plist").read_text(encoding="utf-8")
+    assert "NSMicrophoneUsageDescription" in plist
+    assert "measurement microphone" in plist
+    entitlements = Path("packaging/macos/entitlements.plist").read_text(encoding="utf-8")
+    assert "com.apple.security.device.audio-input" in entitlements
+    spec = Path("packaging/roomscope.spec").read_text(encoding="utf-8")
+    assert "packaging" in spec and "Info.plist" in spec
+
+
 def test_bundle_gate_rejects_asio_and_qtcharts(tmp_path: Path) -> None:
     gate = _load("check_bundle_contents")
     tree = tmp_path / "bundle"

@@ -2,9 +2,12 @@
 # Builds are unsigned until the maintainer holds signing identities.
 # -*- mode: python ; coding: utf-8 -*-
 
+import sys
+import plistlib
 from pathlib import Path
 
 ROOT = Path(SPECPATH).resolve().parent  # noqa: F821
+MACOS_INFO = plistlib.loads((ROOT / "packaging" / "macos" / "Info.plist").read_bytes())
 
 a = Analysis(
     [str(ROOT / "src" / "roomscope" / "__main__.py")],
@@ -51,3 +54,16 @@ coll = COLLECT(
     upx=False,
     name="roomscope",
 )
+
+# macOS .app wrapper (ARCHITECTURE_V1.md §6.2). Unsigned until the maintainer
+# holds a Developer ID. The microphone string is required; without it the
+# system denies the input device silently. Linux and Windows keep the
+# one-directory layout at dist/roomscope so release.yml does not change.
+if sys.platform == "darwin":
+    app = BUNDLE(  # noqa: F821
+        coll,
+        name="RoomScope.app",
+        icon=None,
+        bundle_identifier="org.roomscope.RoomScope",
+        info_plist=MACOS_INFO,
+    )

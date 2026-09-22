@@ -101,9 +101,7 @@ def _write_noise_psd(path: Path, result: AnalysisResult) -> Path | None:
 
 
 def _write_reflections(path: Path, result: AnalysisResult) -> Path:
-    rows: list[list[object]] = [
-        [r.delay_ms, r.relative_db] for r in result.reflections.reflections
-    ]
+    rows: list[list[object]] = [[r.delay_ms, r.relative_db] for r in result.reflections.reflections]
     return _write(path, ["delay_ms", "relative_db"], rows)
 
 
