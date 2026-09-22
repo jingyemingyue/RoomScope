@@ -20,8 +20,13 @@ All notable changes to RoomScope are documented here. The format follows
   matplotlib / Qt chrome follows the system dark mode; Standalone
   shows the device rate next to the requested rate and calls
   `check_sample_rate` before a measurement; Compare lists matched
-  reflections, loopback deltas and per-octave MAD; Help opens the
-  license bundle or `docs/DEPENDENCIES.md`.
+  reflections, loopback deltas and per-octave MAD;   Help opens the
+  license bundle or `docs/DEPENDENCIES.md`. JSON reads cap nesting
+  depth as well as size; settings, recents and sweep sidecars use the
+  same reader. `scripts/check_src_safety.py` bans network imports,
+  pickle, eval and shell-outs under `src/`. Unsigned-bundle packaging
+  adds Inno Setup, a Linux desktop/AppRun, a macOS dmg script, zip/tar
+  archives, and `scripts/smoke_bundle.py` (fake-backend measure).
   The campaign has not been run; hardware cells stay empty; the
   repository stays private. The API and schemas are **not** frozen.
 - v0.4 for everyone (ARCHITECTURE_V1.md milestone 0.4): gettext with a

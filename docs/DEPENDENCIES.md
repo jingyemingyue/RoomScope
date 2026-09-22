@@ -48,6 +48,7 @@ Apache-2.0 project with the redistribution obligations listed in §3.
 | babel | (optional `i18n-dev`) | https://github.com/python-babel/babel | BSD-3-Clause | extract/compile gettext catalogs; not required at runtime | Yes |
 | pyinstaller | (release workflow) | https://github.com/pyinstaller/pyinstaller | GPL-2.0-or-later WITH Bootloader-exception | one-directory desktop bundles; not a runtime dependency | Yes* (tool only; not imported by RoomScope) |
 | cyclonedx-bom | (release workflow on `v*` tags) | https://github.com/CycloneDX/cyclonedx-python | Apache-2.0 | SBOM attached to a draft Release; not a runtime dependency | Yes |
+| Inno Setup | (Windows bundle job, when `iscc` is installed) | https://jrsoftware.org/isinfo.php | Inno Setup License (permissive, similar to modified BSD) | optional Windows installer around the one-directory zip; not imported by RoomScope | Yes* (tool only) |
 
 Evaluated and **not** adopted: `hypothesis` (MPL-2.0, file-level copyleft;
 dev-only would be acceptable but it is not needed), `pytest-qt` (MIT; the

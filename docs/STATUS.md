@@ -33,6 +33,11 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 14: 2026-09-22 — 1.0-rc §8 / M9 packaging remainder:
+JSON depth cap, shared untrusted-file reader, src safety script,
+unsigned zip/tar/dmg/Inno scaffolding and bundle smoke (fake
+measure). API/schema not frozen. Hardware cells empty.
+
 Snapshot 13: 2026-09-22 — 1.0-rc S7 / §5.8 remainder: themed docs
 site from `docs/`, dark-mode plot and Qt chrome, device rate next to
 the requested rate with `check_sample_rate` before Standalone
@@ -84,14 +89,14 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG` |
 | GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
-| Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags |
+| Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags (zip / tar / dmg / Inno script, `scripts/smoke_bundle.py`) |
 | Documentation | Hub at `docs/index.md`; themed HTML site from `scripts/build_docs_site.py` (S7) |
 
 ## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      316 passed  (tests/unit 255, tests/integration 42, tests/ui 11 offscreen, tests/robustness 8)
+pytest      322 passed  (tests/unit 259, tests/integration 42, tests/ui 11 offscreen, tests/robustness 10)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
 mypy        Success: no issues found in 69 source files (strict)
@@ -109,7 +114,8 @@ gates and the macOS microphone plist (301). 1.0-rc adds the Placement
 tab, the validation-protocol test and the bundle-lock test (304), then
 the docs-link and fixtures tests (308), then shortcuts, plot
 linestyles and Action SHA pins (311), then the themed docs site,
-dark-mode plot chrome, device-rate display and compare tables (316).
+dark-mode plot chrome, device-rate display and compare tables (316),
+then JSON depth, src-safety and unsigned-bundle packaging (322).
 GUI tests also check that
 matplotlib's QtAgg backend loads against PySide6_Essentials (no Addons).
 
@@ -236,8 +242,10 @@ were not copied.
   none) and keep Qt as replaceable shared libraries.
 * Windows sounddevice wheels contain ASIO DLLs built with the proprietary
   Steinberg SDK — strip them.
-* matplotlib's bundled `ttconv` license and the Linux/Windows wheel contents
-  of several packages are still UNKNOWN / NEEDS REVIEW.
+* matplotlib's historical `ttconv` converter is gone in 3.8+ (DEPENDENCIES.md
+  §6). Exact Linux/Windows wheel contents of numpy/scipy/soundfile/
+  sounddevice/matplotlib/Pillow were not re-opened in this environment;
+  the license-bundle script fails if a required package ships no license.
 * Two in-force patents adjacent to the field (US 9,959,883; US 10,816,391)
   are noted in MEASUREMENT_METHODOLOGY.md §10 so the design does not drift
   into them. Not a legal opinion.

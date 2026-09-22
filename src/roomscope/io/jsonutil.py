@@ -1,4 +1,4 @@
-"""JSON reads with a size cap so untrusted session files cannot fill memory."""
+"""JSON reads with size and depth caps (ARCHITECTURE_V1.md §8)."""
 
 from __future__ import annotations
 
@@ -10,10 +10,39 @@ from roomscope.errors import SessionError
 
 #: Refused before ``json.loads``. 32 MiB is well above a result with curves.
 MAX_JSON_BYTES = 32 * 1024 * 1024
+#: Nesting of ``{`` / ``[`` outside strings. RoomScope schemas are shallow.
+MAX_JSON_DEPTH = 32
+
+
+def json_nesting_depth(text: str) -> int:
+    """Return the maximum ``{`` / ``[`` nesting, ignoring characters inside strings."""
+    depth = 0
+    deepest = 0
+    in_string = False
+    escape = False
+    for char in text:
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+            continue
+        if char in "{[":
+            depth += 1
+            if depth > deepest:
+                deepest = depth
+        elif char in "}]":
+            depth = max(0, depth - 1)
+    return deepest
 
 
 def read_json_object(path: Path, *, kind: str = "JSON") -> dict[str, Any]:
-    """Read a JSON object, refusing oversized or non-object files."""
+    """Read a JSON object, refusing oversized, over-deep or non-object files."""
     try:
         size = path.stat().st_size
     except OSError as exc:
@@ -24,8 +53,18 @@ def read_json_object(path: Path, *, kind: str = "JSON") -> dict[str, Any]:
             f"{MAX_JSON_BYTES} bytes are refused"
         )
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise SessionError(f"cannot read {path}: {exc}") from exc
+    depth = json_nesting_depth(text)
+    if depth > MAX_JSON_DEPTH:
+        raise SessionError(
+            f"{path.name} nests {depth} levels; {kind} files deeper than "
+            f"{MAX_JSON_DEPTH} are refused"
+        )
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
         raise SessionError(f"cannot read {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise SessionError(f"{path} is not a JSON object")

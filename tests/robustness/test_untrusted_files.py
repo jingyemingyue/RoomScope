@@ -9,7 +9,8 @@ import numpy as np
 import pytest
 
 from roomscope.errors import InvalidAudioError, RoomScopeError, SessionError
-from roomscope.io.jsonutil import MAX_JSON_BYTES
+from roomscope.io.jsonutil import MAX_JSON_BYTES, MAX_JSON_DEPTH, read_json_object
+from roomscope.io.project_store import load_project
 from roomscope.io.session_store import load_measurement, load_session
 from roomscope.io.wav import read_sweep_sidecar, read_wav
 from roomscope.models.audio import AudioSignal
@@ -62,13 +63,29 @@ def test_missing_result_json_is_session_error(tmp_path: Path) -> None:
         load_measurement(tmp_path)
 
 
-def test_src_does_not_use_pickle_or_eval() -> None:
-    banned = ("import pickle", "pickle.loads", "numpy.load(", "eval(")
-    root = Path("src/roomscope")
-    hits: list[str] = []
-    for path in root.rglob("*.py"):
-        text = path.read_text(encoding="utf-8")
-        for token in banned:
-            if token in text:
-                hits.append(f"{path}: {token}")
-    assert hits == []
+def test_deeply_nested_json_is_refused(tmp_path: Path) -> None:
+    path = tmp_path / "session.json"
+    depth = MAX_JSON_DEPTH + 8
+    path.write_text("{" * depth + "}" * depth, encoding="utf-8")
+    with pytest.raises(SessionError, match="deeper"):
+        read_json_object(path, kind="session")
+
+
+def test_deeply_nested_project_is_session_error(tmp_path: Path) -> None:
+    path = tmp_path / "project.json"
+    depth = MAX_JSON_DEPTH + 2
+    path.write_text("{" * depth + "}" * depth, encoding="utf-8")
+    with pytest.raises(SessionError, match="deeper"):
+        load_project(tmp_path)
+
+
+def test_src_does_not_use_pickle_eval_or_shell() -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_src_safety", Path("scripts") / "check_src_safety.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.check(Path("src")) == []

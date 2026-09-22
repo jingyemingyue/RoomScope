@@ -39,30 +39,8 @@ jobs:
           python scripts/build_docs_site.py --out /tmp/roomscope-site
           test -f /tmp/roomscope-site/index.html
           test -f /tmp/roomscope-site/assets/theme.css
-      - name: No-network imports under src/
-        run: |
-          python - <<'PY'
-          import ast, pathlib, sys
-          banned = {"socket", "urllib", "http", "requests", "ssl"}
-          root = pathlib.Path("src")
-          bad = []
-          for path in root.rglob("*.py"):
-              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-              for node in ast.walk(tree):
-                  if isinstance(node, ast.Import):
-                      names = [a.name.split(".")[0] for a in node.names]
-                  elif isinstance(node, ast.ImportFrom) and node.module:
-                      names = [node.module.split(".")[0]]
-                  else:
-                      continue
-                  hits = [n for n in names if n in banned]
-                  if hits:
-                      bad.append(f"{path}: {hits}")
-          if bad:
-              print("\n".join(bad))
-              sys.exit(1)
-          print("no banned network imports")
-          PY
+      - name: No-network imports and no shell-outs under src/
+        run: python scripts/check_src_safety.py
 
   schemas:
     name: JSON Schemas

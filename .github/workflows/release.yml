@@ -95,12 +95,26 @@ jobs:
       - name: Smoke test
         shell: bash
         run: |
-          if [ -x dist/roomscope/roomscope ]; then
-            dist/roomscope/roomscope --version
-            dist/roomscope/roomscope --backend fake devices
-          elif [ -x dist/roomscope/roomscope.exe ]; then
-            dist/roomscope/roomscope.exe --version
+          python scripts/smoke_bundle.py --root dist/roomscope --out "$RUNNER_TEMP/bundle-smoke"
+      - name: Windows zip
+        if: runner.os == 'Windows'
+        shell: bash
+        run: python -c "import shutil; shutil.make_archive('dist/roomscope-windows-x64', 'zip', 'dist/roomscope')"
+      - name: Windows Inno Setup (when ISCC is installed)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          if command -v iscc >/dev/null 2>&1; then
+            iscc packaging/windows/roomscope.iss
+          else
+            echo "ISCC not on PATH; installer script is packaging/windows/roomscope.iss"
           fi
+      - name: macOS disk image
+        if: runner.os == 'macOS'
+        run: bash packaging/macos/make_dmg.sh dist/RoomScope.app dist/RoomScope.dmg
+      - name: Linux archive
+        if: runner.os == 'Linux'
+        run: tar -C dist -czf dist/roomscope-linux-x86_64.tar.gz roomscope
       - name: Checksums
         shell: bash
         run: |
@@ -121,6 +135,10 @@ jobs:
           path: |
             dist/roomscope
             dist/RoomScope.app
+            dist/RoomScope.dmg
+            dist/roomscope-windows-x64.zip
+            dist/roomscope-linux-x86_64.tar.gz
+            dist/RoomScope-setup.exe
             dist/SHA256SUMS
 
   sbom:

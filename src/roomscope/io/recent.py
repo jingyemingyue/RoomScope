@@ -10,6 +10,9 @@ import json
 import os
 from pathlib import Path
 
+from roomscope.errors import SessionError
+from roomscope.io.jsonutil import read_json_object
+
 RECENT_LIMIT = 12
 RECENT_FILENAME = "recent_sessions.json"
 
@@ -55,10 +58,10 @@ def _read_paths() -> list[Path]:
     if not store.is_file():
         return []
     try:
-        payload = json.loads(store.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        payload = read_json_object(store, kind="recent sessions")
+    except SessionError:
         return []
-    raw = payload.get("sessions") if isinstance(payload, dict) else None
+    raw = payload.get("sessions")
     if not isinstance(raw, list):
         return []
     return [Path(item) for item in raw if isinstance(item, str)]
