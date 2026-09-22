@@ -35,6 +35,7 @@ src/roomscope/
     frequency_response.py
     noise.py             quiet segment, dBFS, PSD, mains-hum detection
     reflections.py       early-reflection candidates
+    placement.py         vertical geometry from reflections + tape measurements
     resonance.py         potential low-frequency resonance candidates
     pipeline.py          Reference + analyze(): the single entry point
   io/
@@ -130,6 +131,15 @@ Key decisions:
 * **Multi-position measurements (ISO 3382-2 engineering/precision):** sessions
   are per position; averaging across sessions is a future module and must
   average T values, not decay curves.
+* **Multi-position placement (deferred, with a constraint):** two microphone
+  positions with a fixed loudspeaker make the geometry *exactly* determined
+  (twelve equations, twelve unknowns). Exactly determined means a zero
+  residual proves nothing about whether the arrivals were assigned to the
+  right surfaces, so a two-position solve must never ship as "exactly
+  determined, therefore trustworthy". Any future support needs a redundant
+  third position, and the canonicalisation of mirror and permutation
+  degeneracies must be designed before, not after, the solver — see
+  MEASUREMENT_METHODOLOGY.md §7a and §9.
 
 ## 6. Error model
 
