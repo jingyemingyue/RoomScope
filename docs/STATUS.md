@@ -4,6 +4,10 @@ Snapshot: 2026-09-17, v0.1.0.dev1 (foundation). Everything below was
 verified by actually running it on macOS (Apple silicon, Python 3.12.14).
 Nothing is marked PASS that was not run.
 
+Snapshot 2: 2026-09-22 — recording profiles (vocal, voice-over, acoustic
+guitar, drums, room mic, choir) added on top of the foundation; same
+verification policy.
+
 ## Implemented
 
 | Area | What exists |
@@ -15,20 +19,21 @@ Nothing is marked PASS that was not run.
 | Frequency response | FFT with optional gating; raw kept; configurable fractional-octave smoothing |
 | Background noise | Quiet-segment selection (pre-sweep / tail), RMS + peak dBFS (AES17), octave-band levels, Welch PSD, 50/60 Hz hum candidates |
 | Early reflections | ETC peak candidates (delay ms, level dB re direct) with local-trend prominence |
+| Placement geometry | Excess path per candidate; with a tape-measured loudspeaker distance the exact product of perpendicular distances and its two-sided bracket; with a microphone height the vertical axis (loudspeaker height, plane above the devices, horizontal separation). No coordinates, no room length or width, no wall named |
 | Low-frequency resonances | Candidate peaks (< 300 Hz) with narrow-band decay vs. filter ringing comparison |
 | Models & storage | Validated settings; result model with JSON export; MeasurementSession; session directory (session.json, result.json, impulse_response.wav) |
-| Interpretation | Finding model; RecordingProfile interface; generic profile |
+| Interpretation | Finding model; RecordingProfile interface; seven profiles (generic, vocal, voiceover, acoustic_guitar, drums, room_mic, choir) with per-profile thresholds and advice; CLI `--profile`, GUI profile selector |
 | CLI | `roomscope sweep / analyze / devices / measure / gui`, text report and JSON output |
 | Standalone Mode | Device enumeration and play+record through PortAudio with safety defaults |
 | GUI | PySide6 window: Home, Universal DAW Mode (4 steps), Standalone Mode, Results (Overview, IR, FR, Decay, Noise, Reflections), session saving |
 
-## Tested (all PASS on 2026-09-17)
+## Tested (all PASS on 2026-09-17; profile work re-verified 2026-09-22)
 
 ```
-pytest      96 passed  (tests/unit 79, tests/integration 15, tests/ui 2 offscreen)
+pytest      256 passed  (tests/unit 212, tests/integration 42, tests/ui 2 offscreen)
 ruff check  All checks passed  (src, tests, examples, scripts)
-ruff format 61 files already formatted
-mypy        Success: no issues found in 39 source files (strict)
+ruff format 69 files already formatted
+mypy        Success: no issues found in 41 source files (strict)
 ```
 
 What the tests prove with synthetic signals (no real-room recording is used
@@ -55,6 +60,11 @@ as evidence):
   and 0.5 dB, also in a band-limited IR with a diffuse tail.
 * A ringing 62 Hz mode is reported as a distinguishable resonance candidate;
   a flat response yields none.
+* Recording profiles: all seven profiles produce findings with measured
+  evidence on a rich synthetic room; voiceover flags a weaker reflection than
+  generic; vocal flags a decay that room_mic accepts; drums skips noise
+  findings; each profile names its recording kind; CLI `--profile` selects
+  the profile and rejects unknown names (added 2026-09-22).
 * End-to-end: RT60 0.45 s, reflection 18 ms/−9 dB and noise −77 dBFS are
   recovered from a synthetic room; recordings at 44.1 and 96 kHz against a
   48 kHz sweep definition; stereo channel auto-selection and explicit
@@ -66,6 +76,11 @@ as evidence):
   and the GUI (offscreen) ran successfully. **Not run:** a real Standalone
   measurement through loudspeakers/microphone (needs a person in the room to
   set levels) and the on-screen GUI on a display.
+
+**Not run:** no placement result has ever been checked against a real room
+with a tape measure. Every placement figure in the test suite comes from
+arrivals synthesised by the image-source construction, so the tests prove the
+algebra and the refusals, not the acoustics of any real surface.
 
 ## Known limitations
 
@@ -92,9 +107,8 @@ as evidence):
 
 VST3/AU/AAX plug-ins, room score, auto-EQ/correction, cloud/accounts, 3D
 room modelling, absorption material calculators, dB SPL, room-mode
-identification, multi-position averaging, phase display, additional
-recording profiles (vocal, voice-over, guitar, drums, room mic, choir — the
-interface exists), session browser, packaged binaries.
+identification, multi-position averaging, phase display, session browser,
+packaged binaries.
 
 ## Dependencies
 
@@ -140,7 +154,6 @@ were not copied.
    selection, channel mapping, sample-rate negotiation).
 3. Loopback/reference-channel support (second input for the interface
    output) to remove interface response and clock ambiguity.
-4. Recording profiles beyond "generic" (vocal, voice-over, acoustic guitar).
-5. Session re-opening in the GUI and a small session browser.
-6. Packaging (briefcase/PyInstaller one-dir) with the license bundle from
+4. Session re-opening in the GUI and a small session browser.
+5. Packaging (briefcase/PyInstaller one-dir) with the license bundle from
    DEPENDENCIES.md §3–4.

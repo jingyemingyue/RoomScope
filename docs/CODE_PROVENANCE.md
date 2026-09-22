@@ -40,6 +40,16 @@ design and algorithm names only. In particular, no code was taken from the
 GPL projects DRC and Aliki, from the proprietary Room EQ Wizard, or from the
 unlicensed gists and course projects that surfaced in searches.
 
+The image-source mathematics in `core/placement.py` (and the synthetic
+arrivals its tests are built from) was implemented clean-room from the
+published relation in Allen & Berkley (1979); no code was taken from
+pyroomacoustics (MIT, EPFL-LCAV), which THIRD_PARTY_REVIEW.md records as
+evaluated and not adopted — adopting it would also bring its Eigen
+(MPL-2.0) obligation, see DEPENDENCIES.md. RoomScope does not implement
+room-shape-from-echoes / echo sorting (Dokmanić et al., 2013); it is cited in
+MEASUREMENT_METHODOLOGY.md §9 as the published method the project declines,
+and no implementation of it was consulted.
+
 ## How to update this file
 
 When adapting or copying third-party code becomes necessary:

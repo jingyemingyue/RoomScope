@@ -15,7 +15,7 @@ architecture ideas) or as ordinary dependencies. See CODE_PROVENANCE.md.
 
 | Project | Repository | License (from LICENSE file) | Copyleft | Affects Apache-2.0? | Classification for RoomScope |
 | --- | --- | --- | --- | --- | --- |
-| pyroomacoustics | https://github.com/LCAV/pyroomacoustics | MIT | no | no (keep EPFL-LCAV notice if code were copied) | Conceptual reference (ESS/deconvolution API design). Not a dependency. |
+| pyroomacoustics | https://github.com/LCAV/pyroomacoustics | MIT | no | no (keep EPFL-LCAV notice if code were copied) | Conceptual reference (ESS/deconvolution API design). Not a dependency. Re-checked 2026-09-21 when image-source mathematics entered `core/placement.py` and its tests: still no code taken, implementation is clean-room from Allen & Berkley (1979). |
 | python-acoustics (archived) | https://github.com/python-acoustics/python-acoustics | BSD-3-Clause (template placeholder `{organization}` left in the file) | no | no | Conceptual reference (octave-band and decay API ideas). |
 | pyfar | https://github.com/pyfar/pyfar | MIT (bracketed placeholders in the copyright line) | no | no | Conceptual reference (signal/measurement class design). |
 | SciPy | https://github.com/scipy/scipy | BSD-3-Clause (+ bundled permissive licenses, none in `scipy.signal`) | no | no | Dependency (public API only). |
