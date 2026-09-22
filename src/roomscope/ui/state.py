@@ -22,6 +22,7 @@ class MeasurementState:
     recording: AudioSignal | None = None
     reference: Reference | None = None
     analysis_settings: AnalysisSettings = field(default_factory=AnalysisSettings)
+    profile: str = "generic"
     result: AnalysisResult | None = None
     findings: list[Finding] = field(default_factory=list)
     session: MeasurementSession = field(default_factory=MeasurementSession)
