@@ -33,6 +33,12 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 19: 2026-09-22 — M7 CLI output + README §6.4:
+remaining CLI messages (sweep next steps, devices table,
+measure/progress, error prefixes, argparse -h/--version) go
+through gettext. README names the 1.0 platform set and that
+anything else may work and is not tested. Hardware cells empty.
+
 Snapshot 18: 2026-09-22 — wheel-audit test is OS-aware:
 macOS/Windows CI failed because the Linux OpenBLAS+quadmath /
 empty-ASIO checks ran against installed wheels. The test now
@@ -125,7 +131,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      338 passed  (tests/unit 264, tests/integration 42, tests/ui 12 offscreen, tests/robustness 20)
+pytest      339 passed  (tests/unit 265, tests/integration 42, tests/ui 12 offscreen, tests/robustness 20)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
 mypy        Success: no issues found in 69 source files (strict)
@@ -148,7 +154,8 @@ then JSON depth, src-safety and unsigned-bundle packaging (322),
 then comparison load/show, resonance table, richer robustness and
 `gui --smoke` (334), then the Linux wheel audit and DAW/Standalone
 gettext chrome (336), then CLI help / text-report labels and the
-Windows wheel listing (338).
+Windows wheel listing (338), then remaining CLI output
+gettext and the README platform statement (339).
 GUI tests also check that
 matplotlib's QtAgg backend loads against PySide6_Essentials (no Addons).
 

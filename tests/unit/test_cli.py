@@ -342,6 +342,22 @@ def test_lang_zh_cn_translates_cli_help(capsys: pytest.CaptureFixture[str]) -> N
     assert "分析用该扫描录下的录音" in analyze
     assert "不要裁切" in analyze
     assert "附属文件" in analyze
+    assert "显示此帮助信息并退出" in out
+    from roomscope.i18n import activate
+
+    activate("en")
+
+
+def test_lang_zh_cn_translates_cli_output(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sweep = tmp_path / "sweep.wav"
+    assert main(["--lang", "zh_CN", "sweep", "--out", str(sweep), "--duration", "2"]) == 0
+    swept = capsys.readouterr().out
+    assert "下一步" in swept or "导入" in swept
+    assert main(["--lang", "zh_CN", "--backend", "fake", "devices"]) == 0
+    listed = capsys.readouterr().out
+    assert "主机" in listed
     from roomscope.i18n import activate
 
     activate("en")

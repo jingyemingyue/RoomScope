@@ -1102,3 +1102,86 @@ msgstr "噪声："
 msgid "Placement:"
 msgstr "摆位："
 
+# CLI user-facing output (ARCHITECTURE_V1.md §5.6 / M7)
+
+msgid "show this help message and exit"
+msgstr "显示此帮助信息并退出"
+
+msgid "show program's version number and exit"
+msgstr "显示程序版本号并退出"
+
+msgid "Wrote {wav} ({seconds:.1f} s at {rate} Hz, sweep {start:g}-{end:g} Hz, {duration:g} s, {level:g} dBFS)"
+msgstr "已写出 {wav}（{seconds:.1f} s，{rate} Hz，扫描 {start:g}-{end:g} Hz，{duration:g} s，{level:g} dBFS）"
+
+msgid "Wrote {sidecar} (keep it next to the WAV)"
+msgstr "已写出 {sidecar}（请与 WAV 放在一起）"
+
+msgid "Next: import the WAV into your DAW, play it through the monitors, record the measurement microphone,"
+msgstr "下一步：把 WAV 导入 DAW，经监听播放，用测量话筒录音，"
+
+msgid "export the recording as WAV and run: roomscope analyze --recording <file> --sweep {wav}"
+msgstr "导出为 WAV 后运行：roomscope analyze --recording <file> --sweep {wav}"
+
+msgid "warning: --json is deprecated; use --format json (--json will be removed in a future minor release)"
+msgstr "警告：--json 已弃用；请用 --format json（--json 将在后续次要版本中移除）"
+
+msgid "Saved session to {path}"
+msgstr "会话已保存到 {path}"
+
+msgid "idx"
+msgstr "序号"
+
+msgid "in"
+msgstr "入"
+
+msgid "out"
+msgstr "出"
+
+msgid "rate"
+msgstr "采样率"
+
+msgid "name"
+msgstr "名称"
+
+msgid "host API"
+msgstr "主机 API"
+
+msgid "Level {level:g} dBFS is above {max_level:g} dBFS. Set the monitor level low first and pass --acknowledge-level to confirm."
+msgstr "电平 {level:g} dBFS 高于 {max_level:g} dBFS。请先把监听开低，并加上 --acknowledge-level 确认。"
+
+msgid "Playing sweep on output channel {output}, recording input channel(s) {channels} via {backend} ..."
+msgstr "正在输出声道 {output} 播放扫描，经 {backend} 录制输入声道 {channels} …"
+
+msgid "Recorded {seconds:.1f} s to {path}"
+msgstr "已录制 {seconds:.1f} s 到 {path}"
+
+msgid "Session: {path}"
+msgstr "会话：{path}"
+
+msgid "Wrote comparison to {path}"
+msgstr "已将对比写入 {path}"
+
+msgid "{n} position(s) in {path}"
+msgstr "{path} 中有 {n} 个位置"
+
+msgid "(unlisted)"
+msgstr "（未列出）"
+
+msgid "ISO 3382-2 class: {klass} ({sources} source × {mics} mic)"
+msgstr "ISO 3382-2 等级：{klass}（{sources} 个声源 × {mics} 个话筒）"
+
+msgid "RT60"
+msgstr "RT60"
+
+msgid "The GUI needs PySide6 Essentials: pip install 'roomscope[gui]' ({error})"
+msgstr "桌面界面需要 PySide6 Essentials：pip install 'roomscope[gui]'（{error}）"
+
+msgid "stopped: {message}"
+msgstr "已停止：{message}"
+
+msgid "error: {message}"
+msgstr "错误：{message}"
+
+msgid "interrupted"
+msgstr "已中断"
+

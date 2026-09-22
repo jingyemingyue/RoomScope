@@ -36,9 +36,12 @@ All notable changes to RoomScope are documented here. The format follows
   gettext (ARCHITECTURE_V1.md §5.6). Windows win_amd64 wheels of
   numpy/scipy/soundfile/matplotlib/Pillow were opened (OpenBLAS +
   MSVC runtime / libsndfile; matplotlib has no `ttconv`; Pillow
-  ships codecs inside the extension modules). The installed-wheel
+  ships codecs inside the extension modules).   The installed-wheel
   audit test follows the per-OS layout (Linux quadmath, Windows
   ASIO present, macOS `.dylibs/`) instead of the Linux list only.
+  Remaining CLI messages (sweep next steps, devices table, measure
+  progress, error prefixes, argparse `-h` / `--version`) go through
+  gettext. README states the §6.4 platform set.
   `load_comparison` and `roomscope show comparison.json` re-derive
   findings (they are never stored); the Compare GUI lists matched
   resonances; the user guide names every Results tab and the

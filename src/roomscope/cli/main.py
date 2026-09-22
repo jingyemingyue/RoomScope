@@ -12,6 +12,7 @@ import logging
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 from roomscope import __version__
 from roomscope.cli.report import format_comparison_report, format_report
@@ -31,7 +32,11 @@ log = logging.getLogger("roomscope.cli")
 
 def _command(sub: object, name: str, text: str) -> argparse.ArgumentParser:
     """Subcommand with the same gettext string as help (parent list) and description."""
-    return sub.add_parser(name, help=text, description=text)  # type: ignore[attr-defined, no-any-return]
+    parser = sub.add_parser(  # type: ignore[attr-defined]
+        name, help=text, description=text, add_help=False
+    )
+    parser.add_argument("-h", "--help", action="help", help=_("show this help message and exit"))
+    return cast(argparse.ArgumentParser, parser)
 
 
 def _add_sweep_arguments(parser: argparse.ArgumentParser, *, default_level: float) -> None:
@@ -179,8 +184,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="roomscope",
         description=_("RoomScope: an open-source, DAW-independent recording environment analyzer."),
+        add_help=False,
     )
-    parser.add_argument("--version", action="version", version=f"roomscope {__version__}")
+    parser.add_argument("-h", "--help", action="help", help=_("show this help message and exit"))
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"roomscope {__version__}",
+        help=_("show program's version number and exit"),
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help=_("debug logging"))
     parser.add_argument(
         "--backend",
@@ -386,16 +398,30 @@ def cmd_sweep(args: argparse.Namespace) -> int:
     settings = _sweep_settings(args)
     wav_path, sidecar = write_sweep_file(settings, args.out)
     print(
-        f"Wrote {wav_path} ({settings.total_samples / settings.sample_rate:.1f} s at {settings.sample_rate} Hz, "
-        f"sweep {settings.start_hz:g}-{settings.end_hz:g} Hz, {settings.duration_s:g} s, {settings.level_dbfs:g} dBFS)"
+        _(
+            "Wrote {wav} ({seconds:.1f} s at {rate} Hz, "
+            "sweep {start:g}-{end:g} Hz, {duration:g} s, {level:g} dBFS)"
+        ).format(
+            wav=wav_path,
+            seconds=settings.total_samples / settings.sample_rate,
+            rate=settings.sample_rate,
+            start=settings.start_hz,
+            end=settings.end_hz,
+            duration=settings.duration_s,
+            level=settings.level_dbfs,
+        )
     )
-    print(f"Wrote {sidecar} (keep it next to the WAV)")
+    print(_("Wrote {sidecar} (keep it next to the WAV)").format(sidecar=sidecar))
     print(
-        "Next: import the WAV into your DAW, play it through the monitors, record the measurement microphone,"
+        _(
+            "Next: import the WAV into your DAW, play it through the monitors, "
+            "record the measurement microphone,"
+        )
     )
     print(
-        "export the recording as WAV and run: roomscope analyze --recording <file> --sweep "
-        + str(wav_path)
+        _(
+            "export the recording as WAV and run: roomscope analyze --recording <file> --sweep {wav}"
+        ).format(wav=wav_path)
     )
     return 0
 
@@ -416,8 +442,10 @@ def _use_json(args: argparse.Namespace) -> bool:
         return True
     if getattr(args, "json", False):
         print(
-            "warning: --json is deprecated; use --format json "
-            "(--json will be removed in a future minor release)",
+            _(
+                "warning: --json is deprecated; use --format json "
+                "(--json will be removed in a future minor release)"
+            ),
             file=sys.stderr,
         )
         return True
@@ -500,7 +528,7 @@ def _run_analysis(
     else:
         print(format_report(result, findings, profile))
         if out_dir is not None:
-            print(f"\nSaved session to {out_dir}")
+            print("\n" + _("Saved session to {path}").format(path=out_dir))
     return 0
 
 
@@ -512,7 +540,9 @@ def cmd_devices(args: argparse.Namespace) -> int:
     from roomscope.audio.backend import get_backend
 
     devices = get_backend(args.backend).list_devices()
-    print(f"{'idx':>3}  {'in':>3} {'out':>3}  {'rate':>7}  name  [host API]")
+    print(
+        f"{_('idx'):>3}  {_('in'):>3} {_('out'):>3}  {_('rate'):>7}  {_('name')}  [{_('host API')}]"
+    )
     for d in devices:
         flags = ("*in" if d.is_default_input else "") + ("*out" if d.is_default_output else "")
         print(
@@ -530,13 +560,15 @@ def cmd_measure(args: argparse.Namespace) -> int:
     settings = _sweep_settings(args)
     if settings.level_dbfs > SAFE_MAX_LEVEL_DBFS and not args.acknowledge_level:
         print(
-            f"Level {settings.level_dbfs:g} dBFS is above {SAFE_MAX_LEVEL_DBFS:g} dBFS. "
-            "Set the monitor level low first and pass --acknowledge-level to confirm.",
+            _(
+                "Level {level:g} dBFS is above {max_level:g} dBFS. "
+                "Set the monitor level low first and pass --acknowledge-level to confirm."
+            ).format(level=settings.level_dbfs, max_level=SAFE_MAX_LEVEL_DBFS),
             file=sys.stderr,
         )
         return 2
     backend = get_backend(args.backend)
-    print(SAFETY_MESSAGE)
+    print(_(SAFETY_MESSAGE))
     if args.input_device is not None:
         backend.check_sample_rate(args.input_device, settings.sample_rate, kind="input")
     if args.output_device is not None:
@@ -560,10 +592,16 @@ def cmd_measure(args: argparse.Namespace) -> int:
         args.channel = 0
     out_dir: Path = args.out
     out_dir.mkdir(parents=True, exist_ok=True)
-    sweep_path, _ = write_sweep_file(settings, out_dir / "sweep.wav")
+    sweep_path, _sidecar = write_sweep_file(settings, out_dir / "sweep.wav")
     print(
-        f"Playing sweep on output channel {args.output_channel}, recording input "
-        f"channel(s) {','.join(str(c) for c in channels)} via {backend.name} ..."
+        _(
+            "Playing sweep on output channel {output}, recording input "
+            "channel(s) {channels} via {backend} ..."
+        ).format(
+            output=args.output_channel,
+            channels=",".join(str(c) for c in channels),
+            backend=backend.name,
+        )
     )
     fractions: list[float] = []
 
@@ -585,7 +623,11 @@ def cmd_measure(args: argparse.Namespace) -> int:
     recording_path = write_wav(
         out_dir / "recording.wav", recording.samples, settings.sample_rate, subtype="FLOAT"
     )
-    print(f"Recorded {recording.duration_s:.1f} s to {recording_path}")
+    print(
+        _("Recorded {seconds:.1f} s to {path}").format(
+            seconds=recording.duration_s, path=recording_path
+        )
+    )
     return _run_analysis(
         recording_path,
         sweep_path,
@@ -612,7 +654,7 @@ def cmd_show(args: argparse.Namespace) -> int:
     if args.list:
         listings = list_sessions(args.path)
         if not listings:
-            print(f"No session.json files under {args.path}")
+            print(_("No session.json files under {root}").format(root=args.path))
             return 0
         for item in listings:
             print(f"{item.path}\t{item.label}")
@@ -640,7 +682,7 @@ def cmd_show(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=1))
     else:
         print(format_report(loaded.result, findings, profile))
-        print(f"\nSession: {loaded.directory}")
+        print("\n" + _("Session: {path}").format(path=loaded.directory))
     return 0
 
 
@@ -671,7 +713,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
     else:
         print(format_comparison_report(comparison, findings, profile))
         if args.out is not None:
-            print(f"\nWrote comparison to {args.out}")
+            print("\n" + _("Wrote comparison to {path}").format(path=args.out))
     return 0
 
 
@@ -722,7 +764,7 @@ def cmd_analyze_ir(args: argparse.Namespace) -> int:
     else:
         print(format_report(result, findings, profile))
         if args.out is not None:
-            print(f"\nSaved session to {args.out}")
+            print("\n" + _("Saved session to {path}").format(path=args.out))
     return 0
 
 
@@ -731,7 +773,7 @@ def cmd_session(args: argparse.Namespace) -> int:
 
     if args.session_command == "bundle":
         path = bundle_session(args.session, args.out, include_audio=not args.no_audio)
-        print(f"Wrote {path}")
+        print(_("Wrote {path}").format(path=path))
         return 0
     raise RoomScopeError(f"unknown session command {args.session_command}")
 
@@ -764,11 +806,11 @@ def cmd_project(args: argparse.Namespace) -> int:
     if command == "init":
         project = Project(name=args.name or args.out.name, notes=args.notes)
         path = save_project(args.out, project)
-        print(f"Wrote {path}")
+        print(_("Wrote {path}").format(path=path))
         return 0
     if command == "add":
         project = add_session(args.project, args.session, position=args.position)
-        print(f"{len(project.positions)} position(s) in {args.project}")
+        print(_("{n} position(s) in {path}").format(n=len(project.positions), path=args.project))
         return 0
     if command == "show":
         if not is_project(args.project):
@@ -776,7 +818,7 @@ def cmd_project(args: argparse.Namespace) -> int:
         project = load_project(args.project)
         print(f"{project.name or args.project}")
         for label, path in list_project_sessions(args.project):
-            tag = label or "(unlisted)"
+            tag = label or _("(unlisted)")
             print(f"  {tag}\t{path}")
         return 0
     if command == "average":
@@ -796,10 +838,15 @@ def cmd_project(args: argparse.Namespace) -> int:
             print(json.dumps(averaged.to_dict(), indent=1))
         else:
             print(
-                f"ISO 3382-2 class: {averaged.iso_3382_2_class} "
-                f"({averaged.n_source_positions} source × {averaged.n_microphone_positions} mic)"
+                _("ISO 3382-2 class: {klass} ({sources} source × {mics} mic)").format(
+                    klass=averaged.iso_3382_2_class,
+                    sources=averaged.n_source_positions,
+                    mics=averaged.n_microphone_positions,
+                )
             )
-            print(f"{'band':>10}  {'EDT':>8}  {'T20':>8}  {'T30':>8}  {'RT60':>8}  n")
+            print(
+                f"{_('band'):>10}  {_('EDT'):>8}  {_('T20'):>8}  {_('T30'):>8}  {_('RT60'):>8}  n"
+            )
             for band in averaged.bands:
                 edt = f"{band.edt.seconds:.2f}" if band.edt.seconds is not None else "-"
                 t20 = f"{band.t20.seconds:.2f}" if band.t20.seconds is not None else "-"
@@ -817,7 +864,9 @@ def cmd_gui(args: argparse.Namespace) -> int:
         from roomscope.ui.app import run_app
     except ImportError as exc:
         print(
-            f"The GUI needs PySide6 Essentials: pip install 'roomscope[gui]' ({exc})",
+            _("The GUI needs PySide6 Essentials: pip install 'roomscope[gui]' ({error})").format(
+                error=exc
+            ),
             file=sys.stderr,
         )
         return 2
@@ -849,13 +898,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return COMMANDS[args.command](args)
     except MeasurementCancelledError as exc:
-        print(f"stopped: {exc}", file=sys.stderr)
+        print(_("stopped: {message}").format(message=exc), file=sys.stderr)
         return 130
     except RoomScopeError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(_("error: {message}").format(message=exc), file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("interrupted", file=sys.stderr)
+        print(_("interrupted"), file=sys.stderr)
         return 130
 
 
