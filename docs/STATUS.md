@@ -85,6 +85,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
 | Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags |
+| Documentation | Hub at `docs/index.md`; themed HTML site from `scripts/build_docs_site.py` (S7) |
 
 ## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
