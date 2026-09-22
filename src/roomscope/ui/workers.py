@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from PySide6.QtCore import QThread, Signal
 
 from roomscope.core.pipeline import Reference, analyze
-from roomscope.errors import MeasurementCancelled, RoomScopeError
+from roomscope.errors import MeasurementCancelledError, RoomScopeError
 from roomscope.models.audio import AudioSignal, FloatArray
 from roomscope.models.configuration import AnalysisSettings
 
@@ -91,7 +91,7 @@ class MeasureWorker(QThread):
                 progress=self.progress.emit,
                 cancel=self._cancel,
             )
-        except MeasurementCancelled:
+        except MeasurementCancelledError:
             self.stopped.emit()
         except RoomScopeError as exc:
             self.failed.emit(str(exc))

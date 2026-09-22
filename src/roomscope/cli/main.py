@@ -14,7 +14,7 @@ from pathlib import Path
 
 from roomscope import __version__
 from roomscope.cli.report import format_comparison_report, format_report
-from roomscope.errors import MeasurementCancelled, RoomScopeError
+from roomscope.errors import MeasurementCancelledError, RoomScopeError
 from roomscope.interpretation import available_profiles
 from roomscope.logging_config import configure_logging
 from roomscope.models.configuration import (
@@ -411,7 +411,9 @@ def cmd_measure(args: argparse.Namespace) -> int:
     if args.output_device is not None:
         backend.check_sample_rate(args.output_device, settings.sample_rate, kind="output")
     if args.input_channels:
-        channels = [int(part.strip()) for part in str(args.input_channels).split(",") if part.strip()]
+        channels = [
+            int(part.strip()) for part in str(args.input_channels).split(",") if part.strip()
+        ]
     else:
         channels = [int(args.input_channel)]
     hardware_loopback = getattr(args, "measure_loopback_channel", None)
@@ -420,7 +422,9 @@ def cmd_measure(args: argparse.Namespace) -> int:
     analysis_loopback = None if hardware_loopback is None else channels.index(hardware_loopback)
     # so _analysis_settings does not read a missing 0-based flag
     args.loopback_channel = analysis_loopback
-    args.channel = 0 if hardware_loopback is None else (0 if channels[0] != hardware_loopback else 1)
+    args.channel = (
+        0 if hardware_loopback is None else (0 if channels[0] != hardware_loopback else 1)
+    )
     if args.channel >= len(channels):
         args.channel = 0
     out_dir: Path = args.out
@@ -598,7 +602,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     configure_logging(logging.DEBUG if args.verbose else logging.WARNING)
     try:
         return COMMANDS[args.command](args)
-    except MeasurementCancelled as exc:
+    except MeasurementCancelledError as exc:
         print(f"stopped: {exc}", file=sys.stderr)
         return 130
     except RoomScopeError as exc:

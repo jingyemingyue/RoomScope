@@ -8,6 +8,9 @@ from scipy.signal import resample_poly
 
 from roomscope.audio.fake import make_rir
 from roomscope.core.sweep import normalisation_band_hz
+
+# Re-export the synthetic room used throughout the suite.
+__all__ = ["make_rir"]
 from roomscope.models.audio import FloatArray
 from roomscope.models.configuration import SweepSettings
 from roomscope.models.result import AnalysisResult

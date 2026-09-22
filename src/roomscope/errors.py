@@ -40,7 +40,7 @@ class AudioBackendUnavailableError(AudioDeviceError):
     """The optional audio backend (sounddevice / PortAudio) is not available."""
 
 
-class MeasurementCancelled(RoomScopeError):
+class MeasurementCancelledError(RoomScopeError):
     """Stop was pressed during playback; the output was silenced."""
 
 

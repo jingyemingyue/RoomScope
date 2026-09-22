@@ -10,7 +10,7 @@ import pytest
 from roomscope.audio.backend import CALLBACK_BLOCK, get_backend
 from roomscope.audio.fake import FakeBackend, make_rir
 from roomscope.core.sweep import measurement_signal
-from roomscope.errors import ConfigurationError, MeasurementCancelled
+from roomscope.errors import ConfigurationError, MeasurementCancelledError
 from roomscope.models.configuration import SweepSettings
 
 
@@ -58,7 +58,7 @@ def test_fake_stop_silences_within_one_callback(short_sweep: SweepSettings) -> N
     backend = FakeBackend()
     cancel = threading.Event()
     cancel.set()
-    with pytest.raises(MeasurementCancelled):
+    with pytest.raises(MeasurementCancelledError):
         backend.play_and_record(
             measurement_signal(short_sweep),
             short_sweep.sample_rate,

@@ -9,7 +9,7 @@ import numpy as np
 
 from roomscope.audio.backend import CALLBACK_BLOCK, DeviceInfo, prepare_playback
 from roomscope.audio.devices import check_sample_rate, list_devices, sounddevice_module
-from roomscope.errors import AudioDeviceError, ConfigurationError, MeasurementCancelled
+from roomscope.errors import AudioDeviceError, ConfigurationError, MeasurementCancelledError
 from roomscope.models.audio import AudioSignal, FloatArray
 
 
@@ -97,14 +97,16 @@ class PortAudioBackend:
                     raise AudioDeviceError("playback/recording timed out")
         except Exception as exc:
             if cancel is not None and cancel.is_set():
-                raise MeasurementCancelled("measurement stopped") from exc
-            if isinstance(exc, MeasurementCancelled):
+                raise MeasurementCancelledError("measurement stopped") from exc
+            if isinstance(exc, MeasurementCancelledError):
                 raise
             raise AudioDeviceError(f"playback/recording failed: {exc}") from exc
         if callback_error:
-            raise AudioDeviceError(f"playback/recording failed: {callback_error[0]}") from callback_error[0]
+            raise AudioDeviceError(
+                f"playback/recording failed: {callback_error[0]}"
+            ) from callback_error[0]
         if cancel is not None and cancel.is_set():
-            raise MeasurementCancelled("measurement stopped")
+            raise MeasurementCancelledError("measurement stopped")
         samples = recorded[:, 0] if len(input_channels) == 1 else recorded
         return AudioSignal(
             samples=np.ascontiguousarray(samples),

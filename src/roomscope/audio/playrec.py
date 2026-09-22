@@ -19,8 +19,8 @@ from roomscope.models.audio import AudioSignal, FloatArray
 
 __all__ = [
     "DEFAULT_STANDALONE_LEVEL_DBFS",
-    "SAFE_MAX_LEVEL_DBFS",
     "SAFETY_MESSAGE",
+    "SAFE_MAX_LEVEL_DBFS",
     "play_and_record",
     "scale_to_level",
 ]

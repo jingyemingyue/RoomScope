@@ -84,9 +84,7 @@ def format_report(
     if ir.loopback is not None:
         lb = ir.loopback
         if lb.compensation_applied:
-            delay = (
-                f"{lb.path_delay_ms:.2f} ms" if lb.path_delay_ms is not None else "n/a"
-            )
+            delay = f"{lb.path_delay_ms:.2f} ms" if lb.path_delay_ms is not None else "n/a"
             bound = (
                 f"{lb.distance_upper_bound_m:.2f} m"
                 if lb.distance_upper_bound_m is not None
@@ -98,8 +96,7 @@ def format_report(
             )
         else:
             lines.append(
-                "Loopback: offered but not applied"
-                + (f" ({lb.reason})" if lb.reason else ".")
+                "Loopback: offered but not applied" + (f" ({lb.reason})" if lb.reason else ".")
             )
     lines.append("")
     lines.append("Reverberation (extrapolated to 60 dB; 'insuff.' = insufficient decay range)")

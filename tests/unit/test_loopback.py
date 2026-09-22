@@ -117,7 +117,9 @@ def test_compensate_flattens_a_known_interface_fir(short_sweep: SweepSettings) -
     lb_ir[: interface.shape[0]] = interface
     lb_raw = synthetic_recording(short_sweep, lb_ir, noise_rms=1e-7)
     loopback = AudioSignal(_pad_to(lb_raw.samples, mic.n_samples), sr)
-    dry = analyze(synthetic_recording(short_sweep, room, noise_rms=1e-6), Reference.from_settings(short_sweep))
+    dry = analyze(
+        synthetic_recording(short_sweep, room, noise_rms=1e-6), Reference.from_settings(short_sweep)
+    )
     wet = analyze(mic, Reference.from_settings(short_sweep))
     fixed = analyze(mic, Reference.from_settings(short_sweep), loopback=loopback)
     assert fixed.impulse_response.loopback is not None
@@ -133,7 +135,11 @@ def test_compensate_flattens_a_known_interface_fir(short_sweep: SweepSettings) -
         # interpolate b onto a's grid
         from numpy import interp
 
-        b_on_a = interp(freqs[select], b.frequency_response.frequencies_hz, b.frequency_response.magnitude_db_raw)
+        b_on_a = interp(
+            freqs[select],
+            b.frequency_response.frequencies_hz,
+            b.frequency_response.magnitude_db_raw,
+        )
         return float(np.median(np.abs(a.frequency_response.magnitude_db_raw[select] - b_on_a)))
 
     assert median_err(fixed, dry) < COMPENSATION_TOLERANCE_DB

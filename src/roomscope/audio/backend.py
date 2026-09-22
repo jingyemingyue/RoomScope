@@ -111,13 +111,9 @@ def get_backend(name: str | None = None) -> AudioBackend:
         from roomscope.audio.portaudio import PortAudioBackend
 
         return PortAudioBackend()
-    raise ConfigurationError(
-        f"unknown audio backend {chosen!r}; available: portaudio, fake"
-    )
+    raise ConfigurationError(f"unknown audio backend {chosen!r}; available: portaudio, fake")
 
 
 def supported_sample_rate(sample_rate: int) -> None:
     if sample_rate not in SUPPORTED_SAMPLE_RATES:
-        raise ConfigurationError(
-            f"sample rate {sample_rate} Hz is not in {SUPPORTED_SAMPLE_RATES}"
-        )
+        raise ConfigurationError(f"sample rate {sample_rate} Hz is not in {SUPPORTED_SAMPLE_RATES}")

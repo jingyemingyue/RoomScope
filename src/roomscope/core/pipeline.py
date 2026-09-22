@@ -37,13 +37,13 @@ from roomscope.core.deconvolution import (
     locate_impulse_response,
 )
 from roomscope.core.frequency_response import frequency_response
+from roomscope.core.linearity import aliased_distortion_levels, detect_clipping
 from roomscope.core.loopback import (
     LOOPBACK_FR_REFERENCE,
     assess_loopback,
     compensate,
     make_loopback_result,
 )
-from roomscope.core.linearity import aliased_distortion_levels, detect_clipping
 from roomscope.core.noise import analyze_noise, quiet_segment_candidates, sweep_level_dbfs
 from roomscope.core.placement import estimate_placement
 from roomscope.core.reflections import detect_early_reflections
@@ -57,7 +57,12 @@ from roomscope.core.sweep import (
     frequency_at_sweep_time,
     inverse_filter,
 )
-from roomscope.errors import ConfigurationError, InvalidAudioError, SampleRateMismatchError
+from roomscope.errors import (
+    AnalysisError,
+    ConfigurationError,
+    InvalidAudioError,
+    SampleRateMismatchError,
+)
 from roomscope.models.audio import AudioSignal, FloatArray
 from roomscope.models.configuration import AnalysisSettings, SweepSettings
 from roomscope.models.result import (
@@ -419,6 +424,7 @@ def _select_mic_and_loopback(
     if lb_channel is not None and settings.channel is not None and lb_channel == settings.channel:
         raise ConfigurationError("loopback_channel must differ from the microphone channel")
 
+    warning: str | None
     if settings.channel is None and lb_channel is not None and recording.n_channels > 1:
         rms = np.sqrt(np.mean(recording.samples.astype(np.float64) ** 2, axis=0))
         scores = rms.copy()
@@ -564,9 +570,7 @@ def analyze(
                 settings=settings,
                 sample_rate=sample_rate,
             )
-            assessment = assess_loopback(
-                lb_located, h_lb, sample_rate, clipped=lb_clipping.clipped
-            )
+            assessment = assess_loopback(lb_located, h_lb, sample_rate, clipped=lb_clipping.clipped)
         except (InvalidAudioError, AnalysisError) as exc:
             loopback_result = LoopbackResult(
                 channel=lb_channel,
@@ -576,9 +580,7 @@ def analyze(
         else:
             mic_peak = located.peak_index
             if assessment.accepted and assessment.fir is not None:
-                h_full = compensate(
-                    h_full, assessment.fir, sample_rate, prepared.excitation_band
-                )
+                h_full = compensate(h_full, assessment.fir, sample_rate, prepared.excitation_band)
                 located = _locate_pass(
                     h_full,
                     recording_length=mono.shape[0],

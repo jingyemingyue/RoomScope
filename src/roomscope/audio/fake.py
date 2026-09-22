@@ -21,7 +21,7 @@ from roomscope.audio.backend import (
     prepare_playback,
     supported_sample_rate,
 )
-from roomscope.errors import AudioDeviceError, ConfigurationError, MeasurementCancelled
+from roomscope.errors import AudioDeviceError, ConfigurationError, MeasurementCancelledError
 from roomscope.models.audio import AudioSignal, FloatArray
 
 DECAY_CONSTANT = 3.0 * np.log(10.0) * 2.0
@@ -93,6 +93,8 @@ class FakeBackend:
         ]
 
     def check_sample_rate(self, device: int, sample_rate: int, *, kind: str) -> None:
+        if kind not in {"input", "output"}:
+            raise ConfigurationError("kind must be 'input' or 'output'")
         if device != 0:
             raise AudioDeviceError(f"fake backend has no device {device}")
         supported_sample_rate(sample_rate)
@@ -119,16 +121,26 @@ class FakeBackend:
             raise AudioDeviceError("fake backend only has device 0")
         supported_sample_rate(sample_rate)
         signal = prepare_playback(playback, sample_rate, level_dbfs, extra_record_s)
-        room = self.rir if self.rir is not None else make_rir(sample_rate, rt60_s=self.rt60_s, seed=self.seed)
-        mic = np.asarray(fftconvolve(signal, room, mode="full")[: signal.shape[0]], dtype=np.float64)
+        room = (
+            self.rir
+            if self.rir is not None
+            else make_rir(sample_rate, rt60_s=self.rt60_s, seed=self.seed)
+        )
+        mic = np.asarray(
+            fftconvolve(signal, room, mode="full")[: signal.shape[0]], dtype=np.float64
+        )
         if self.noise_rms > 0.0:
             rng = np.random.default_rng(self.seed + 1)
             mic = mic + rng.normal(0.0, self.noise_rms, mic.shape[0])
         delay = max(0, round(self.loopback_delay_s * sample_rate))
         loop = np.zeros_like(signal)
-        delayed = signal if self.interface_ir is None else np.asarray(
-            fftconvolve(signal, self.interface_ir, mode="full")[: signal.shape[0]],
-            dtype=np.float64,
+        delayed = (
+            signal
+            if self.interface_ir is None
+            else np.asarray(
+                fftconvolve(signal, self.interface_ir, mode="full")[: signal.shape[0]],
+                dtype=np.float64,
+            )
         )
         loop[delay:] = delayed[: delayed.shape[0] - delay] if delay else delayed
 
@@ -142,8 +154,10 @@ class FakeBackend:
             if cancel is not None and cancel.is_set():
                 self.last_output_block = np.zeros(min(CALLBACK_BLOCK, n - start), dtype=np.float64)
                 self.cancelled = True
-                raise MeasurementCancelled("measurement stopped")
-            self.last_output_block = np.asarray(signal[start : start + CALLBACK_BLOCK], dtype=np.float64)
+                raise MeasurementCancelledError("measurement stopped")
+            self.last_output_block = np.asarray(
+                signal[start : start + CALLBACK_BLOCK], dtype=np.float64
+            )
             if progress is not None:
                 progress(min(1.0, (start + CALLBACK_BLOCK) / n))
         self.cancelled = False

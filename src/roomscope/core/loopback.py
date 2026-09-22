@@ -90,9 +90,7 @@ def late_peak_drop_db(h_full: FloatArray, peak_index: int, sample_rate: int) -> 
     return 20.0 * math.log10(peak / max(late, 1e-300))
 
 
-def loopback_fir(
-    h_full: FloatArray, peak_index: int, sample_rate: int
-) -> FloatArray:
+def loopback_fir(h_full: FloatArray, peak_index: int, sample_rate: int) -> FloatArray:
     """Short interface FIR around the loopback peak, copied out of ``h_full``."""
     start = max(0, peak_index - round(LOOPBACK_FIR_PRE_MS * sample_rate / 1000.0))
     stop = min(
@@ -196,8 +194,8 @@ def compensate(
 ) -> FloatArray:
     """Return ``h_mic`` divided by the interface FIR, regularised outside the band."""
     nfft = int(sfft.next_fast_len(max(h_mic.shape[0], 2 * fir.shape[0]), real=True))
-    H_mic = sfft.rfft(h_mic, nfft)
-    H_lb = sfft.rfft(fir, nfft)
+    spec_mic = sfft.rfft(h_mic, nfft)
+    spec_lb = sfft.rfft(fir, nfft)
     freqs = np.fft.rfftfreq(nfft, 1.0 / sample_rate)
     lo = float(excitation_band.low_hz)
     hi = float(excitation_band.high_hz)
@@ -207,15 +205,13 @@ def compensate(
     if ref_lo >= ref_hi:
         ref_lo, ref_hi = lo, hi
     shape_db = _regularisation_shape_db(freqs, (lo, hi), (ref_lo, ref_hi))
-    power = np.abs(H_lb) ** 2
+    power = np.abs(spec_lb) ** 2
     in_band = (freqs >= lo) & (freqs <= hi)
-    scale = (
-        float(np.median(power[in_band])) if np.any(in_band) else float(np.median(power[1:]))
-    )
+    scale = float(np.median(power[in_band])) if np.any(in_band) else float(np.median(power[1:]))
     scale = max(scale, 1e-30)
     eps = scale * 10.0 ** (shape_db / 10.0)
-    H_room = H_mic * np.conj(H_lb) / (power + eps)
-    compensated = np.asarray(sfft.irfft(H_room, nfft)[: h_mic.shape[0]], dtype=np.float64)
+    spec_room = spec_mic * np.conj(spec_lb) / (power + eps)
+    compensated = np.asarray(sfft.irfft(spec_room, nfft)[: h_mic.shape[0]], dtype=np.float64)
     return compensated
 
 
