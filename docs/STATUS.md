@@ -33,6 +33,12 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 10: 2026-09-22 — 1.0-rc software on top of 0.4: Placement tab
+(S5), Python 3.14 in CI (S6), M11 validation protocol with pre-chosen
+tolerances, bundle.lock, SBOM/checksums and a trusted-publishing job
+that still needs the maintainer `pypi` environment. Hardware cells are
+not marked PASS. The repository is not public.
+
 Snapshot 9: 2026-09-22 — 0.4 follow-up after the first local suite: `--json`
 prints JSON again (deprecation on stderr, not `warnings.warn`); license
 discovery follows files under `.dist-info/licenses/`; macOS
@@ -61,7 +67,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | Averaging | `average_decay`: VALID T values only; ISO 3382-2 class labelled from Table 1 (secondary-source transcription) |
 | Export | CSV exporter for decay, FR, noise PSD, reflections, resonances; `roomscope.exporters` entry points |
 | i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG` |
-| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results, session save/open, Compare, Demo, Stop, Settings, project-folder browser |
+| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare, Demo, Stop, Settings, project-folder browser, tape-measure fields |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
 | Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags |
 
@@ -166,9 +172,9 @@ algebra and the refusals, not the acoustics of any real surface.
 * `result.json` with curves is several MB for long IRs (`--no-curves` to
   shrink); the raw IR WAV is the authoritative record.
 * The GUI is functional but plain. Session re-opening, a folder/recent
-  list, a two-session comparison, Settings, Demo/Stop and a `project.json`
-  folder view are in. There is no Placement tab yet (S5) and no large
-  session database.
+  list, a two-session comparison, Settings, Demo/Stop, a `project.json`
+  folder view and a Placement tab (S5) are in. There is no large session
+  database.
 
 ## Not implemented (by design for v0.1 or deferred)
 
@@ -226,11 +232,12 @@ installing a frozen bundle on macOS/Windows is **not** claimed here —
 those artifacts are produced by the release workflow when the maintainer
 pushes a tag. [HARDWARE_TESTS.md](HARDWARE_TESTS.md) is still empty.
 
-The remaining MUST items are 1.0-rc: API/schema freeze, the validation
-campaign (M11), the hardware matrix executed at least once per platform
-(M10), signed bundles or an explicit maintainer decision (M9 remainder),
-SECURITY / CONTRIBUTING / STATUS updated for the freeze, repository
-public (M13, maintainer), pre-release on PyPI (maintainer).
+The remaining MUST items are still 1.0-rc: API/schema freeze, the
+validation campaign *executed* (M11 protocol is written), the hardware
+matrix executed at least once per platform (M10), signed bundles or an
+explicit maintainer decision (M9 remainder), SECURITY / CONTRIBUTING /
+STATUS updated for the freeze, repository public (M13, maintainer),
+pre-release on PyPI (the workflow job exists; publishing is maintainer).
 
 Maintainer-only actions that this work does not do: public visibility flip,
 a numbered GitHub Release, a license change, or rewriting published

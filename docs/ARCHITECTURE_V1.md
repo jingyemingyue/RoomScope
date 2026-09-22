@@ -113,12 +113,12 @@ Added for v1.0:
 
 | # | Item | Section |
 | --- | --- | --- |
-| S1 | `roomscope analyze-ir`: analyse an impulse response WAV from another tool | §5.3.3 |
+| S1 | `roomscope analyze-ir`: analyse an impulse response WAV from another tool *(landed in 0.3)* | §5.3.3 |
 | S2 | Spatial averaging of T values over several sessions of one room (ISO 3382-2 style, with the accuracy class named) *(landed in 0.4)* | §5.3.4 |
 | S3 | Project folders (one room, several positions) with a project view in the GUI *(landed in 0.4)* | §5.9 |
 | S4 | CSV exporter for every curve; exporter entry points *(landed in 0.4)* | §5.7 |
-| S5 | Placement tab in the GUI (the text report already has the section) | §5.8 |
-| S6 | Python 3.14 in the CI matrix | §7.1 |
+| S5 | Placement tab in the GUI (the text report already has the section) *(landed in 1.0-rc)* | §5.8 |
+| S6 | Python 3.14 in the CI matrix *(landed in 1.0-rc)* | §7.1 |
 | S7 | Documentation site generated from `docs/` | §6.5 |
 
 ### 3.3 Not in 1.0 (by design, or deferred with a stated reason)

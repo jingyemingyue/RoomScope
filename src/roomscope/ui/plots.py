@@ -52,6 +52,19 @@ def plot_frequency_response(fig: Figure, result: AnalysisResult) -> None:
             linewidth=1.6,
             label=f"1/{fr.smoothing_fraction}-octave smoothed",
         )
+    loopback = result.impulse_response.loopback
+    if (
+        loopback is not None
+        and loopback.interface_response_hz is not None
+        and loopback.interface_response_db is not None
+    ):
+        ax.semilogx(
+            loopback.interface_response_hz,
+            loopback.interface_response_db,
+            linewidth=1.0,
+            alpha=0.8,
+            label="interface (loopback)",
+        )
     ax.set_xlim(20.0, result.sample_rate / 2.0)
     finite = fr.magnitude_db_raw[np.isfinite(fr.magnitude_db_raw)]
     if finite.shape[0]:

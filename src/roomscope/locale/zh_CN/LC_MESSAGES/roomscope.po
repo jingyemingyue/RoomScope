@@ -298,3 +298,102 @@ msgstr "可能的低频共振约在 {listed}：这些频率在响应中突出，
 
 msgid "Potential low-frequency resonances around {listed}: these frequencies stand out in the response and ring longer than their surroundings, which colours voice and dialogue. Move the microphone or treat the affected corner, then measure again."
 msgstr "可能的低频共振约在 {listed}：这些频率在响应中突出并且比周围更长地响起，会给人声和对白染色。移动话筒或处理该角落，然后重测。"
+
+msgid "Tape measurements (optional)"
+msgstr "卷尺测量（可选）"
+
+msgid "not measured"
+msgstr "未测量"
+
+msgid "Straight line from the loudspeaker to the microphone capsule."
+msgstr "扬声器到话筒振膜的直线距离。"
+
+msgid "Capsule above the first solid horizontal surface below it. Needs the distance."
+msgstr "振膜到其下方第一块水平固体表面的高度。需要先填距离。"
+
+msgid "air temperature measured"
+msgstr "已测量气温"
+
+msgid "Loudspeaker distance"
+msgstr "扬声器距离"
+
+msgid "Microphone height"
+msgstr "话筒高度"
+
+msgid "Overview"
+msgstr "总览"
+
+msgid "Impulse Response"
+msgstr "脉冲响应"
+
+msgid "Frequency Response"
+msgstr "频率响应"
+
+msgid "Decay"
+msgstr "衰减"
+
+msgid "Noise"
+msgstr "噪声"
+
+msgid "Early Reflections"
+msgstr "早期反射"
+
+msgid "Placement"
+msgstr "摆位"
+
+msgid "Figure"
+msgstr "量"
+
+msgid "Value"
+msgstr "数值"
+
+msgid "Validity"
+msgstr "有效性"
+
+msgid "Note"
+msgstr "说明"
+
+msgid "Delay (ms)"
+msgstr "延迟（ms）"
+
+msgid "Level (dB)"
+msgstr "电平（dB）"
+
+msgid "Excess path (m)"
+msgstr "多余路径（m）"
+
+msgid "Surface"
+msgstr "表面"
+
+msgid "Plane?"
+msgstr "平面？"
+
+msgid "No placement result. Add a loudspeaker distance to raise the tier."
+msgstr "没有摆位结果。补上扬声器距离可提高档位。"
+
+msgid "Placement tier {tier}. No coordinates, room length, room width or named wall are derived. Speed of sound {speed:.1f} m/s at {temp:.0f} C{assumed}."
+msgstr "摆位档位 {tier}。不推导坐标、房间长宽或具名墙面。声速 {speed:.1f} m/s，气温 {temp:.0f} C{assumed}。"
+
+msgid " (assumed)"
+msgstr "（假定）"
+
+msgid "Loudspeaker height"
+msgstr "扬声器高度"
+
+msgid "Plane above the devices"
+msgstr "设备上方平面"
+
+msgid "Horizontal separation"
+msgstr "水平间距"
+
+msgid "not determined"
+msgstr "未确定"
+
+msgid "yes"
+msgstr "是"
+
+msgid "no"
+msgstr "否"
+
+msgid "untested"
+msgstr "未检验"

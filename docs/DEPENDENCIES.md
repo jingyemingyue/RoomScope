@@ -47,7 +47,7 @@ Apache-2.0 project with the redistribution obligations listed in §3.
 | jsonschema | 4.26.0 | https://github.com/python-jsonschema/jsonschema | MIT | validate `to_dict` writers against shipped schemas (tests only) | Yes |
 | babel | (optional `i18n-dev`) | https://github.com/python-babel/babel | BSD-3-Clause | extract/compile gettext catalogs; not required at runtime | Yes |
 | pyinstaller | (release workflow) | https://github.com/pyinstaller/pyinstaller | GPL-2.0-or-later WITH Bootloader-exception | one-directory desktop bundles; not a runtime dependency | Yes* (tool only; not imported by RoomScope) |
-| cyclonedx-bom | (planned on tags) | https://github.com/CycloneDX/cyclonedx-python | Apache-2.0 | SBOM on a maintainer tag; not used in 0.4 CI | Yes |
+| cyclonedx-bom | (release workflow on `v*` tags) | https://github.com/CycloneDX/cyclonedx-python | Apache-2.0 | SBOM attached to a draft Release; not a runtime dependency | Yes |
 
 Evaluated and **not** adopted: `hypothesis` (MPL-2.0, file-level copyleft;
 dev-only would be acceptable but it is not needed), `pytest-qt` (MIT; the

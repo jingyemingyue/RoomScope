@@ -59,6 +59,18 @@ Core diagnostics (`warnings`, `notes`, `reason`) stay in English in
 `result.json` so bug reports compare across languages. The UI shows them
 verbatim under a heading that says so.
 
+## Placement
+
+The Results page has a Placement tab. Without a tape-measured loudspeaker
+distance RoomScope only reports each arrival's excess path. With the
+distance (and, for the vertical axis, the microphone height) it reports
+loudspeaker height, the plane above both devices and the horizontal
+separation. It never names a wall or gives room length or width.
+
+Enter the tape numbers in Universal DAW Mode or Standalone Mode before
+Analyze, or pass `--speaker-distance` / `--mic-height` / `--temperature`
+on the CLI.
+
 ## Comparing two positions
 
 `roomscope compare baseline/ candidate/ --same-input-gain` (or the GUI Compare

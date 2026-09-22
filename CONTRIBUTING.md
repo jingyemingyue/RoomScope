@@ -51,7 +51,7 @@ sudo apt-get install -y libportaudio2 libegl1 libgl1 libxkbcommon0 libxcb-cursor
 ```
 
 All three of pytest / ruff / mypy must pass before a pull request is opened.
-GitHub Actions repeats them on Python 3.12 and 3.13. Tests that need audio
+GitHub Actions repeats them on Python 3.12, 3.13 and 3.14. Tests that need audio
 hardware are not part of the suite; synthetic signals are used instead.
 
 The `gui` extra installs **PySide6_Essentials** (LGPL-3.0), not the PySide6

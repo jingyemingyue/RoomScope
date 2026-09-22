@@ -7,6 +7,14 @@ All notable changes to RoomScope are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- 1.0-rc software that does not need hardware or a public flip: GUI
+  Placement tab and tape-measure fields (S5); Python 3.14 in the CI
+  matrix (S6); the M11 validation protocol with pre-chosen tolerances
+  (`docs/VALIDATION.md`); `requirements/bundle.lock`; CycloneDX SBOM and
+  SHA256SUMS on `v*` tags; PyPI trusted-publishing job (GitHub
+  environment `pypi`, maintainer approval); `CODEOWNERS`. The campaign
+  has not been run; hardware cells stay empty; the repository stays
+  private.
 - v0.4 for everyone (ARCHITECTURE_V1.md milestone 0.4): gettext with a
   Simplified Chinese catalog; `--lang` / `settings.language` /
   `ROOMSCOPE_LANG`; user settings under `$ROOMSCOPE_HOME/settings.json`;

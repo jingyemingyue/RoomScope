@@ -1,0 +1,8 @@
+# Inputs for requirements/bundle.lock (ARCHITECTURE_V1.md §6.2).
+# Compile with: python scripts/compile_bundle_lock.py
+numpy>=1.26
+scipy>=1.12
+soundfile>=0.12
+sounddevice>=0.4.6
+matplotlib>=3.8
+PySide6_Essentials>=6.6

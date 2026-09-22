@@ -130,6 +130,63 @@ def _profile_combo(state: MeasurementState) -> QComboBox:
     return combo
 
 
+class PlacementInputs(QGroupBox):
+    """Optional tape measurements that raise the placement tier (S5)."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init(_("Tape measurements (optional)"), parent)
+        form = QFormLayout(self)
+        self.distance = QDoubleSpinBox()
+        self.distance.setRange(0.0, 15.0)
+        self.distance.setDecimals(2)
+        self.distance.setSingleStep(0.01)
+        self.distance.setSuffix(" m")
+        self.distance.setSpecialValueText(_("not measured"))
+        self.distance.setValue(0.0)
+        self.distance.setToolTip(_("Straight line from the loudspeaker to the microphone capsule."))
+        self.mic_height = QDoubleSpinBox()
+        self.mic_height.setRange(0.0, 5.0)
+        self.mic_height.setDecimals(2)
+        self.mic_height.setSingleStep(0.01)
+        self.mic_height.setSuffix(" m")
+        self.mic_height.setSpecialValueText(_("not measured"))
+        self.mic_height.setValue(0.0)
+        self.mic_height.setEnabled(False)
+        self.mic_height.setToolTip(
+            _("Capsule above the first solid horizontal surface below it. Needs the distance.")
+        )
+        self.temperature = QDoubleSpinBox()
+        self.temperature.setRange(-20.0, 50.0)
+        self.temperature.setDecimals(1)
+        self.temperature.setValue(20.0)
+        self.temperature.setSuffix(" C")
+        self.temperature.setEnabled(False)
+        self.temperature_measured = QCheckBox(_("air temperature measured"))
+        self.temperature_measured.toggled.connect(self.temperature.setEnabled)
+        self.distance.valueChanged.connect(self._sync_height)
+        form.addRow(_("Loudspeaker distance"), self.distance)
+        form.addRow(_("Microphone height"), self.mic_height)
+        form.addRow(self.temperature_measured, self.temperature)
+
+    def _sync_height(self, value: float) -> None:
+        allowed = value >= 0.20
+        self.mic_height.setEnabled(allowed)
+        if not allowed:
+            self.mic_height.setValue(0.0)
+
+    def analysis_kwargs(self) -> dict[str, float | None]:
+        distance = self.distance.value()
+        height = self.mic_height.value()
+        distance_m = distance if distance >= 0.20 else None
+        mic_height_m = height if distance_m is not None and height >= 0.02 else None
+        temperature_c = self.temperature.value() if self.temperature_measured.isChecked() else None
+        return {
+            "placement_distance_m": distance_m,
+            "placement_mic_height_m": mic_height_m,
+            "placement_temperature_c": temperature_c,
+        }
+
+
 class DawModePage(QWidget):
     analysis_finished = Signal()
     back = Signal()
@@ -202,6 +259,8 @@ class DawModePage(QWidget):
         v4 = QVBoxLayout(step4)
         meta, self.room, self.position, self.mic = _metadata_form(state)
         v4.addWidget(meta)
+        self.placement = PlacementInputs()
+        v4.addWidget(self.placement)
         profile_form = QFormLayout()
         self.profile = _profile_combo(state)
         profile_form.addRow("Recording profile", self.profile)
@@ -315,9 +374,13 @@ class DawModePage(QWidget):
         channel = self.channel.currentData()
         loopback = self.loopback_channel.currentData()
         self.state.profile = str(self.profile.currentData())
+        place = self.placement.analysis_kwargs()
         self.state.analysis_settings = AnalysisSettings(
             channel=None if channel is None else int(channel),
             loopback_channel=None if loopback is None else int(loopback),
+            placement_distance_m=place["placement_distance_m"],
+            placement_mic_height_m=place["placement_mic_height_m"],
+            placement_temperature_c=place["placement_temperature_c"],
         )
         self.state.session = MeasurementSession(
             mode="universal_daw",
@@ -434,6 +497,8 @@ class StandalonePage(QWidget):
 
         meta, self.room, self.position, self.mic = _metadata_form(state)
         layout.addWidget(meta)
+        self.placement = PlacementInputs()
+        layout.addWidget(self.placement)
 
         row = QHBoxLayout()
         self.back_button = QPushButton("Back")
@@ -522,8 +587,13 @@ class StandalonePage(QWidget):
             if hardware_loopback not in channels:
                 channels.append(hardware_loopback)
             analysis_loopback = channels.index(hardware_loopback)
+        place = self.placement.analysis_kwargs()
         self.state.analysis_settings = AnalysisSettings(
-            channel=0, loopback_channel=analysis_loopback
+            channel=0,
+            loopback_channel=analysis_loopback,
+            placement_distance_m=place["placement_distance_m"],
+            placement_mic_height_m=place["placement_mic_height_m"],
+            placement_temperature_c=place["placement_temperature_c"],
         )
         self.state.profile = str(self.profile.currentData())
         self._set_busy(True, "Playing the sweep and recording...")
