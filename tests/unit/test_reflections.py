@@ -76,3 +76,31 @@ def test_low_confidence_adds_note(sample_rate: int) -> None:
         direct_sound_confidence="low",
     )
     assert any("confidence is low" in n for n in res.notes)
+
+
+def test_truncated_search_window_is_reported(sample_rate: int) -> None:
+    """C17: when the impulse response ended before the search window, the
+    result looked like 'no reflections found' with no note."""
+    ir = make_rir(
+        sample_rate,
+        rt60_s=0.3,
+        length_s=0.025,
+        reflections=[(0.018, 10 ** (-9 / 20))],
+        diffuse_level=0.0,
+    )
+    res = _detect(ir, sample_rate, 0)
+    assert res.window_ms == (0.8, 80.0)
+    assert res.analysed_window_ms is not None
+    assert res.analysed_window_ms[1] == pytest.approx(25.0, abs=0.1)
+    assert res.window_truncated
+    assert any("only that part" in n for n in res.notes)
+    # What is inside the shortened window is still found.
+    assert [r.delay_ms for r in res.reflections] == pytest.approx([18.0], abs=0.1)
+
+
+def test_full_window_is_not_reported_as_truncated(sample_rate: int) -> None:
+    ir = make_rir(sample_rate, rt60_s=0.3, length_s=0.5, diffuse_level=0.01)
+    res = _detect(ir, sample_rate, 0)
+    assert res.analysed_window_ms == pytest.approx((0.8, 80.0))
+    assert not res.window_truncated
+    assert not any("only that part" in n for n in res.notes)
