@@ -21,6 +21,18 @@ from tests.conftest import make_rir
 pytestmark = pytest.mark.gui
 
 
+def test_pyside6_version_is_visible_to_matplotlib() -> None:
+    from roomscope.ui.qt import ensure_pyside6
+
+    ensure_pyside6()
+    import PySide6
+
+    assert PySide6.__version__
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+
+    assert FigureCanvasQTAgg is not None
+
+
 @pytest.fixture(scope="module")
 def app() -> QApplication:
     return QApplication.instance() or QApplication([])

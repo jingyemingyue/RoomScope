@@ -2,6 +2,11 @@
 
 > 本文件是项目发起人在 2026-09-17 的 Cowork 会话中给出的原始需求，逐字保留，作为项目范围与优先级的权威来源。
 > 英文架构文档见 `ARCHITECTURE.md`，实现状态见 `STATUS.md`。
+>
+> 第二节中的 GitHub 托管规则（默认 Private、未明确同意前不公开仓库、不发正式
+> Release）记录的是**当时**的初始化约束。面向贡献者的现行规则以仓库根目录的
+> `CONTRIBUTING.md`、`SECURITY.md` 和 `CODE_OF_CONDUCT.md` 为准；是否将仓库设为
+> Public 由维护者决定，不由本文自动授权。
 
 ---
 

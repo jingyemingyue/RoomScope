@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from roomscope.ui.qt import ensure_pyside6
+
+ensure_pyside6()
+
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt, Signal

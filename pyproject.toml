@@ -42,8 +42,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# The Qt GUI is optional: PySide6 is LGPL-3.0 and large. See docs/DEPENDENCIES.md.
-gui = ["PySide6>=6.6"]
+# Qt GUI. Depend on Essentials only (LGPL-3.0). The PySide6 meta-package also
+# pulls PySide6_Addons, which ships GPL-only modules RoomScope must not import
+# (QtCharts, QtGraphs, …). See docs/DEPENDENCIES.md and CONTRIBUTING.md.
+gui = ["PySide6_Essentials>=6.6"]
 dev = [
   "pytest>=8",
   "pytest-cov>=5",
@@ -74,6 +76,8 @@ include = [
   "NOTICE",
   "CONTRIBUTING.md",
   "CHANGELOG.md",
+  "CODE_OF_CONDUCT.md",
+  "SECURITY.md",
   "pyproject.toml",
 ]
 
@@ -122,6 +126,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/roomscope/cli/*" = ["T20"]
+"src/roomscope/ui/results.py" = ["E402", "I001"]
 "examples/*" = ["T20"]
 "scripts/*" = ["T20"]
 "tests/*" = ["ARG"]
@@ -143,7 +148,15 @@ module = ["roomscope.ui.results"]
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
+# PySide6_Essentials ships the widgets we import but no py.typed marker.
+# Subclassing those untyped Qt types is expected in roomscope.ui.
+module = ["roomscope.ui.*"]
+disable_error_code = ["misc", "import-untyped"]
+
+[[tool.mypy.overrides]]
 module = [
+  "PySide6",
+  "PySide6.*",
   "sounddevice",
   "sounddevice.*",
   "soundfile",

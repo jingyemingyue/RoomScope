@@ -333,7 +333,10 @@ def cmd_gui(_: argparse.Namespace) -> int:
     try:
         from roomscope.ui.app import run_app
     except ImportError as exc:
-        print(f"The GUI needs PySide6: pip install 'roomscope[gui]' ({exc})", file=sys.stderr)
+        print(
+            f"The GUI needs PySide6 Essentials: pip install 'roomscope[gui]' ({exc})",
+            file=sys.stderr,
+        )
         return 2
     return int(run_app())
 

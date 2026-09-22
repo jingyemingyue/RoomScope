@@ -1,0 +1,48 @@
+name: Measurement problem
+description: A number RoomScope printed looks wrong, or a validity flag is surprising.
+title: "[measurement] "
+labels: ["measurement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        RoomScope is a measurement tool. A report that a figure is wrong needs
+        the files that produced it. See [CONTRIBUTING.md](../../CONTRIBUTING.md).
+  - type: textarea
+    id: claim
+    attributes:
+      label: What looks wrong
+      description: Which metric, what value you saw, and what you expected (and why).
+    validations:
+      required: true
+  - type: input
+    id: chain
+    attributes:
+      label: Signal chain
+      description: DAW or Standalone Mode, interface, sample rate, microphone.
+      placeholder: "Universal DAW Mode / REAPER / 48 kHz / measurement mic into interface input 1"
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files
+      description: |
+        Please attach or link: the sweep sidecar JSON (`*.roomscope-sweep.json`),
+        the recorded WAV, `result.json`, and (if you still have it) the original
+        sweep WAV. Do not upload files that contain other people's performances
+        without permission.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Universal DAW Mode
+        - Standalone Mode
+        - CLI analyze of an existing recording
+        - Python API
+        - Synthetic / unit test
+    validations:
+      required: true

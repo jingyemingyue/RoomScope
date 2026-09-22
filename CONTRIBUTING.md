@@ -3,6 +3,9 @@
 Thank you for helping build a measurement tool people can trust. The rules
 below exist so that every number RoomScope prints stays defensible.
 
+Please also follow the [Code of Conduct](CODE_OF_CONDUCT.md). Security reports
+go through [SECURITY.md](SECURITY.md), not public issues.
+
 ## Ground rules
 
 1. **Correctness before features.** A metric that cannot be computed reliably
@@ -40,8 +43,19 @@ ruff check . && ruff format --check .
 mypy
 ```
 
-All three must pass before a pull request is opened. Tests that need audio
+On Linux, Standalone Mode and the GUI tests also need PortAudio and a few Qt
+platform libraries (CI installs them automatically):
+
+```bash
+sudo apt-get install -y libportaudio2 libegl1 libgl1 libxkbcommon0 libxcb-cursor0
+```
+
+All three of pytest / ruff / mypy must pass before a pull request is opened.
+GitHub Actions repeats them on Python 3.12 and 3.13. Tests that need audio
 hardware are not part of the suite; synthetic signals are used instead.
+
+The `gui` extra installs **PySide6_Essentials** (LGPL-3.0), not the PySide6
+meta-package, so GPL-only Qt modules never land in a developer environment.
 
 ## Tests
 
@@ -50,6 +64,16 @@ hardware are not part of the suite; synthetic signals are used instead.
 * Keep tests fast: use short sweeps (2 s) and 48 kHz unless the test is about
   sample rates.
 * Never rely on a real room recording as the only evidence.
+* Inverse filters are normalised to **unit in-band gain** (0 dB loopback
+  frequency response). The time-domain IR peak of a loopback is not 1.0; assert
+  against `reference_pulse(settings)` or against the frequency response.
+
+## Adding a recording profile
+
+Implement `RecordingProfile` (see `src/roomscope/interpretation/profiles.py`),
+register it in `_PROFILES`, add a synthetic test in
+`tests/unit/test_interpretation.py`, and document the thresholds in
+`docs/MEASUREMENT_METHODOLOGY.md` §8. Do not put advice inside `roomscope.core`.
 
 ## Commit and release policy
 
@@ -57,6 +81,7 @@ hardware are not part of the suite; synthetic signals are used instead.
 * Do not create tags/releases, change the license, or delete remote branches
   without maintainer approval.
 * `CHANGELOG.md` is updated in the same pull request.
+* Use the pull-request template; CI must be green before merge.
 
 ## Reporting measurement problems
 
