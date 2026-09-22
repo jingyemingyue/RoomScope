@@ -155,6 +155,8 @@ for r in result.reflections.reflections:
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Package layout, data flow, extension points |
 | [docs/ARCHITECTURE_V1.md](docs/ARCHITECTURE_V1.md) | v1.0 design (proposal): macOS only, compatibility first -- DAW and hardware matrices, the chain check, sweep integrity verification, comparison, packaging, validation gates |
 | [docs/ARCHITECTURE_V1.zh-CN.md](docs/ARCHITECTURE_V1.zh-CN.md) | Chinese digest of the v1.0 design |
+| [docs/DAW_COMPATIBILITY.md](docs/DAW_COMPATIBILITY.md) | DAW compatibility matrix (macOS): tiers, how a row turns green, current verdicts (none yet) |
+| [docs/user-guide/daw/](docs/user-guide/daw/README.md) | Measuring through a DAW: the common procedure and draft recipes for Logic Pro, Studio One Pro and Cubase (English and Chinese) |
 | [docs/MEASUREMENT_METHODOLOGY.md](docs/MEASUREMENT_METHODOLOGY.md) | Algorithms, units, validity rules, references |
 | [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) | Every runtime/dev dependency with license and purpose |
 | [docs/THIRD_PARTY_REVIEW.md](docs/THIRD_PARTY_REVIEW.md) | Audit of external repositories that were studied |

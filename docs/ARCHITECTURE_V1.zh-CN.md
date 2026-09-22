@@ -26,7 +26,7 @@
    两台设备（USB 测量麦克风）可用且做漂移检测；聚合设备写进指南；第一次扫频前有电平检查与实时输入表；
    "停止"立即静音。
 5. **重新打开、对比、留存。** 会话可重开（PR #2）、两次会话按有效性对比、会话文件夹自包含并可打包求助。
-6. **签名的 macOS 应用与 PyPI wheel**，由发布流程构建，并同时生成 LGPL / FreeType / PortAudio 义务要求的许可证包。
+6. **Developer ID 签名并公证的 macOS 应用**——强制要求，未签名的构建永不发布——以及 PyPI wheel，由发布流程构建，并同时生成 LGPL / FreeType / PortAudio 义务要求的许可证包。
 7. **先有证据再叫 1.0**：DAW 矩阵、硬件矩阵、外来文件健壮性测试、与参考仪器的真实房间验证都是发布门槛。
 
 需求书禁止的东西继续禁止：没有房间评分、自动 EQ、插件、云、账号、遥测，未校准不报 dB SPL，不报房间坐标。
@@ -44,13 +44,13 @@
 
 | # | 条目 |
 | --- | --- |
-| M1 | **DAW 兼容**：音频格式覆盖；扫频完整性校验（速度、拉伸、拖歪、多次播放、电平、失真）；DAW 形式的链路检查；逐 DAW 操作配方；需求书列出的九个 DAW 在 macOS 上的兼容矩阵全绿 |
+| M1 | **DAW 兼容**：音频格式覆盖；扫频完整性校验（速度、拉伸、拖歪、多次播放、电平、失真）；DAW 形式的链路检查；逐 DAW 操作方案；需求书列出的九个 DAW 在 macOS 上的兼容矩阵全绿——**先做 Logic Pro、Studio One Pro、Cubase**（A 组），其余在 1.0-rc 之前 |
 | M2 | **macOS 硬件兼容**：音频后端接口与 Core Audio 规则；默认设备当前采样率、不悄悄改配置；输入输出分属两台设备时的漂移检测；聚合设备；USB 测量麦克风；1–2 以外的通道映射；电平检查与实时输入表；停止；Standalone 形式的链路检查；§6.1 各类设备在硬件矩阵全绿 |
 | M3 | 会话重开与浏览器（PR #2 中） |
 | M4 | 两次会话对比（core、CLI、朴素的 GUI 表格） |
 | M5 | 文件格式稳定性策略与一个小的公开 API |
 | M6 | 自包含会话与求助打包 |
-| M7 | macOS `.app`（arm64 与 x86_64），公证或明确的维护者决定；PyPI wheel；发布流程；许可证包；GPL 模块门禁 |
+| M7 | macOS `.app`（arm64 与 x86_64），**Developer ID 签名并公证，无例外**；PyPI wheel；发布流程；许可证包；GPL 模块门禁 |
 | M8 | 中英文用户指南，含逐 DAW 配方与硬件设置（聚合设备、USB 麦克风） |
 | M9 | 质量门槛：CI 上有 macOS；外来文件健壮性测试；两个矩阵执行完毕；与参考仪器的真实房间验证 |
 | M10 | 仓库公开检查清单执行完毕（**维护者决定**） |
@@ -142,14 +142,15 @@ GUI 的"检查我的设置"页运行同一函数、显示同一清单，UI 里�
 
 ### 5.5 逐 DAW 配方与兼容矩阵
 
-`docs/DAW_COMPATIBILITY.md` 每个 DAW 一行——Cubase / Nuendo、Pro Tools、Logic Pro、Studio One、Ableton Live、REAPER、FL Studio、Bitwig Studio、Digital Performer——
-记录 DAW 版本、macOS 版本、日期、导出格式、链路检查判定与配方链接。配方（`docs/user-guide/daw/<name>.md`，中英文）只在**测试该行时**编写，
-写明：如何导入（不转换或用 DAW 的转换器）；该 DAW 的跟随速度模式在哪里、怎么对片段关掉；如何把轨道路由到声卡输出并录输入；
+[DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md) 每个 DAW 一行，分两组：**A 组先做**——Logic Pro、Studio One Pro（Studio One Professional 自第 7 版起的名称）、Cubase（方案同时覆盖 Nuendo）；
+**B 组在 1.0-rc 之前**——Pro Tools、Ableton Live、REAPER、FL Studio、Bitwig Studio、Digital Performer。每行记录 DAW 版本、macOS 版本、声卡、日期、文件获取方式、链路检查判定与方案链接。
+方案（`docs/user-guide/daw/<name>.md`，中英文）**先依据厂商文档起草**，标为 DRAFT 并附确认清单，在测试该行时逐行确认；A 组三份草案已写好
+（[logic-pro](user-guide/daw/logic-pro.zh-CN.md)、[studio-one](user-guide/daw/studio-one.zh-CN.md)、[cubase](user-guide/daw/cubase.zh-CN.md)），建立在通用流程 [user-guide/daw/README.zh-CN.md](user-guide/daw/README.zh-CN.md) 之上。方案写明：如何导入（不转换或用 DAW 的转换器）；该 DAW 的跟随速度模式在哪里、怎么对片段关掉；如何把轨道路由到声卡输出并录输入；
 如何把一条轨道导出为 PCM 24 bit 或 float、不归一化、不抖动；要旁通哪些插件与监听工具。没有绿色判定的行标为 **untested**，绝不标为支持。
 每次矩阵测试的回环录音（几秒、很小）作为 fixture 存入 `tests/fixtures/daw/<name>/`，附 DAW 版本说明，作为完整性与链路检查代码的真实回归样本。
 社区提交的行（其他版本、其他 DAW）通过 measurement issue 模板附上会话打包接受。
 
-**M1 退出标准：** 当前 macOS 上九行全绿，每行有配方、fixture 与日期。
+**M1 退出标准：** 0.2 时 A 组全绿，1.0-rc 时九行全绿，每行有方案、fixture 与日期。
 
 ## 6. macOS 硬件兼容（M2）
 
@@ -203,7 +204,8 @@ RoomScope 只写入用户选择的文件夹与 `ROOMSCOPE_HOME`（默认 `~/.roo
 ## 8. 分发（M7）
 
 * PyInstaller one-dir 生成 `RoomScope.app`，用 `hdiutil` 装入 `.dmg`；arm64 与 x86_64 两个包（NumPy / SciPy 无 universal2 wheel），x86_64 包可在 Rosetta 下运行。
-* `Info.plist`：`CFBundleIdentifier`、`LSMinimumSystemVersion`、`NSMicrophoneUsageDescription`。签名：hardened runtime、`com.apple.security.device.audio-input`、Developer ID 签名与 `notarytool` 公证；身份属于维护者（**维护者决定**）；在此之前以未签名发布并在指南给出 Gatekeeper 步骤，未公证或未明确决定则不叫 1.0。
+* `Info.plist`：`CFBundleIdentifier`、`LSMinimumSystemVersion`、`NSMicrophoneUsageDescription`。
+* **签名与公证（强制）：** 每个发布的包都用 Developer ID Application 证书签名、开启 hardened runtime 并公证；未签名或未公证的包永不附到 Release 上，没有"未签名发布"的兜底；未签名构建只作为名为 `-unsigned` 的 CI 产物供内部测试。流水线：(1) 前置条件（维护者，0.4 之前）：Apple Developer Program、Developer ID Application 证书、供 `notarytool` 使用的 App Store Connect API key、bundle identifier；证书与 key 存放在只有维护者能批准的 GitHub environment `release`，作业导入临时钥匙串并在结束后删除；(2) 构建：PyInstaller 加 `--codesign-identity` 与 `--osx-entitlements-file`，给定身份即开启 hardened runtime 并签名所有收集到的二进制；entitlements 为 `com.apple.security.device.audio-input`、`com.apple.security.cs.allow-unsigned-executable-memory`，`disable-library-validation` 仅在冒烟测试证明必要时加入，其他任何 entitlement 需要 ADR；(3) 公证前核验：脚本遍历包内所有 Mach-O 确认签名 Team ID 一致，`codesign --verify --deep --strict`，entitlements 与预期集合完全一致；(4) `stapler staple` 应用、构建并签名 `.dmg`、`notarytool submit --wait`（非 Accepted 则取日志并失败）、`stapler staple` dmg；(5) 门禁：`spctl --assess` 对 dmg 与 app 都须报告 Notarized Developer ID，并在干净的 runner 用户下带 quarantine 属性启动冒烟；两个架构分别走完整流水线；(6) 用户指南里没有任何 Gatekeeper 绕过步骤，因为不需要。
 * 打包门禁（CI 阻断）：不含 GPL-only Qt 模块（白名单 QtCore / QtGui / QtWidgets）；含 `scripts/build_license_bundle.py` 生成的 `THIRD_PARTY_LICENSES/`；DEPENDENCIES.md §6 中与 macOS wheel 有关的未决项先解决；用锁文件构建；每个包在 runner 上启动冒烟。
 * PyPI：`roomscope` 名称 2026-09-22 核实可用，注册与 trusted publishing 是**维护者决定**；`pipx install "roomscope[gui]"`。`release.yml` 由维护者推 `v*` tag 触发：测试 → PyPI（rc 为预发布）→ 两个 macOS 包 → 门禁 → `SHA256SUMS`、SBOM、许可证包 → 草稿 Release，由维护者发布。
 * 用户指南（M8）：`docs/user-guide/` 中英文：安装、DAW 流程与逐 DAW 配方、硬件设置（单声卡；USB 麦克风 + 声卡 + 聚合设备；不要用什么）、先"检查我的设置"、读懂每个结果页、对比两个位置、按症状排错（§5.1 每行一条）、如何发送打包。
@@ -218,19 +220,19 @@ RoomScope 只写入用户选择的文件夹与 `ROOMSCOPE_HOME`（默认 `~/.roo
 
 | 版本 | 主题 | 内容 | 退出标准 |
 | --- | --- | --- | --- |
-| 0.2 | 任何 DAW | `read_audio`；`core/integrity.py` 进管线；`core/chain_check.py` 与 `roomscope check`（DAW 形式）；DAW 页字段；配方与 `DAW_COMPATIBILITY.md`；逐 DAW fixture；健壮性层 | 当前 macOS 上九行全绿，有配方、fixture 与日期；重采样、拉伸、漂移三种合成录音各以正确原因被拒绝 |
+| 0.2 | 任何 DAW | `read_audio`；`core/integrity.py` 进管线；`core/chain_check.py` 与 `roomscope check`（DAW 形式）；DAW 页字段；方案与 `DAW_COMPATIBILITY.md`；逐 DAW fixture；健壮性层 | 当前 macOS 上 A 组（Logic Pro、Studio One Pro、Cubase / Nuendo）全绿，有方案、fixture 与日期；重采样、拉伸、漂移三种合成录音各以正确原因被拒绝 |
 | 0.3 | 任何声卡 | `AudioBackend`、回调流的 `portaudio`、`fake`、`coreaudio_rules`；默认采样率与重配置需确认；两台设备 + 漂移检测；实时表、电平检查、进度、停止；`check --standalone`；`HARDWARE_TESTS.md`；CI 上的 macOS runner | §6.1 除蓝牙外每类在 44.1 与 48 kHz 全绿、另有一次 96 kHz；真机上"停止"在一个回调周期内静音；Standalone 流程在 macOS 与 Ubuntu 的 CI 上以假后端运行 |
-| 0.4 | 重开、对比、留存 | 合并 PR #2；`compare` 全链路；宽松读取、新会话键、公开 API 导出与测试；自包含会话与 `session bundle`；时间允许则做 loopback 补偿（S1）与演示模式（S2） | 任何 v0.1 会话能重开；两次会话可对比且每个差值带有效性；GUI 打包的会话在另一台 Mac 上能复现分析 |
-| 1.0-rc | 冻结与证明 | 格式与 API 冻结；验证活动发布；`.app` 公证或明确决定；含全部配方的中英文指南；SECURITY / CONTRIBUTING / STATUS 更新；仓库公开；PyPI 预发布；两个矩阵在候选版本上重跑 | 无未完成 MUST；§8–§9 所有门禁在 tag 上全绿 |
+| 0.4 | 重开、对比、留存、签名 | 合并 PR #2；`compare` 全链路；宽松读取、新会话键、公开 API 导出与测试；自包含会话与 `session bundle`；§8 的签名与公证流水线在每个 tag 上产出签名测试包；时间允许则做 loopback 补偿（S1）与演示模式（S2） | 任何 v0.1 会话能重开；两次会话可对比且每个差值带有效性；GUI 打包的会话在另一台 Mac 上能复现分析；`spctl` 在干净 runner 上接受已 staple 的测试包 |
+| 1.0-rc | 冻结与证明 | 格式与 API 冻结；验证活动发布；九个 DAW 行全绿（B 组方案写好并测过）；含全部方案的中英文指南；SECURITY / CONTRIBUTING / STATUS 更新；仓库公开；PyPI 预发布；两个矩阵在候选版本上重跑 | 无未完成 MUST；§8–§9 所有门禁在 tag 上全绿，含公证门禁 |
 | 1.0 | 发布 | 仅 rc 后的修复 | 同上；发布说明写明矩阵、验证结果与已知限制 |
 | 1.0 之后 | | Windows 与 Linux 的包与矩阵；简体中文界面（S5）；来自麦克风校准文件的 dB SPL；`analyze-ir`、CSV 导出、项目、平均、entry point 插件机制；插件外壳的进程边界（先做许可证审查）；文档站 | |
 
 ## 11. 需要维护者决定的事项
 
-1. 公证身份与预算：加入 Apple Developer Program 做 Developer ID 签名，还是 1.0 明确以未签名形式发布？
+1. **Apple Developer Program（前置条件，0.4 之前）：** 谁持有 Team ID 与 Developer ID Application 证书；供 `notarytool` 使用的 App Store Connect API key；bundle identifier（例如 `org.roomscope.app`）。未签名发布不是选项。
 2. PyPI 名称 `roomscope` 的注册与 trusted publishing。
 3. 仓库公开时机：1.0-rc（建议）还是 1.0？
-4. 矩阵所需的 DAW 授权：九个 DAW 中维护者能运行哪些；试用版可用于填行（记录版本）；没人能跑的行保持 untested 直到有贡献者补上。
+4. 矩阵所需的 DAW 授权：先 Logic Pro、Studio One Pro、Cubase——维护者能运行哪些版本；试用版可用于填行（记录版本）；B 组没人能跑的行保持 untested 直到有贡献者补上。
 5. 矩阵所需的硬件：§6.1 各类中手头有哪些设备；用哪款 USB 测量麦克风。
 6. 验证活动：参考仪器、房间、执行人；是否允许 REW 作为比较仪器。
 7. 是否要求 DCO 签署。

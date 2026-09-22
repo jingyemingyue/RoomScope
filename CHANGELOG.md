@@ -16,6 +16,13 @@ All notable changes to RoomScope are documented here. The format follows
   API, a macOS app and PyPI release pipeline with license gates, quality and
   validation gates, milestones with exit criteria, and the decisions reserved
   for the maintainer. A proposal; nothing in it is implemented by this entry.
+  Revised: a Developer ID-signed and notarized app is mandatory (no unsigned
+  release), and the DAW matrix is tiered with Logic Pro, Studio One Pro and
+  Cubase first.
+- DAW compatibility matrix skeleton (`docs/DAW_COMPATIBILITY.md`) and the
+  DAW user guide (`docs/user-guide/daw/`): the common chain-check procedure
+  and draft, untested recipes for Logic Pro, Studio One Pro and Cubase /
+  Nuendo, in English and Chinese.
 - GitHub project files so other developers can clone, review and open pull
   requests: CI (pytest on Python 3.12/3.13, ruff, mypy, sdist/wheel), issue
   and pull-request templates, Dependabot, Contributor Covenant, and a

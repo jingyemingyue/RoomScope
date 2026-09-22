@@ -48,9 +48,10 @@ around that:
 5. **Reopen, compare, keep.** Saved sessions reopen *(PR #2)*, two sessions
    compare with validity-aware deltas, session folders are self-contained
    and can be zipped for support (§7).
-6. **A signed macOS app and a PyPI wheel**, built by a release workflow that
-   also produces the license bundle the LGPL / FreeType / PortAudio
-   obligations require (§8).
+6. **A Developer ID-signed and notarized macOS app** -- mandatory, an
+   unsigned build is never released -- and a PyPI wheel, built by a release
+   workflow that also produces the license bundle the LGPL / FreeType /
+   PortAudio obligations require (§8).
 7. **Evidence before the number 1.0**: the DAW matrix, the hardware matrix,
    robustness tests for foreign files, and a real-room validation against a
    reference instrument are release gates (§9).
@@ -102,13 +103,13 @@ Added for v1.0:
 
 | # | Item | Why it blocks | Section |
 | --- | --- | --- | --- |
-| M1 | **DAW compatibility**: audio-format breadth; sweep integrity verification (speed, stretch, skew, passes, level, distortion); the chain check in DAW form; per-DAW recipes; the nine DAWs of the brief green in the compatibility matrix on macOS | The maintainer's first requirement; every wrong number RoomScope could print to a DAW user comes from one of these failure modes | §5 |
+| M1 | **DAW compatibility**: audio-format breadth; sweep integrity verification (speed, stretch, skew, passes, level, distortion); the chain check in DAW form; per-DAW recipes; the nine DAWs of the brief green in the compatibility matrix on macOS -- **Logic Pro, Studio One Pro and Cubase first** (Tier A), the rest before 1.0-rc | The maintainer's first requirement; every wrong number RoomScope could print to a DAW user comes from one of these failure modes | §5 |
 | M2 | **Hardware compatibility on macOS**: audio backend interface with Core Audio rules; device-rate default and no silent reconfiguration; separate input / output devices with drift detection; aggregate devices; USB measurement microphones; channel maps beyond 1–2; level check and live input meter; Stop; the chain check in Standalone form; the device classes of §6.1 green in the hardware matrix | The second requirement; Standalone Mode has never run on real hardware | §6 |
 | M3 | Session re-opening and the session browser *(in PR #2)* | A tool that cannot show yesterday's measurement cannot compare positions | §7.1 |
 | M4 | Comparison of two sessions (core, CLI, a plain GUI table) | The third product question of the brief: "did moving help?" | §7.2 |
 | M5 | Format stability policy and a small public API | Integrators and the tool's own reopen / compare need to read what was written | §7.3 |
 | M6 | Self-contained sessions and support bundles | Support by e-mail, not screen-share | §7.4 |
-| M7 | macOS `.app` (arm64 and x86_64), notarized or an explicit maintainer decision; PyPI wheel; release workflow; license bundle; GPL-module gate | Nobody outside the project installs from git | §8 |
+| M7 | macOS `.app` (arm64 and x86_64), **Developer ID-signed and notarized without exception**; PyPI wheel; release workflow; license bundle; GPL-module gate | Nobody outside the project installs from git | §8 |
 | M8 | User guide in English and Chinese with the per-DAW recipes and the hardware setups (aggregate device, USB microphone) | A signed binary without recipes produces wrong measurements | §8.4 |
 | M9 | Quality gates: macOS in CI, robustness tests for foreign files, the two matrices executed, a real-room validation against a reference instrument | The methodology has only synthetic evidence today | §9 |
 | M10 | Public-repository checklist executed *(maintainer decision)* | The release is open only if the repository is | §11 |
@@ -344,18 +345,27 @@ also cheap: one cable, no microphone, a minute.
 
 ### 5.5 Per-DAW recipes and the compatibility matrix
 
-`docs/DAW_COMPATIBILITY.md` has one row per DAW of the brief -- Cubase /
-Nuendo, Pro Tools, Logic Pro, Studio One, Ableton Live, REAPER, FL Studio,
-Bitwig Studio, Digital Performer -- with: DAW version, macOS version, date,
-the export format used, the chain-check verdict, and a link to the recipe.
-A recipe (in `docs/user-guide/daw/<name>.md`, English and Chinese) is
-written only *while* the row is being tested and says, for that DAW: how to
-import without conversion or with the DAW's converter; where its
+[DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md) has one row per DAW of the
+brief in two tiers. **Tier A, first:** Logic Pro, Studio One Pro (the name
+of Studio One Professional since version 7) and Cubase, whose recipe also
+covers Nuendo. **Tier B, before 1.0-rc:** Pro Tools, Ableton Live, REAPER,
+FL Studio, Bitwig Studio, Digital Performer. Each row carries the DAW
+version, macOS version, interface, date, how the file was obtained, the
+chain-check verdict and a link to the recipe.
+
+A recipe (`docs/user-guide/daw/<name>.md`, English and Chinese) is
+**drafted first** from the vendor's documentation, marked DRAFT with a
+verification checklist, and confirmed line by line while the row is being
+tested; the three Tier A drafts exist ([logic-pro](user-guide/daw/logic-pro.md),
+[studio-one](user-guide/daw/studio-one.md), [cubase](user-guide/daw/cubase.md))
+on top of the common procedure in [user-guide/daw/README.md](user-guide/daw/README.md).
+A recipe says, for that DAW: how to import without conversion; where its
 tempo-following mode lives and how to switch it off for the clip; how to
-route the track to the interface output and record the input; how to export
-one track as PCM 24-bit or float without normalisation or dither; which
-plug-ins and monitor tools to bypass. A row without a green verdict is
-listed as **untested**, never as supported.
+route the track to the interface output and record the input with input
+monitoring off; how to take the recorded file itself, or export one track as
+32-bit float or 24-bit PCM without normalisation or dither; which plug-ins
+and monitor tools to bypass. A row without a green verdict is listed as
+**untested**, never as supported.
 
 Every matrix run keeps its loopback recording (a few seconds, small) as a
 fixture under `tests/fixtures/daw/<name>/` with the DAW version in a README,
@@ -363,8 +373,8 @@ so that the integrity and chain-check code has a real file per DAW as a
 regression test. Community rows (other versions, other DAWs) are accepted
 through the measurement issue template with the session bundle attached.
 
-**Exit criterion for M1:** nine green rows on the current macOS, each with
-a recipe, a fixture and a date.
+**Exit criterion for M1:** Tier A green by 0.2 and all nine rows green by
+1.0-rc, on the current macOS, each with a recipe, a fixture and a date.
 
 ## 6. Hardware compatibility on macOS (M2)
 
@@ -636,12 +646,43 @@ the `result.json` payload plus `findings` to stdout, diagnostics to stderr;
 * **`Info.plist`:** `CFBundleIdentifier`, `LSMinimumSystemVersion`,
   `NSMicrophoneUsageDescription` (without it the microphone is denied
   silently), high-resolution capable.
-* **Signing:** hardened runtime, the `com.apple.security.device.audio-input`
-  entitlement, Developer ID signing and notarization with `notarytool`. The
-  identity is the maintainer's (**maintainer decision**, §15). Until it
-  exists, bundles are published as *unsigned* with the Gatekeeper steps in
-  the guide, and 1.0 is not called 1.0 without notarization or an explicit
-  decision to ship unsigned.
+* **Signing and notarization (mandatory).** Every released bundle is signed
+  with a Developer ID Application certificate, hardened runtime on, and
+  notarized; an unsigned or un-notarized bundle is never attached to a
+  release, and there is no "ship unsigned" fallback. Unsigned builds exist
+  only as CI artifacts named `-unsigned` for internal testing. The pipeline:
+  1. *Prerequisites (maintainer, before 0.4):* Apple Developer Program
+     enrolment, a Developer ID Application certificate, an App Store
+     Connect API key for `notarytool`, and the bundle identifier (§15).
+     The certificate (`.p12`) and its password, and the API key (`.p8`,
+     key id, issuer id) live in a GitHub environment `release` that only
+     the maintainer can approve; jobs import them into a temporary keychain
+     that is deleted afterwards; nothing is ever printed.
+  2. *Build:* PyInstaller with `--codesign-identity "Developer ID
+     Application: … (TEAMID)"` and
+     `--osx-entitlements-file packaging/macos/entitlements.plist`. Giving
+     PyInstaller the identity turns on the hardened runtime and signs every
+     collected binary. Entitlements: `com.apple.security.device.audio-input`
+     (the microphone), `com.apple.security.cs.allow-unsigned-executable-memory`
+     (required by PyInstaller-built Python applications), and
+     `com.apple.security.cs.disable-library-validation` only if the smoke
+     test proves it necessary; any further entitlement needs an ADR.
+  3. *Verify before notarizing:* a script walks the bundle and fails on any
+     Mach-O not signed with the Team ID; `codesign --verify --deep --strict
+     --verbose=2 RoomScope.app`; `codesign -d --entitlements :-` must show
+     exactly the expected set.
+  4. *Notarize and staple:* `xcrun stapler staple RoomScope.app`, build the
+     `.dmg`, sign it, `xcrun notarytool submit … --wait` (a status other
+     than *Accepted* fetches the log with `notarytool log` and fails the
+     job), `xcrun stapler staple RoomScope-<ver>-<arch>.dmg`.
+  5. *Gate:* `spctl --assess --type open --context context:primary-signature
+     -v` on the `.dmg` and `spctl -a -vv` on the app must report
+     *Notarized Developer ID*; a fresh runner user downloads the `.dmg`,
+     sets the quarantine attribute and launches the app (`--version`, the
+     synthetic example, the GUI offscreen); Gatekeeper must not object.
+     Both architectures go through the whole pipeline separately.
+  6. *First run for users:* the guide contains no Gatekeeper workaround,
+     because none is needed.
 * **Launch:** the app runs `roomscope gui`; the same bundle exposes
   `RoomScope.app/Contents/MacOS/roomscope` for the CLI, documented for
   people who want the commands without Python.
@@ -792,10 +833,10 @@ when too large for the repository):
 
 | Version | Theme | Content | Exit criteria |
 | --- | --- | --- | --- |
-| 0.2 | Any DAW | `read_audio` breadth; `core/integrity.py` in the pipeline; `core/chain_check.py` and `roomscope check` (DAW form); the DAW page fields; recipes and `DAW_COMPATIBILITY.md`; fixtures per DAW; robustness tier | Nine green DAW rows on the current macOS with recipes, fixtures and dates; a resampled, a stretched and a drifted synthetic recording refused with the right cause |
+| 0.2 | Any DAW | `read_audio` breadth; `core/integrity.py` in the pipeline; `core/chain_check.py` and `roomscope check` (DAW form); the DAW page fields; recipes and `DAW_COMPATIBILITY.md`; fixtures per DAW; robustness tier | Tier A (Logic Pro, Studio One Pro, Cubase / Nuendo) green on the current macOS with recipes, fixtures and dates; a resampled, a stretched and a drifted synthetic recording refused with the right cause |
 | 0.3 | Any interface | `AudioBackend`, `portaudio` as a callback stream, `fake`, `coreaudio_rules`; device-rate default and reconfiguration opt-in; separate devices with drift detection; live meter, level check, progress, Stop; `check --standalone`; `HARDWARE_TESTS.md`; macOS runners in CI | Green rows for every class of §6.1 except Bluetooth at 44.1 and 48 kHz, one at 96 kHz; Stop silences within one callback period on real hardware; the Standalone flow runs in CI on the fake backend on macOS and Ubuntu |
-| 0.4 | Reopen, compare, keep | PR #2 merged; `compare` core, CLI, GUI table, comparison findings; lenient readers, new session keys, public-API exports and tests; self-contained sessions and `session bundle`; loopback compensation (S1) and demo mode (S2) if time allows | Any v0.1 session reopens; two sessions compare with every delta carrying a validity; a bundle from the GUI reproduces the analysis on another Mac |
-| 1.0-rc | Freeze and prove | Format and API freeze; validation campaign published; `.app` notarized or an explicit decision; guide in English and Chinese with all recipes; SECURITY / CONTRIBUTING / STATUS updated; repository public; PyPI pre-release; the two matrices re-run on the candidate | No open MUST item; every gate of §8–§9 green on the tag |
+| 0.4 | Reopen, compare, keep, sign | PR #2 merged; `compare` core, CLI, GUI table, comparison findings; lenient readers, new session keys, public-API exports and tests; self-contained sessions and `session bundle`; the signing and notarization pipeline of §8.1 producing signed test builds on every tag; loopback compensation (S1) and demo mode (S2) if time allows | Any v0.1 session reopens; two sessions compare with every delta carrying a validity; a bundle from the GUI reproduces the analysis on another Mac; `spctl` accepts a stapled test build on a clean runner |
+| 1.0-rc | Freeze and prove | Format and API freeze; validation campaign published; all nine DAW rows green (Tier B recipes written and tested); guide in English and Chinese with all recipes; SECURITY / CONTRIBUTING / STATUS updated; repository public; PyPI pre-release; the two matrices re-run on the candidate | No open MUST item; every gate of §8–§9 green on the tag, the notarization gate included |
 | 1.0 | Release | Fixes from the candidate only | Same gates; the release notes name the matrices, the validation results and the known limitations |
 | post-1.0 | | Windows and Linux bundles and matrices; Simplified Chinese UI (S5) if not done; dB SPL from microphone calibration files; `analyze-ir`, CSV export, projects, averaging, profile / exporter entry points; a process boundary for plug-in shells (license review first); a documentation site | |
 
@@ -811,6 +852,7 @@ No dates: the exit criteria are the schedule.
 | Sample rate in Standalone Mode | The output device's current rate; switching is opt-in with a notice | Always 48 kHz | Nothing is reconfigured silently; the sweep is parametric so any supported rate costs nothing |
 | Separate input / output devices | Allowed, drift-checked, aggregate device recommended | Refused | The USB measurement microphone is the most common home setup |
 | GUI | Keep the plain PySide6 tool; functional additions only | A local web UI; a redesign | "A small tool"; the core boundary is unchanged, so a different front end stays possible later |
+| Signing | Developer ID + notarization mandatory for every released bundle; no fallback | Ship unsigned with Gatekeeper instructions | The maintainer's requirement; a measurement tool that asks users to bypass Gatekeeper is not for everyone |
 | Bundling | PyInstaller one-directory `.app` in a `.dmg` | Briefcase; py2app; Nuitka | Mature hooks for PySide6, SciPy and matplotlib; a predictable layout for the LGPL; revisit Briefcase if notarization automation proves painful |
 | Audio-format breadth | libsndfile through soundfile, plus split-mono pairs; lossy refused | ffmpeg | Already a dependency, covers every DAW export format; lossy files are not measurements |
 | Schemas | Versioning policy and round-trip tests are MUST; JSON Schema files are SHOULD | pydantic / msgspec; generated schemas | No new runtime dependency; the dataclasses stay the source of truth |
@@ -824,7 +866,7 @@ No dates: the exit criteria are the schedule.
 | Risk | Effect | Mitigation |
 | --- | --- | --- |
 | DAW versions change behaviour (a new default warp mode, a new export dialog) | A green row goes stale | Rows carry versions and dates; the chain check catches the regression at the user's desk; community rows through the template |
-| No notarization identity | Gatekeeper warnings; adoption drops | Maintainer decision early (§15); unsigned builds documented; the pipx path is unaffected |
+| Apple Developer Program enrolment or the API key arrives late | No release is possible: unsigned builds are not released | Enrol before 0.4 (§15); unsigned CI artifacts keep testing going; the pipx path is unaffected |
 | USB-microphone drift too large for a usable measurement without an aggregate device | The most common home setup fails | The guide's aggregate-device recipe with drift correction; the check names the cause; the fixture from that setup keeps the detector honest |
 | PortAudio's Core Audio behaviour on rate switching differs from the assumption in §6.2 | A device gets reconfigured silently | Verified in 0.3 with the stream flags; recorded in HARDWARE_TESTS.md; the rate default avoids the case for most users |
 | Tolerances of §5.3 and §5.4 too tight (false FAILs) or too loose | Users refused for nothing, or defects passed | Starting points only; fixed on the fixtures of both matrices, then documented with the evidence |
@@ -837,15 +879,17 @@ No dates: the exit criteria are the schedule.
 
 ## 15. Maintainer decisions and open questions
 
-1. **Notarization identity and budget:** Apple Developer Program for
-   Developer ID signing, or ship 1.0 unsigned with documentation?
+1. **Apple Developer Program enrolment (prerequisite, before 0.4):** who
+   holds the Team ID and the Developer ID Application certificate; an App
+   Store Connect API key for `notarytool`; the bundle identifier (for
+   example `org.roomscope.app`). Shipping unsigned is not an option.
 2. **PyPI project name and ownership:** register `roomscope`; enable trusted
    publishing.
 3. **Public flip timing:** at 1.0-rc (recommended) or at 1.0?
-4. **DAW licences for the matrix:** which of the nine DAWs the maintainer
-   can run; trial versions are acceptable for a row if the version is
-   recorded; rows nobody can run stay *untested* until a contributor
-   supplies one.
+4. **DAW licences for the matrix:** Logic Pro, Studio One Pro and Cubase
+   first -- which versions the maintainer can run; trial versions are
+   acceptable for a row if the version is recorded; Tier B rows nobody can
+   run stay *untested* until a contributor supplies one.
 5. **Hardware for the matrix:** which devices of §6.1 are available; which
    USB measurement microphone.
 6. **Validation campaign:** reference instrument, rooms, who runs it; may
