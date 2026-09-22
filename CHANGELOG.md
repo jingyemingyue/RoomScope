@@ -57,6 +57,8 @@ All notable changes to RoomScope are documented here. The format follows
   defines `PySide6.__version__` so matplotlib's QtAgg backend still imports.
 
 ### Fixed
+- The results overview now names the recording profile that produced the
+  findings. It previously always printed `generic`.
 - Loopback deconvolution tests asserted a time-domain IR peak of 1.0 after
   inverse filters were changed to unit *in-band* gain. They now compare
   against `reference_pulse()`. Methodology docs matched the implementation.

@@ -39,18 +39,20 @@ session browser on the Home page. Hardware validation is still not claimed.
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      238 passed  (tests/unit 193, tests/integration 42, tests/ui 3 offscreen)
+pytest      246 passed  (tests/unit 200, tests/integration 42, tests/ui 4 offscreen)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
-mypy        Success: no issues found in 42 source files (strict)
+mypy        Success: no issues found in 44 source files (strict)
 ```
 
 The 2026-09-17 macOS log recorded 256 tests. The suite on this revision
-collects 238: later DSP work replaced a peak-normalised inverse with unit
+collects 246: later DSP work replaced a peak-normalised inverse with unit
 in-band gain and consolidated some assertions; the two loopback tests that
 still expected a time-domain peak of 1.0 were updated on 2026-09-22 and now
-pass on Linux. One extra GUI test checks that matplotlib's QtAgg backend
-loads against PySide6_Essentials (no Addons).
+pass on Linux. Eight session-reopen tests were added the same day (result
+`from_dict`, `load_measurement`, recent list, `roomscope show`, GUI
+re-open). GUI tests also check that matplotlib's QtAgg backend loads
+against PySide6_Essentials (no Addons).
 
 What the tests prove with synthetic signals (no real-room recording is used
 as evidence):

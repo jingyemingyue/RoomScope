@@ -116,7 +116,7 @@ class ResultsPage(QWidget):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.table.setItem(r, c, item)
         self.table.resizeColumnsToContents()
-        self.text.setPlainText(format_report(result, self.state.findings))
+        self.text.setPlainText(format_report(result, self.state.findings, self.state.profile))
         plot_impulse_response(self.ir_tab.figure, result)
         plot_frequency_response(self.fr_tab.figure, result)
         plot_decay(self.decay_tab.figure, result)
