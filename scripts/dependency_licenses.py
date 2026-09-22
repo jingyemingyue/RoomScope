@@ -18,7 +18,7 @@ PACKAGES = [
     "soundfile",
     "sounddevice",
     "matplotlib",
-    "PySide6",
+    "PySide6_Essentials",
     "shiboken6",
     "cffi",
     "pycparser",

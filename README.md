@@ -1,5 +1,9 @@
 # RoomScope
 
+[![CI](https://github.com/jingyemingyue/RoomScope/actions/workflows/ci.yml/badge.svg)](https://github.com/jingyemingyue/RoomScope/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+
 **An open-source, DAW-independent recording environment analyzer.**
 
 RoomScope answers practical questions a recording engineer asks about a room
@@ -18,9 +22,11 @@ unit, its algorithm source and a validity flag; when the data is not good
 enough, RoomScope says *"Insufficient decay range"* instead of inventing a
 figure. There is deliberately no "room score".
 
-> Status: **v0.1 foundation, pre-alpha.** The DSP core, CLI and a minimal
-> GUI exist and are covered by synthetic tests. See [docs/STATUS.md](docs/STATUS.md)
-> for what is implemented, tested and known to be missing.
+> Status: **v0.1 foundation, pre-alpha.** The DSP core, CLI and a minimal GUI
+> exist and are covered by synthetic tests. There is no packaged binary and no
+> numbered release yet. Developers can clone, install in editable mode and run
+> the suite; see [CONTRIBUTING.md](CONTRIBUTING.md). Snapshot of what works:
+> [docs/STATUS.md](docs/STATUS.md).
 
 ## Two workflows, one analysis core
 
@@ -118,7 +124,7 @@ from roomscope.core import Reference, analyze
 from roomscope.io.wav import read_wav, load_reference
 
 recording = read_wav("recording.wav")
-reference = load_reference("sweep_48k.wav")   # uses the JSON sidecar if present
+reference = load_reference("sweep_48k.wav")  # uses the JSON sidecar if present
 result = analyze(recording, reference)
 print(result.decay.broadband.rt60_estimate_s, result.decay.broadband.rt60_basis)
 for r in result.reflections.reflections:
@@ -157,13 +163,28 @@ for r in result.reflections.reflections:
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Tests, lint and type checks:
+This is the version intended for other developers to read, clone and review.
+Pull requests are welcome once you have run the checks in
+[CONTRIBUTING.md](CONTRIBUTING.md). Please also read the
+[code of conduct](CODE_OF_CONDUCT.md).
+
+Useful starting points:
+
+* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — package layout and the one
+  analysis entry point (`roomscope.core.pipeline.analyze`)
+* [docs/MEASUREMENT_METHODOLOGY.md](docs/MEASUREMENT_METHODOLOGY.md) — every
+  metric's algorithm, units and validity rules
+* [docs/STATUS.md](docs/STATUS.md) — implemented / tested / next milestone
+* `examples/synthetic_measurement.py` — end-to-end run with no hardware
 
 ```bash
 pytest
 ruff check . && ruff format --check .
 mypy
 ```
+
+CI (pytest on Python 3.12 and 3.13, ruff, mypy, sdist/wheel) runs on every
+push and pull request.
 
 ## License
 

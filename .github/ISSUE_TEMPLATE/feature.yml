@@ -1,0 +1,30 @@
+name: Feature request
+description: A change to the measurement, CLI, GUI, or docs.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        RoomScope prefers **correctness over features**. Requests that would
+        invent a "room score", auto-EQ a room, or copy another project's source
+        will be declined. See [docs/STATUS.md](../../docs/STATUS.md) for what is
+        deliberately out of scope for v0.1.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The recording-engineer problem this solves
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should change. Name the algorithm or standard if this is a new metric.
+    validations:
+      required: true
+  - type: textarea
+    id: validity
+    attributes:
+      label: Validity
+      description: When would the new number be refused rather than guessed?

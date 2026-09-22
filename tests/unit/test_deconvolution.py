@@ -5,7 +5,7 @@ import pytest
 
 from roomscope.core.deconvolution import confidence_label, deconvolve, locate_impulse_response
 from roomscope.core.pipeline import Reference, analyze
-from roomscope.core.sweep import inverse_filter, measurement_signal
+from roomscope.core.sweep import inverse_filter, measurement_signal, reference_pulse
 from roomscope.errors import AnalysisError, InvalidAudioError
 from roomscope.models.audio import AudioSignal
 from roomscope.models.configuration import SweepSettings
@@ -16,7 +16,11 @@ def test_loopback_gives_unit_impulse_at_pre_delay(short_sweep: SweepSettings) ->
     rec = AudioSignal(measurement_signal(short_sweep), sr)
     result = analyze(rec, Reference.from_settings(short_sweep))
     ir = result.impulse_response
-    assert ir.peak_value == pytest.approx(1.0, abs=1e-6)
+    # Inverse filters are normalised to unit *in-band* gain (0 dB loopback FR),
+    # not to a time-domain peak of 1. A band-limited pulse peaks near
+    # 2 * bandwidth / fs (~0.82 at 48 kHz for the default sweep).
+    loopback_peak = float(np.max(reference_pulse(short_sweep)))
+    assert ir.peak_value == pytest.approx(loopback_peak, abs=1e-6)
     assert ir.direct_sound_index == ir.pre_delay_samples == round(5e-3 * sr)
     assert ir.sweep_start_in_recording_s == pytest.approx(short_sweep.pre_silence_s, abs=1e-3)
     assert ir.direct_sound_confidence == "high"
@@ -29,7 +33,8 @@ def test_delayed_and_attenuated_loopback(short_sweep: SweepSettings) -> None:
     sig = np.concatenate([np.zeros(delay), measurement_signal(short_sweep)]) * 0.5
     result = analyze(AudioSignal(sig, sr), Reference.from_settings(short_sweep))
     ir = result.impulse_response
-    assert ir.peak_value == pytest.approx(0.5, abs=1e-6)
+    loopback_peak = float(np.max(reference_pulse(short_sweep)))
+    assert ir.peak_value == pytest.approx(0.5 * loopback_peak, abs=1e-6)
     assert ir.sweep_start_in_recording_s == pytest.approx(
         0.37 + short_sweep.pre_silence_s, abs=1e-3
     )

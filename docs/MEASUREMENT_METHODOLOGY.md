@@ -42,15 +42,24 @@ acknowledgement above −12 dBFS.
 **Analytic inverse** (`core/sweep.py::inverse_filter`, Farina [1] §5):
 the time-reversed sweep with an amplitude envelope `exp(-t/L)` (−6 dB per
 octave), which compensates the −3 dB/octave energy spectrum of the log sweep
-[3]. The filter is normalised so that the reference sweep convolved with it
-peaks at exactly 1.0; a loopback therefore yields an impulse response with
-peak 1.0 and everything is reported *relative* to that.
+[3]. Both inverse filters are scaled so that the *in-band magnitude* of the
+sweep convolved with its inverse is 1 (median of `|X(f)·I(f)|` over the inner
+part of the excitation band). A perfect loopback therefore has a 0 dB
+frequency response. The time-domain peak of the resulting band-limited pulse
+is *not* 1: it is roughly `2 · bandwidth / fs` (about 0.82 for the default
+48 kHz sweep) and drops further when the direct sound falls between samples.
+Levels are read from the frequency response, not from `peak_value`.
 
-**Spectral inverse** (`inverse_filter_spectral`): when the reference is an
-arbitrary WAV without a RoomScope sweep definition, a regularised spectral
-division `H_inv = conj(X) / (|X|² + β)` with β = −60 dB relative to the
-maximum of `|X|²` is used (Kirkeby-type regularisation as discussed by Farina
-[2]). Same normalisation.
+**Spectral inverse** (`inverse_filter_spectral` / `design_spectral_inverse`):
+when the reference is an arbitrary WAV without a RoomScope sweep definition,
+a Kirkeby-type regularised spectral division is used (Farina 2007 [2]
+§3.1). `H_inv = conj(X) / (|X|² + β(f))` with a frequency-dependent
+`β(f) = P_ref(f) · 10^(b(f)/10)`, where `P_ref(f)` is the pink trend of the
+reference and `b(f)` is small inside the estimated excitation band
+(`SPECTRAL_REG_IN_BAND_DB`) and large outside it
+(`SPECTRAL_REG_OUT_OF_BAND_DB`), with sin² transitions in log frequency.
+Same in-band normalisation as the analytic inverse. A constant `β` would
+boost the inverse just below `f1` and above `f2`.
 
 **Deconvolution** (`core/deconvolution.py`): full linear convolution of the
 whole recording with the inverse filter (FFT). Because the convolution is

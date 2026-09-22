@@ -21,7 +21,7 @@ Apache-2.0 project with the redistribution obligations listed in §3.
 | soundfile | 0.14.0 | https://github.com/bastibe/python-soundfile | BSD-3-Clause; wheel bundles libsndfile 1.2.2 (LGPL-2.1-or-later) with FLAC/Ogg/Vorbis/Opus (BSD-3), mpg123 (LGPL-2.1), LAME (LGPL-2.0+) | WAV read/write | direct, runtime | Yes* (LGPL dynamic) |
 | sounddevice | 0.5.6 | https://github.com/spatialaudio/python-sounddevice | MIT; wheel bundles PortAudio (MIT-style); Windows wheels also ship `*-asio.dll` built with the proprietary Steinberg ASIO SDK | device enumeration, play/record (Standalone Mode) | direct, runtime | Yes* (strip ASIO DLLs from Windows builds) |
 | matplotlib | 3.11.2 | https://matplotlib.org / https://github.com/matplotlib/matplotlib | Matplotlib License (PSF-2.0-style); bundles FreeType (FTL), HarfBuzz, libraqm, SheenBidi (Apache-2.0), Qhull, Agg | plots (CLI scripts and GUI) | direct, runtime | Yes* |
-| PySide6 (+ PySide6_Essentials) | 6.11.2 | https://www.qt.io/qt-for-python / https://code.qt.io/cgit/pyside/pyside-setup.git | LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only OR commercial; bundles Qt 6.11.2 | GUI (optional extra `gui`) | direct, runtime (optional) | Yes* (LGPL-3.0, dynamic; see §4) |
+| PySide6_Essentials | 6.11.2 | https://www.qt.io/qt-for-python / https://code.qt.io/cgit/pyside/pyside-setup.git | LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only OR commercial; bundles Qt 6.11.2 | GUI (optional extra `gui`; Essentials only — not the PySide6 meta-package, which also pulls GPL Addons) | direct, runtime (optional) | Yes* (LGPL-3.0, dynamic; see §4) |
 | shiboken6 | 6.11.2 | as PySide6 | as PySide6 | PySide6 binding runtime | transitive, runtime (optional) | Yes* |
 | cffi | 2.1.1 | https://github.com/python-cffi/cffi | MIT-0 | soundfile/sounddevice C bindings | transitive, runtime | Yes |
 | pycparser | 3.0 | https://github.com/eliben/pycparser | BSD-3-Clause | cffi dependency | transitive, runtime | Yes |
@@ -82,9 +82,11 @@ the wheels, and must be checked again at packaging time:
   commercial license from The Qt Company. RoomScope uses the **LGPL-3.0**
   option.
 * **Distribution model:** RoomScope imports PySide6 through the normal Python
-  import mechanism; Qt is dynamically linked and is not modified. Source
-  distribution (sdist/wheel on PyPI) contains no Qt code at all, so the LGPL
-  imposes nothing there.
+  import mechanism; Qt is dynamically linked and is not modified. The `gui`
+  extra depends on `PySide6_Essentials` only, so `PySide6_Addons` (GPL-only
+  modules such as QtCharts / QtGraphs) is not installed with the project.
+  Source distribution (sdist/wheel on PyPI) contains no Qt code at all, so
+  the LGPL imposes nothing there.
 * **Frozen app obligations (LGPL-3.0 §4):** the PySide6 wheels ship **no
   license files**, so a packaged RoomScope must add: the LGPL-3.0 and
   GPL-3.0 texts (from the pyside-setup `LICENSES/` directory at tag 6.11.2),

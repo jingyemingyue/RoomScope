@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Measurement methodology
+    url: https://github.com/jingyemingyue/RoomScope/blob/main/docs/MEASUREMENT_METHODOLOGY.md
+    about: How each metric is computed, which units it uses, and when it is marked invalid.
+  - name: Project status
+    url: https://github.com/jingyemingyue/RoomScope/blob/main/docs/STATUS.md
+    about: What is implemented, tested, known to be missing, and planned next.

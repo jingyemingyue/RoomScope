@@ -46,7 +46,8 @@ src/roomscope/
     playrec.py           play_and_record with safety defaults
   interpretation/
     interpreter.py       Finding, Severity, interpret()
-    profiles.py          RecordingProfile protocol, GenericProfile
+    profiles.py          RecordingProfile protocol; seven profiles (generic, vocal,
+                         voiceover, acoustic_guitar, drums, room_mic, choir)
   cli/
     main.py              argparse subcommands
     report.py            plain-text report shared with the GUI

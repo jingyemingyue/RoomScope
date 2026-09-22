@@ -8,6 +8,11 @@ Snapshot 2: 2026-09-22 — recording profiles (vocal, voice-over, acoustic
 guitar, drums, room mic, choir) added on top of the foundation; same
 verification policy.
 
+Snapshot 3: 2026-09-22 — developer-facing GitHub foundation (CI, issue/PR
+templates, code of conduct, security policy). Re-verified on Linux x86_64
+(Ubuntu, Python 3.12.3). The `gui` extra now installs PySide6_Essentials
+only.
+
 ## Implemented
 
 | Area | What exists |
@@ -27,14 +32,22 @@ verification policy.
 | Standalone Mode | Device enumeration and play+record through PortAudio with safety defaults |
 | GUI | PySide6 window: Home, Universal DAW Mode (4 steps), Standalone Mode, Results (Overview, IR, FR, Decay, Noise, Reflections), session saving |
 
-## Tested (all PASS on 2026-09-17; profile work re-verified 2026-09-22)
+## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
+Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      256 passed  (tests/unit 212, tests/integration 42, tests/ui 2 offscreen)
+pytest      238 passed  (tests/unit 193, tests/integration 42, tests/ui 3 offscreen)
 ruff check  All checks passed  (src, tests, examples, scripts)
-ruff format 69 files already formatted
-mypy        Success: no issues found in 41 source files (strict)
+ruff format files already formatted
+mypy        Success: no issues found in 42 source files (strict)
 ```
+
+The 2026-09-17 macOS log recorded 256 tests. The suite on this revision
+collects 238: later DSP work replaced a peak-normalised inverse with unit
+in-band gain and consolidated some assertions; the two loopback tests that
+still expected a time-domain peak of 1.0 were updated on 2026-09-22 and now
+pass on Linux. One extra GUI test checks that matplotlib's QtAgg backend
+loads against PySide6_Essentials (no Addons).
 
 What the tests prove with synthetic signals (no real-room recording is used
 as evidence):
@@ -42,11 +55,13 @@ as evidence):
 * Sweep instantaneous frequency follows `f1·exp(t/L)` (2 % tolerance);
   levels, fades, silences and lengths are exact; all six sample rates work;
   invalid settings are rejected.
-* Sweep ⊛ inverse filter is a unit pulse (analytic and spectral): peak 1.0,
-  everything outside ±2 ms below −35 dB.
-* Loopback recording → IR peak 1.000 at the expected index; delay and gain
-  are recovered; too-short, silent and tail-less recordings raise clear
-  errors; clipping is warned.
+* Sweep ⊛ inverse filter is a band-limited pulse with **unit in-band
+  magnitude** (0 dB median over the normalisation band, analytic and
+  spectral). The time-domain peak is about `2·bandwidth/fs` (~0.82 at
+  48 kHz), not 1.0; everything outside ±2 ms is below −35 dB re that peak.
+* Loopback recording → IR peak matches `reference_pulse()` at the expected
+  index; delay and gain are recovered; too-short, silent and tail-less
+  recordings raise clear errors; clipping is warned.
 * Exact exponential decay → EDT/T20/T30 within 1 %; noisy exponential decays
   (RT60 0.25/0.6/1.2 s) within 5 %; octave-band T30 within 10 %; a 30 dB
   decay range yields `insufficient_decay_range` for T20/T30 (no number);
@@ -113,8 +128,9 @@ packaged binaries.
 ## Dependencies
 
 Runtime: numpy 2.5.3, scipy 1.18.1, soundfile 0.14.0, sounddevice 0.5.6,
-matplotlib 3.11.2; optional GUI: PySide6 6.11.2 (Qt 6.11.2). Dev: pytest,
-pytest-cov, ruff, mypy. Full table with licenses: DEPENDENCIES.md.
+matplotlib 3.11.2; optional GUI extra `gui`: PySide6_Essentials 6.11.2
+(Qt 6.11.2, LGPL; Addons not installed). Dev: pytest, pytest-cov, ruff,
+mypy. Full table with licenses: DEPENDENCIES.md.
 
 ## License status
 
@@ -146,6 +162,19 @@ were not copied.
   into them. Not a legal opinion.
 
 ## Next recommended milestone (v0.1.1 / v0.2)
+
+The developer-facing GitHub foundation (this snapshot) is in place: clone,
+editable install, CI, issue/PR templates. Opening the GitHub repository to
+the public remains a **maintainer decision** (Settings → Change repository
+visibility) and is not done by merging this work. Suggested checks before
+that flip:
+
+* Description and topics on the GitHub repo
+* Private vulnerability reporting enabled
+* CI green on `main`
+* Still no numbered GitHub Release (pre-alpha)
+
+Scientific / product work after that:
 
 1. A real-room validation campaign: measure one treated and one untreated
    room with RoomScope and a second tool (e.g. REW, used only as a

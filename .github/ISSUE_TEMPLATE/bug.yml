@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in RoomScope is wrong or crashes.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. If the bug is a **wrong measurement number**,
+        please use the *Measurement problem* template instead and attach the
+        sweep sidecar + recording.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: RoomScope version
+      placeholder: "0.1.0.dev1 (git SHA …)"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Python version, audio interface if relevant.
+      placeholder: "macOS 15 / Python 3.12 / Scarlett 2i2"
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Commands, GUI steps, or a short script. Synthetic inputs are ideal.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, traceback, or result.json excerpt
+      render: text
