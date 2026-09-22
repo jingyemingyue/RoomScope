@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from roomscope.interpretation import Finding
-from roomscope.models.result import AnalysisResult, DecayMetric, Validity
+from roomscope.models.result import (
+    AnalysisResult,
+    DecayMetric,
+    PlacementLength,
+    PlacementResult,
+    Validity,
+)
 
 
 def _metric(metric: DecayMetric) -> str:
@@ -16,7 +22,52 @@ def _metric(metric: DecayMetric) -> str:
     return "  n/a  "
 
 
-def format_report(result: AnalysisResult, findings: list[Finding] | None = None) -> str:
+def _length(label: str, length: PlacementLength) -> str:
+    """One placement figure, with its qualifier on the same line as the number."""
+    if length.metres is None:
+        hint = f" (add {length.missing_input})" if length.missing_input else ""
+        return f"  {label:<26} not determined{hint}"
+    value = f"{length.metres:.2f} m"
+    if length.input_uncertainty_m is not None:
+        value += f" +/-{length.input_uncertainty_m:.2f} from the stated inputs only"
+    if length.validity is not Validity.VALID:
+        value += f"  [{length.validity}]"
+    return f"  {label:<26} {value}"
+
+
+def _placement_section(placement: PlacementResult) -> list[str]:
+    lines = [f"Placement (tier {placement.tier}; no coordinates are derived -- see the JSON):"]
+    lines.append(
+        f"  speed of sound            {placement.speed_of_sound_m_s:.1f} m/s at "
+        f"{placement.temperature_c:.0f} C" + (" (assumed)" if placement.temperature_assumed else "")
+    )
+    lines.append(_length("loudspeaker height", placement.source_height_m))
+    lines.append(_length("plane above the devices", placement.ceiling_height_m))
+    lines.append(_length("horizontal separation", placement.horizontal_separation_m))
+    for name, length in (
+        ("loudspeaker height", placement.source_height_m),
+        ("plane above the devices", placement.ceiling_height_m),
+        ("horizontal separation", placement.horizontal_separation_m),
+    ):
+        if length.reason:
+            lines.append(f"    {name}: {length.reason}")
+    named = [c for c in placement.candidates if c.surface]
+    if named:
+        lines.append("  attributed arrivals:")
+        for candidate in named:
+            lines.append(
+                f"    {candidate.delay_ms:6.1f} ms  {candidate.surface}"
+                f"  excess path {candidate.excess_path_m:.2f} m"
+            )
+    for note in placement.notes:
+        lines.append(f"  note: {note}")
+    lines.append("")
+    return lines
+
+
+def format_report(
+    result: AnalysisResult, findings: list[Finding] | None = None, profile_name: str = "generic"
+) -> str:
     lines: list[str] = []
     ir = result.impulse_response
     lines.append("RoomScope analysis")
@@ -76,6 +127,9 @@ def format_report(result: AnalysisResult, findings: list[Finding] | None = None)
     else:
         lines.append("  none above threshold")
     lines.append("")
+    placement = result.placement
+    if placement is not None:
+        lines.extend(_placement_section(placement))
     res = result.resonances
     lines.append(f"Potential low-frequency resonances (< {res.max_frequency_hz:.0f} Hz):")
     if res.candidates:
@@ -107,7 +161,7 @@ def format_report(result: AnalysisResult, findings: list[Finding] | None = None)
             lines.append(f"  - {warning}")
     if findings:
         lines.append("")
-        lines.append("Interpretation (generic profile):")
+        lines.append(f"Interpretation ({profile_name} profile):")
         for finding in findings:
             lines.append(f"  [{finding.severity}] {finding.topic}: {finding.message}")
     return "\n".join(lines)
