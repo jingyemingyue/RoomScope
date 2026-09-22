@@ -180,6 +180,7 @@ for r in result.reflections.reflections:
 
 | Document | Content |
 | --- | --- |
+| [docs/index.md](docs/index.md) | Documentation hub |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Package layout, data flow, extension points |
 | [docs/ARCHITECTURE_V1.md](docs/ARCHITECTURE_V1.md) | v1.0 design (proposal): the release open to everyone -- API and schema freeze, comparison, loopback channel, packaging, i18n, validation gates |
 | [docs/ARCHITECTURE_V1.zh-CN.md](docs/ARCHITECTURE_V1.zh-CN.md) | Chinese digest of the v1.0 design |

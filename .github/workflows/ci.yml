@@ -32,6 +32,8 @@ jobs:
         run: ruff check . && ruff format --check .
       - name: Mypy
         run: mypy
+      - name: Documentation links
+        run: python scripts/check_doc_links.py
       - name: No-network imports under src/
         run: |
           python - <<'PY'
@@ -125,7 +127,13 @@ jobs:
       - name: Install
         run: pip install -e ".[dev,gui]"
       - name: Pytest
-        run: pytest
+        shell: bash
+        run: |
+          extra=()
+          if [ "${{ runner.os }}" = "Linux" ] && [ "${{ matrix.python-version }}" = "3.12" ]; then
+            extra=(--cov=roomscope.core --cov=roomscope.models --cov-fail-under=85 --cov-report=term)
+          fi
+          pytest "${extra[@]}"
       - name: Standalone flow on the fake backend
         shell: bash
         run: |
@@ -151,7 +159,7 @@ jobs:
           pip install build
           python -m build
           pip install dist/*.whl
-          python -c "import roomscope; print(roomscope.__version__)"
+          python -c "import roomscope; roomscope.analyze; print(roomscope.__version__)"
           roomscope --help
 
   bundle-gates:

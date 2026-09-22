@@ -119,7 +119,7 @@ Added for v1.0:
 | S4 | CSV exporter for every curve; exporter entry points *(landed in 0.4)* | §5.7 |
 | S5 | Placement tab in the GUI (the text report already has the section) *(landed in 1.0-rc)* | §5.8 |
 | S6 | Python 3.14 in the CI matrix *(landed in 1.0-rc)* | §7.1 |
-| S7 | Documentation site generated from `docs/` | §6.5 |
+| S7 | Documentation site generated from `docs/` *(hub at docs/index.md; a themed generator may follow)* | §6.5 |
 
 ### 3.3 Not in 1.0 (by design, or deferred with a stated reason)
 

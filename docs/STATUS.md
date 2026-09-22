@@ -33,11 +33,15 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 11: 2026-09-22 — 1.0-rc quality gates: docs link check, 85 %
+coverage on `core`/`models`, `docs/index.md` hub, fixtures README.
+API/schema not frozen. Hardware cells empty.
+
 Snapshot 10: 2026-09-22 — 1.0-rc software on top of 0.4: Placement tab
 (S5), Python 3.14 in CI (S6), M11 validation protocol with pre-chosen
 tolerances, bundle.lock, SBOM/checksums and a trusted-publishing job
 that still needs the maintainer `pypi` environment. Re-verified on
-Linux x86_64 (Ubuntu, Python 3.12.3): 304 passed. Hardware cells are
+Linux x86_64 (Ubuntu, Python 3.12.3): 308 passed. Hardware cells are
 not marked PASS. The repository is not public.
 
 Snapshot 9: 2026-09-22 — 0.4 follow-up after the first local suite: `--json`
@@ -76,7 +80,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      304 passed  (tests/unit 246, tests/integration 42, tests/ui 8 offscreen, tests/robustness 8)
+pytest      308 passed  (tests/unit 250, tests/integration 42, tests/ui 8 offscreen, tests/robustness 8)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
 mypy        Success: no issues found in 68 source files (strict)
@@ -91,8 +95,8 @@ GUI re-open) plus the 0.2 compare / schema / Tier 1 lock tests brought
 the suite to 259. 0.3 added loopback, the backend protocol and robustness
 tests (283). 0.4 adds i18n, settings, bundles, averaging, CSV, license
 gates and the macOS microphone plist (301). 1.0-rc adds the Placement
-tab, the validation-protocol test and the bundle-lock test (304). GUI
-tests also check that
+tab, the validation-protocol test and the bundle-lock test (304), then
+the docs-link and fixtures tests (308). GUI tests also check that
 matplotlib's QtAgg backend loads against PySide6_Essentials (no Addons).
 
 What the tests prove with synthetic signals (no real-room recording is used
@@ -234,6 +238,11 @@ required package, GPL/ASIO gate, `release.yml` on `v*` tags). A person
 installing a frozen bundle on macOS/Windows is **not** claimed here —
 those artifacts are produced by the release workflow when the maintainer
 pushes a tag. [HARDWARE_TESTS.md](HARDWARE_TESTS.md) is still empty.
+
+API and schema versions stay unfrozen: writers remain strict and readers
+lenient, but 1.0 will bump the package version and lock the Tier 1 list
+and schema integers only after the campaign and the hardware matrix have
+dated rows.
 
 The remaining MUST items are still 1.0-rc: API/schema freeze, the
 validation campaign *executed* (M11 protocol is written), the hardware
