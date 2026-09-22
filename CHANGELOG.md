@@ -7,6 +7,13 @@ All notable changes to RoomScope are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- v1.0 architecture design (`docs/ARCHITECTURE_V1.md`, Chinese digest in
+  `docs/ARCHITECTURE_V1.zh-CN.md`): the release open to everyone -- public
+  API tiers, schema policy, session comparison, loopback reference channel,
+  audio backend interface, internationalisation, packaging and release
+  pipeline, quality and validation gates, milestones with exit criteria, and
+  the decisions reserved for the maintainer. A proposal; nothing in it is
+  implemented by this entry.
 - GitHub project files so other developers can clone, review and open pull
   requests: CI (pytest on Python 3.12/3.13, ruff, mypy, sdist/wheel), issue
   and pull-request templates, Dependabot, Contributor Covenant, and a

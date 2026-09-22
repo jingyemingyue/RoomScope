@@ -163,6 +163,12 @@ were not copied.
 
 ## Next recommended milestone (v0.1.1 / v0.2)
 
+The path from here to a v1.0 that is open to everyone (audiences, MUST /
+SHOULD scope, component designs, packaging, release gates, milestones with
+exit criteria, and the decisions only the maintainer can take) is proposed in
+[ARCHITECTURE_V1.md](ARCHITECTURE_V1.md); the items below are its first
+milestones.
+
 The developer-facing GitHub foundation (this snapshot) is in place: clone,
 editable install, CI, issue/PR templates. Opening the GitHub repository to
 the public remains a **maintainer decision** (Settings → Change repository
