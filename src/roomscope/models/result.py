@@ -8,7 +8,7 @@ arrays in memory; :meth:`AnalysisResult.to_dict` converts them for JSON export.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import Any
 
@@ -27,12 +27,23 @@ class Validity(StrEnum):
     INSUFFICIENT_RANGE = "insufficient_decay_range"
     UNRELIABLE = "unreliable"
     NOT_COMPUTED = "not_computed"
+    #: The band lies (partly) outside the frequency range the excitation
+    #: covered; the band contains only leakage and noise, so nothing is reported.
+    OUTSIDE_EXCITATION = "outside_excitation_range"
 
 
 def _array_to_list(values: FloatArray | None, decimals: int = 4) -> list[float] | None:
     if values is None:
         return None
     return [float(v) for v in np.round(values, decimals)]
+
+
+def _join_reasons(existing: str | None, reason: str) -> str:
+    if not existing:
+        return reason
+    if reason in existing:
+        return existing
+    return f"{existing}; {reason}"
 
 
 @dataclass(frozen=True)
@@ -44,9 +55,28 @@ class DecayMetric:
     validity: Validity
     #: Evaluation range on the Schroeder curve (dB, e.g. (-5, -25) for T20).
     evaluation_range_db: tuple[float, float]
-    #: ISO 3382-1 "degree of non-linearity" in permille: 1000 * (1 - r^2).
+    #: Degree of non-linearity of the fit, xi = 1000 * (1 - r^2) in permille
+    #: (ISO 3382-2:2008, Annex B).
     nonlinearity_permille: float | None = None
     reason: str | None = None
+
+    def marked_unreliable(self, reason: str) -> DecayMetric:
+        """This metric marked UNRELIABLE with ``reason``.
+
+        A VALID metric keeps its number and becomes UNRELIABLE; an UNRELIABLE
+        one gets the reason appended; metrics without a number
+        (insufficient range, outside the excitation, not computed) are
+        returned unchanged because their status is already stronger.
+        """
+        if self.validity not in (Validity.VALID, Validity.UNRELIABLE):
+            return self
+        return replace(
+            self,
+            validity=Validity.UNRELIABLE,
+            reason=_join_reasons(
+                self.reason if self.validity is Validity.UNRELIABLE else None, reason
+            ),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,44 +89,85 @@ class DecayMetric:
         }
 
 
+#: Time origin of all decay times (``edc_time_s``, ``onset_time_s``,
+#: ``truncation_time_s``).
+DECAY_TIME_ORIGIN = "direct sound (time 0 = the detected broadband direct sound)"
+
+
 @dataclass(frozen=True)
 class BandDecay:
-    """Decay analysis of one frequency band (or the broadband IR)."""
+    """Decay analysis of one frequency band (or the broadband IR).
+
+    All times share one origin, :data:`DECAY_TIME_ORIGIN`: 0 s is the
+    broadband direct sound (or the start of the impulse response when the
+    analysis was run without a known direct sound). Band values that cannot be
+    measured (e.g. a band outside the excitation range) are ``None``.
+    """
 
     band_label: str
+    #: Nominal mid-band frequency (the label value, e.g. 63.0); ``None`` for broadband.
     center_hz: float | None
+    #: Band edges (IEC 61260-1 base-10, around :attr:`mid_band_hz`).
     low_hz: float | None
     high_hz: float | None
-    #: Level of the noise floor relative to the Schroeder curve start (dB).
-    noise_floor_db: float
+    #: Level of the noise floor relative to the loudest 20 ms block after the onset (dB).
+    noise_floor_db: float | None
     #: Dynamic range available for decay evaluation (dB above the noise floor).
-    peak_to_noise_db: float
-    #: Truncation point of the Schroeder integration (s from IR start).
-    truncation_time_s: float
+    peak_to_noise_db: float | None
+    #: Truncation point of the Schroeder integration (s after the direct sound).
+    truncation_time_s: float | None
     edt: DecayMetric
     t20: DecayMetric
     t30: DecayMetric
-    #: Estimated RT60 and which metric it is based on ("T30" preferred, then "T20").
+    #: Estimated RT60 and which metric it is based on ("T30" preferred, then
+    #: "T20"); only ever taken from a VALID metric.
     rt60_estimate_s: float | None
     rt60_basis: str | None
-    #: ISO 3382-1 curvature C = 100 * (T30 / T20 - 1) in percent.
+    #: Curvature C = 100 * (T30 / T20 - 1) in percent (ISO 3382-2:2008,
+    #: Annex B); computed only when both T20 and T30 are VALID.
     curvature_percent: float | None
     #: Bandwidth-time product B*T of the band filter; low values mean the filter
     #: ringing dominates (Jacobsen & Rindel 1987).
     filter_bt_product: float | None
     filter_warning: str | None
-    #: Decimated Schroeder decay curve for display and export.
+    #: Decimated Schroeder decay curve for display and export (time in s after
+    #: the direct sound; a band curve starts slightly before 0 because the
+    #: time-reversed band filter moves the direct sound's energy earlier).
     edc_time_s: FloatArray = field(repr=False)
     edc_db: FloatArray = field(repr=False)
+    #: Start of the Schroeder integration (s after the direct sound, usually
+    #: slightly negative): where the squared response first rises to within
+    #: 20 dB of its maximum.
+    onset_time_s: float | None = None
+    #: Exact IEC 61260-1 mid-band frequency the band filter is centred on.
+    mid_band_hz: float | None = None
+    #: Why values of this band are withheld or unreliable (non-straight decay,
+    #: implausible noise truncation, outside the excitation range, ...).
+    warnings: tuple[str, ...] = ()
+
+    def with_all_unreliable(self, reason: str) -> BandDecay:
+        """All metrics marked UNRELIABLE with ``reason``; no RT60 estimate and
+        no curvature are kept (they would rest on unreliable metrics)."""
+        return replace(
+            self,
+            edt=self.edt.marked_unreliable(reason),
+            t20=self.t20.marked_unreliable(reason),
+            t30=self.t30.marked_unreliable(reason),
+            rt60_estimate_s=None,
+            rt60_basis=None,
+            curvature_percent=None,
+        )
 
     def to_dict(self, include_curves: bool = True) -> dict[str, Any]:
         data: dict[str, Any] = {
             "band_label": self.band_label,
             "center_hz": self.center_hz,
+            "mid_band_hz": self.mid_band_hz,
             "low_hz": self.low_hz,
             "high_hz": self.high_hz,
             "noise_floor_db": self.noise_floor_db,
             "peak_to_noise_db": self.peak_to_noise_db,
+            "onset_time_s": self.onset_time_s,
             "truncation_time_s": self.truncation_time_s,
             "edt": self.edt.to_dict(),
             "t20": self.t20.to_dict(),
@@ -106,6 +177,7 @@ class BandDecay:
             "curvature_percent": self.curvature_percent,
             "filter_bt_product": self.filter_bt_product,
             "filter_warning": self.filter_warning,
+            "warnings": list(self.warnings),
         }
         if include_curves:
             data["edc_time_s"] = _array_to_list(self.edc_time_s)
@@ -118,12 +190,162 @@ class DecayResult:
     method: str
     broadband: BandDecay
     bands: tuple[BandDecay, ...]
+    #: Result-level notes (bands outside the excitation, band warnings,
+    #: reasons for marking every metric unreliable).
+    notes: tuple[str, ...] = ()
+    time_origin: str = DECAY_TIME_ORIGIN
+
+    def with_all_unreliable(self, reason: str) -> DecayResult:
+        """Every decay metric (broadband and bands) marked UNRELIABLE with
+        ``reason``, e.g. when the direct sound could not be verified or the
+        recording clips. ``reason`` is also added to :attr:`notes`."""
+        return replace(
+            self,
+            broadband=self.broadband.with_all_unreliable(reason),
+            bands=tuple(b.with_all_unreliable(reason) for b in self.bands),
+            notes=(*self.notes, f"all decay metrics are marked unreliable: {reason}"),
+        )
 
     def to_dict(self, include_curves: bool = True) -> dict[str, Any]:
         return {
             "method": self.method,
+            "time_origin": self.time_origin,
             "broadband": self.broadband.to_dict(include_curves),
             "bands": [b.to_dict(include_curves) for b in self.bands],
+            "notes": list(self.notes),
+        }
+
+
+#: ``ExcitationBand.source`` when the band follows from the sweep definition.
+EXCITATION_SOURCE_SETTINGS = "sweep settings"
+#: ``ExcitationBand.source`` when the band was estimated from a reference WAV.
+EXCITATION_SOURCE_ESTIMATED = "estimated from reference audio"
+
+
+@dataclass(frozen=True)
+class ExcitationBand:
+    """Frequency range in which the measurement was fully excited.
+
+    Outside ``[low_hz, high_hz]`` the deconvolved impulse response contains
+    only fade/regularisation roll-off, filter-skirt leakage and noise, so no
+    metric may be reported as a measured value there. ``source`` is
+    :data:`EXCITATION_SOURCE_SETTINGS` (derived from the sweep definition) or
+    :data:`EXCITATION_SOURCE_ESTIMATED` (estimated from the reference audio).
+    See ``core/sweep.py`` for how each is derived.
+    """
+
+    low_hz: float
+    high_hz: float
+    source: str
+    note: str | None = None
+
+    def contains(self, low_hz: float, high_hz: float) -> bool:
+        """True when ``[low_hz, high_hz]`` lies completely inside the band."""
+        return self.low_hz <= low_hz and high_hz <= self.high_hz
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "low_hz": self.low_hz,
+            "high_hz": self.high_hz,
+            "source": self.source,
+            "note": self.note,
+        }
+
+
+@dataclass(frozen=True)
+class HarmonicDistortion:
+    """Level of the k-th harmonic response separated by the ESS method (Farina 2000).
+
+    The k-th harmonic response precedes the linear impulse response by
+    ``offset_s = L * ln(k)``. ``level_db`` is the energy of that response
+    relative to the linear response, both taken with the same short window and
+    compared over ``band_hz`` (the part of the excitation band where the
+    harmonic and the linear response overlap). It is a broadband indicator of
+    loudspeaker/chain distortion, not a calibrated THD figure. ``level_db`` is
+    ``None`` when the response is not at least ``DETECTION_MARGIN_DB`` above
+    ``floor_db`` (the same measure for harmonic-free content before the direct
+    sound) or cannot be measured; ``reason`` then says why.
+    """
+
+    order: int
+    offset_s: float
+    level_db: float | None
+    floor_db: float | None
+    band_hz: tuple[float, float] | None
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "order": self.order,
+            "offset_s": self.offset_s,
+            "level_db": self.level_db,
+            "floor_db": self.floor_db,
+            "band_hz": list(self.band_hz) if self.band_hz is not None else None,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
+class ClippingCheck:
+    """Flat-top (plateau) test of the recording.
+
+    Clipping is recognised by runs of samples at the file's *own* maximum
+    magnitude, not by an absolute threshold: a recording that clipped and was
+    then attenuated plateaus below full scale, and a clean recording
+    normalised to 0 dBFS has no plateau at all. ``peak_dbfs`` is the level
+    those plateaus sit at.
+    """
+
+    peak_dbfs: float
+    #: Number of flat-topped runs found.
+    runs: int
+    #: Total number of samples in them.
+    samples: int
+    clipped: bool
+    #: Quantisation step of the file (``None`` for float data); the plateau
+    #: tolerance follows it so that a dithered export is still recognised.
+    quantisation_step: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "peak_dbfs": self.peak_dbfs,
+            "runs": self.runs,
+            "samples": self.samples,
+            "clipped": self.clipped,
+            "quantisation_step": self.quantisation_step,
+        }
+
+
+@dataclass(frozen=True)
+class AliasedDistortion:
+    """Level of a *folded* (aliased) harmonic product, dB re the linear response.
+
+    A nonlinearity in the digital domain folds the k-th harmonic back to
+    ``|k*f(t) - m*fs|``. Unlike the alias-free harmonics of
+    :class:`HarmonicDistortion`, these products land *after* the direct sound
+    and imitate a long decay, so a significant one makes every decay metric
+    unreliable. ``level_db`` is ``None`` when the product cannot be told from
+    ``floor_db`` (the same measure for content before its expected position)
+    or cannot be measured at all; ``reason`` then says why.
+    """
+
+    order: int
+    #: Frequency range of the folded trajectory that was analysed (Hz).
+    band_hz: tuple[float, float] | None
+    level_db: float | None
+    floor_db: float | None
+    #: True when the product is both measurable and strong enough to matter.
+    significant: bool
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "order": self.order,
+            "band_hz": list(self.band_hz) if self.band_hz is not None else None,
+            "level_db": self.level_db,
+            "floor_db": self.floor_db,
+            "significant": self.significant,
+            "reason": self.reason,
         }
 
 
@@ -131,20 +353,44 @@ class DecayResult:
 class ImpulseResponseResult:
     sample_rate: int
     #: Impulse response samples (linear amplitude, relative units). The first
-    #: sample is ``pre_delay_samples`` before the detected direct sound.
+    #: sample is ``pre_delay_samples`` before the detected direct sound. The
+    #: inverse filter is normalised so that the in-band magnitude of a perfect
+    #: loopback is 1 (0 dB).
     samples: FloatArray = field(repr=False)
     direct_sound_index: int
     pre_delay_samples: int
+    #: Signed value of the strongest sample (the direct-sound peak). Its size
+    #: depends on the excited bandwidth relative to the sample rate and on the
+    #: sub-sample position of the direct sound (up to about -3 dB for a
+    #: half-sample offset), so it is *not* a measure of the chain gain; use the
+    #: frequency response for levels.
     peak_value: float
-    #: Length of IR that is fully supported by the recording (s).
+    #: Length of IR that is fully supported by the recording (s): up to the end
+    #: of the recording or the start of the next sweep pass, whichever is first.
     valid_length_s: float
-    #: Ratio (dB) between the direct-sound peak and the strongest content before
-    #: it (harmonic distortion pre-responses, noise). High is good.
-    pre_peak_margin_db: float
+    #: Ratio (dB) between the direct-sound peak and the strongest content in the
+    #: pre-peak window, excluding the windows of the harmonic pre-responses when
+    #: the sweep is known. It reflects noise, pre-ringing and ambiguity caused by
+    #: a wrong reference. ``None`` when there is no content before the direct
+    #: sound to check. High is good.
+    pre_peak_margin_db: float | None
     direct_sound_confidence: str
-    #: Estimated start of the sweep in the recording (s).
+    #: Estimated start of the analysed sweep pass in the recording (s).
     sweep_start_in_recording_s: float
     notes: tuple[str, ...] = ()
+    #: Frequency range that the excitation actually covered.
+    excitation_band: ExcitationBand | None = None
+    #: Number of sweep passes found in the recording (the strongest is analysed).
+    sweep_passes: int = 1
+    #: Start of the first sweep pass in the recording (s); equals
+    #: ``sweep_start_in_recording_s`` for a single pass. ``None`` if unknown.
+    first_sweep_start_in_recording_s: float | None = None
+    #: Harmonic distortion indicators for k = 2..5 (empty when the sweep
+    #: definition is unknown).
+    harmonic_distortion: tuple[HarmonicDistortion, ...] = ()
+    #: Folded (aliased) distortion products, which land *after* the direct
+    #: sound (empty when the sweep definition is unknown).
+    aliased_distortion: tuple[AliasedDistortion, ...] = ()
 
     @property
     def direct_sound_time_s(self) -> float:
@@ -162,6 +408,13 @@ class ImpulseResponseResult:
             "pre_peak_margin_db": self.pre_peak_margin_db,
             "direct_sound_confidence": self.direct_sound_confidence,
             "sweep_start_in_recording_s": self.sweep_start_in_recording_s,
+            "first_sweep_start_in_recording_s": self.first_sweep_start_in_recording_s,
+            "sweep_passes": self.sweep_passes,
+            "excitation_band": (
+                self.excitation_band.to_dict() if self.excitation_band is not None else None
+            ),
+            "harmonic_distortion": [h.to_dict() for h in self.harmonic_distortion],
+            "aliased_distortion": [a.to_dict() for a in self.aliased_distortion],
             "notes": list(self.notes),
         }
         if include_curves:
@@ -171,19 +424,46 @@ class ImpulseResponseResult:
 
 @dataclass(frozen=True)
 class FrequencyResponseResult:
+    """Magnitude response of the impulse response (relative dB).
+
+    The analysed segment runs from :attr:`lead_in_s` before the direct sound
+    to :attr:`window_s` after it. Outside :attr:`excitation_band` the curve is
+    roll-off, leakage and noise, not a measured response.
+    """
+
     frequencies_hz: FloatArray = field(repr=False)
     #: Unsmoothed magnitude (dB, relative). Always preserved.
     magnitude_db_raw: FloatArray = field(repr=False)
     #: Smoothed magnitude (dB, relative) or ``None`` when smoothing is disabled.
     magnitude_db_smoothed: FloatArray | None = field(repr=False)
     smoothing_fraction: int
+    #: Analysed time after the direct sound (s); the gate length when gated.
     window_s: float
+    #: Analysed time before the direct sound (s): the pre-ringing of the
+    #: band-limited direct sound belongs to its low-frequency content.
+    lead_in_s: float = 0.0
+    #: True frequency resolution, 1 / (lead_in_s + window_s) in Hz. Zero
+    #: padding interpolates between these; it does not add resolution.
+    resolution_hz: float = float("inf")
+    #: Distance between exported points (Hz), i.e. sample_rate / FFT length.
+    bin_spacing_hz: float = float("inf")
+    #: True when a gate (``window_s``) was applied to the impulse response.
+    gated: bool = False
+    #: Frequency range the excitation actually covered.
+    excitation_band: ExcitationBand | None = None
     reference: str = "relative dB (0 dB = flat loopback of the reference sweep)"
 
     def to_dict(self, include_curves: bool = True) -> dict[str, Any]:
         data: dict[str, Any] = {
             "smoothing_fraction": self.smoothing_fraction,
             "window_s": self.window_s,
+            "lead_in_s": self.lead_in_s,
+            "resolution_hz": self.resolution_hz,
+            "bin_spacing_hz": self.bin_spacing_hz,
+            "gated": self.gated,
+            "excitation_band": (
+                self.excitation_band.to_dict() if self.excitation_band is not None else None
+            ),
             "reference": self.reference,
             "points": int(self.frequencies_hz.shape[0]),
         }
@@ -196,23 +476,53 @@ class FrequencyResponseResult:
 
 @dataclass(frozen=True)
 class HumCandidate:
+    """Mains-hum evidence for one base frequency (50 or 60 Hz).
+
+    ``harmonics`` lists every harmonic of ``base_hz`` that stands out of the
+    noise PSD, including those shared with the other mains base (multiples of
+    300 Hz). Only ``distinct_harmonics_hz`` - the harmonics that belong to
+    this base alone - decide ``detected``, and at most one of the two bases is
+    ever reported as detected (``note`` says when the other one was dropped).
+    """
+
     base_hz: float
     #: (frequency_hz, prominence_db) for each detected harmonic.
     harmonics: tuple[tuple[float, float], ...]
     strongest_prominence_db: float | None
     detected: bool
+    #: Harmonics that are not multiples of 300 Hz, i.e. that this base
+    #: explains and the other mains base does not.
+    distinct_harmonics_hz: tuple[float, ...] = ()
+    note: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "base_hz": self.base_hz,
             "harmonics": [list(h) for h in self.harmonics],
+            "distinct_harmonics_hz": list(self.distinct_harmonics_hz),
             "strongest_prominence_db": self.strongest_prominence_db,
             "detected": self.detected,
+            "note": self.note,
         }
+
+
+#: Reference of :attr:`NoiseResult.psd_db`.
+PSD_REFERENCE = (
+    "dB re (full-scale sine RMS)^2 per Hz: the power spectral density is scaled so that "
+    "10*log10 of its integral is the reported AES17 RMS level in dBFS"
+)
 
 
 @dataclass(frozen=True)
 class NoiseResult:
+    """Background-noise levels of a verified quiet segment.
+
+    Every level is ``None`` when it cannot be measured (no quiet segment,
+    digital silence, or a level below the file's quantisation floor); the
+    reason is then in :attr:`notes`. Levels are never fabricated for a segment
+    that holds no acoustic noise.
+    """
+
     #: Where the quiet segment came from ("pre-sweep", "tail") or None.
     segment_source: str | None
     segment_start_s: float | None
@@ -220,12 +530,16 @@ class NoiseResult:
     #: RMS level in dBFS (AES17 convention: a full-scale sine reads 0 dBFS).
     rms_dbfs: float | None
     peak_dbfs: float | None
-    #: (center_hz, level_dbfs) per octave band.
-    band_levels_dbfs: tuple[tuple[float, float], ...]
+    #: (center_hz, level_dbfs) per octave band, from a single filter pass with
+    #: the start transient discarded; the level is ``None`` when the band
+    #: cannot be measured (segment too short, or below the level floor).
+    band_levels_dbfs: tuple[tuple[float, float | None], ...]
     psd_frequencies_hz: FloatArray | None = field(repr=False)
+    #: Power spectral density in dB, see :data:`PSD_REFERENCE`.
     psd_db: FloatArray | None = field(repr=False)
     hum: tuple[HumCandidate, ...] = ()
     calibration: str = "uncalibrated: levels are dBFS, not dB SPL"
+    psd_reference: str = PSD_REFERENCE
     notes: tuple[str, ...] = ()
 
     def to_dict(self, include_curves: bool = True) -> dict[str, Any]:
@@ -238,6 +552,7 @@ class NoiseResult:
             "band_levels_dbfs": [list(b) for b in self.band_levels_dbfs],
             "hum": [h.to_dict() for h in self.hum],
             "calibration": self.calibration,
+            "psd_reference": self.psd_reference,
             "notes": list(self.notes),
         }
         if include_curves:
@@ -259,16 +574,27 @@ class Reflection:
 class ReflectionsResult:
     direct_sound_time_s: float
     direct_sound_confidence: str
+    #: Requested search window after the direct sound (ms).
     window_ms: tuple[float, float]
     threshold_db: float
     reflections: tuple[Reflection, ...]
     notes: tuple[str, ...] = ()
+    #: Window that was actually analysed (ms): the requested one limited by
+    #: the impulse response that was available after the direct sound.
+    analysed_window_ms: tuple[float, float] | None = None
+    #: True when the impulse response ended before ``window_ms[1]``, so later
+    #: reflections could not be seen.
+    window_truncated: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "direct_sound_time_s": self.direct_sound_time_s,
             "direct_sound_confidence": self.direct_sound_confidence,
             "window_ms": list(self.window_ms),
+            "analysed_window_ms": (
+                list(self.analysed_window_ms) if self.analysed_window_ms is not None else None
+            ),
+            "window_truncated": self.window_truncated,
             "threshold_db": self.threshold_db,
             "reflections": [r.to_dict() for r in self.reflections],
             "notes": list(self.notes),
@@ -277,14 +603,26 @@ class ReflectionsResult:
 
 @dataclass(frozen=True)
 class ResonanceCandidate:
+    """A response peak that may be a resonance, with its decay evidence.
+
+    All three decay figures are the same measurement (time for the
+    time-reversed 1/3-octave band envelope to fall 20 dB), so they may be
+    compared directly.
+    """
+
     frequency_hz: float
     level_above_baseline_db: float
     #: Time for the narrow-band envelope to fall 20 dB (s), or None.
     narrowband_decay_20db_s: float | None
     #: Same measure for the analysis filter alone (its ringing), for comparison.
     filter_ringing_20db_s: float | None
-    #: True only when the measured decay is clearly longer than the filter ringing.
+    #: True only when the measured decay is clearly longer than *both* the
+    #: filter ringing and the surroundings.
     decay_distinguishable: bool
+    #: Same measure for the neighbouring 1/3-octave bands (median), i.e. how
+    #: long the surroundings of this frequency ring. ``None`` when too few
+    #: neighbouring bands could be measured.
+    surroundings_decay_20db_s: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -292,6 +630,7 @@ class ResonanceCandidate:
             "level_above_baseline_db": self.level_above_baseline_db,
             "narrowband_decay_20db_s": self.narrowband_decay_20db_s,
             "filter_ringing_20db_s": self.filter_ringing_20db_s,
+            "surroundings_decay_20db_s": self.surroundings_decay_20db_s,
             "decay_distinguishable": self.decay_distinguishable,
         }
 
@@ -301,11 +640,212 @@ class ResonanceResult:
     max_frequency_hz: float
     candidates: tuple[ResonanceCandidate, ...]
     notes: tuple[str, ...] = ()
+    #: Frequency range that was actually searched (Hz): ``max_frequency_hz``
+    #: narrowed to the excited and resolvable part.
+    searched_range_hz: tuple[float, float] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "max_frequency_hz": self.max_frequency_hz,
+            "searched_range_hz": (
+                list(self.searched_range_hz) if self.searched_range_hz is not None else None
+            ),
             "candidates": [c.to_dict() for c in self.candidates],
+            "notes": list(self.notes),
+        }
+
+
+#: Provenance of the speed of sound used by the placement geometry. Emitted in
+#: the JSON so that an exported result says which relation produced its metres.
+SPEED_OF_SOUND_REFERENCE = (
+    "c = 331.3 * sqrt(1 + T/273.15) m/s (adiabatic ideal-gas relation for dry air; "
+    "343.2 m/s at 20 C, numerically equal to the ISO 9613-1 form c = 343.2 * sqrt(T/293.15))"
+)
+
+#: What RoomScope refuses to infer, and why, emitted verbatim in the JSON so
+#: that an exported result carries its own justification rather than relying on
+#: the reader having opened docs/MEASUREMENT_METHODOLOGY.md.
+PLACEMENT_COORDINATES_WITHHELD = (
+    "No coordinate, room length, room width or wall distance is reported. One "
+    "omnidirectional microphone at one position measures path lengths, not directions, "
+    "and the deconvolved time origin contains the interface round-trip latency, so there "
+    "is no absolute time of flight: the four independent arrival equations constrain six "
+    "unknowns, a deficit of three without a tape-measured loudspeaker-to-microphone "
+    "distance and two with it. The remaining freedom is the direction of the "
+    "loudspeaker-to-microphone vector, and every direction reproduces the measured "
+    "arrival times exactly. Only quantities invariant over that family are reported: the "
+    "product of the two perpendicular distances to a plane, and the vertical axis once "
+    "one perpendicular distance is supplied by the user."
+)
+
+#: Why :attr:`PlacementLength.input_uncertainty_m` is not the total uncertainty.
+PLACEMENT_UNCERTAINTY_EXCLUDES = (
+    "propagated from the stated tape-measure, temperature and peak-location uncertainties "
+    "only; it excludes model error (that the reflector is flat, rigid and large compared "
+    "with the wavelength, that the arrival is a first-order specular reflection, and that "
+    "the user measured to the plane that actually reflected), which is usually larger"
+)
+
+
+@dataclass(frozen=True)
+class PlacementLength:
+    """A distance derived from the reflection geometry, or a refusal to give one.
+
+    ``metres`` is ``None`` for every :class:`Validity` other than
+    :attr:`Validity.VALID`; ``reason`` then says which input was missing or
+    which gate refused, in the user's terms.
+    """
+
+    metres: float | None
+    validity: Validity
+    reason: str | None = None
+    #: 1-sigma propagated from the *stated input* uncertainties only. Read it
+    #: with :data:`PLACEMENT_UNCERTAINTY_EXCLUDES`, which ``to_dict`` emits
+    #: alongside it: it is not the total uncertainty of the metres.
+    input_uncertainty_m: float | None = None
+    #: Every competing value when more than one reflection could be the plane
+    #: the user measured from. RoomScope does not pick one.
+    alternatives_m: tuple[float, ...] = ()
+    #: The CLI flag that would supply the missing input, when one is missing.
+    missing_input: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "metres": self.metres,
+            "validity": str(self.validity),
+            "reason": self.reason,
+            "input_uncertainty_m": self.input_uncertainty_m,
+            "uncertainty_excludes": (
+                PLACEMENT_UNCERTAINTY_EXCLUDES if self.input_uncertainty_m is not None else None
+            ),
+            "alternatives_m": list(self.alternatives_m),
+            "missing_input": self.missing_input,
+        }
+
+
+@dataclass(frozen=True)
+class BoundaryCandidate:
+    """One detected early reflection re-expressed as geometry.
+
+    ``delay_ms`` and ``relative_db`` are copied from the :class:`Reflection`
+    this was built from. Everything below ``excess_path_m`` needs the
+    loudspeaker-to-microphone distance and is ``None`` without it.
+
+    The geometric fields describe *a flat first-order reflector*. A candidate
+    that is a merged pair of arrivals, a second-order path or a statistical
+    peak of the dense early tail is none of those things, and then the numbers
+    are the product of nothing: read :attr:`interpretable_as_plane` first.
+    """
+
+    delay_ms: float
+    relative_db: float
+    #: ``c * delay``: how much further this arrival travelled than the direct
+    #: sound. Needs only the temperature, so it is always present.
+    excess_path_m: float
+    #: ``d + excess``: the image-source path length (m).
+    mirror_path_m: float | None = None
+    #: ``s*r``, the product of the perpendicular distances of loudspeaker and
+    #: microphone from the reflecting plane (m^2), exact for a flat first-order
+    #: reflector: ``s*r = c*delta*(2d + c*delta)/4``.
+    product_m2: float | None = None
+    #: ``sqrt(s*r)``: the geometric mean of those two distances. The nearer of
+    #: the two is at most this, the farther at least this.
+    geometric_mean_m: float | None = None
+    #: Exact two-sided bracket on the *arithmetic* mean ``(s+r)/2``, from
+    #: ``0 <= (s-r)^2 <= d^2``. The lower end equals
+    #: :attr:`geometric_mean_m` (AM >= GM). A bound, not an interval estimate.
+    mean_distance_bracket_m: tuple[float, float] | None = None
+    #: ``20*log10(d/L)``: what a lossless point source mirrored in a rigid
+    #: plane would read at this path length (dB re the direct sound).
+    specular_ceiling_db: float | None = None
+    #: ``"lower_plane"`` or ``"upper_plane"``; ``None`` when this candidate was
+    #: not attributed to either. No wall is ever named.
+    surface: str | None = None
+    #: ``False`` when a gate showed this arrival is not treated as a reflection
+    #: from a flat plane, so the geometric fields above must not be quoted.
+    #: ``None`` when it was never tested (the tier did not allow it) -- which
+    #: is not the same as passing.
+    interpretable_as_plane: bool | None = None
+    #: Why this candidate was not treated as a plane reflection, in its own
+    #: numbers. Never says a surface is absent or fine.
+    excluded_reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "delay_ms": self.delay_ms,
+            "relative_db": self.relative_db,
+            "excess_path_m": self.excess_path_m,
+            "mirror_path_m": self.mirror_path_m,
+            "product_m2": self.product_m2,
+            "geometric_mean_m": self.geometric_mean_m,
+            "mean_distance_bracket_m": (
+                list(self.mean_distance_bracket_m)
+                if self.mean_distance_bracket_m is not None
+                else None
+            ),
+            "specular_ceiling_db": self.specular_ceiling_db,
+            "surface": self.surface,
+            "interpretable_as_plane": self.interpretable_as_plane,
+            "excluded_reason": self.excluded_reason,
+        }
+
+
+@dataclass(frozen=True)
+class PlacementResult:
+    """Vertical geometry derived from the early reflections and a tape measure.
+
+    ``tier`` says how much the supplied inputs allowed:
+
+    * 0 -- temperature only: every candidate carries its excess path in metres.
+    * 1 -- and the loudspeaker-to-microphone distance: the per-candidate
+      product of perpendicular distances and its bounds.
+    * 2 -- and the microphone height: the vertical axis is solved.
+
+    Nothing horizontal is ever reported; see
+    :data:`PLACEMENT_COORDINATES_WITHHELD`.
+    """
+
+    tier: int
+    candidates: tuple[BoundaryCandidate, ...]
+    #: Loudspeaker height above the same plane the user measured from.
+    source_height_m: PlacementLength
+    #: Height of the upper plane above that same plane.
+    ceiling_height_m: PlacementLength
+    #: Horizontal loudspeaker-to-microphone separation.
+    horizontal_separation_m: PlacementLength
+    speed_of_sound_m_s: float
+    temperature_c: float
+    #: True when no temperature was supplied and 20 C was assumed.
+    temperature_assumed: bool
+    distance_m: float | None = None
+    mic_height_m: float | None = None
+    #: Copied from :class:`ReflectionsResult` because the geometry inherits the
+    #: search window: a plane outside it cannot be found, which is not the same
+    #: as it not being there.
+    analysed_window_ms: tuple[float, float] | None = None
+    window_truncated: bool = False
+    notes: tuple[str, ...] = ()
+    speed_of_sound_reference: str = SPEED_OF_SOUND_REFERENCE
+    coordinates_withheld: str = PLACEMENT_COORDINATES_WITHHELD
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "tier": self.tier,
+            "distance_m": self.distance_m,
+            "mic_height_m": self.mic_height_m,
+            "temperature_c": self.temperature_c,
+            "temperature_assumed": self.temperature_assumed,
+            "speed_of_sound_m_s": self.speed_of_sound_m_s,
+            "speed_of_sound_reference": self.speed_of_sound_reference,
+            "source_height_m": self.source_height_m.to_dict(),
+            "ceiling_height_m": self.ceiling_height_m.to_dict(),
+            "horizontal_separation_m": self.horizontal_separation_m.to_dict(),
+            "candidates": [c.to_dict() for c in self.candidates],
+            "analysed_window_ms": (
+                list(self.analysed_window_ms) if self.analysed_window_ms is not None else None
+            ),
+            "window_truncated": self.window_truncated,
+            "coordinates_withheld": self.coordinates_withheld,
             "notes": list(self.notes),
         }
 
@@ -325,7 +865,17 @@ class AnalysisResult:
     reflections: ReflectionsResult
     resonances: ResonanceResult
     warnings: tuple[str, ...] = ()
+    #: Flat-top test of the analysed channel (``None`` when not run).
+    clipping: ClippingCheck | None = None
+    #: Vertical geometry from the early reflections (``None`` when the
+    #: placement inputs were not supplied and no tier could be produced).
+    placement: PlacementResult | None = None
     schema_version: int = RESULT_SCHEMA_VERSION
+
+    @property
+    def excitation_band(self) -> ExcitationBand | None:
+        """Shortcut to :attr:`ImpulseResponseResult.excitation_band`."""
+        return self.impulse_response.excitation_band
 
     def to_dict(self, include_curves: bool = True) -> dict[str, Any]:
         return {
@@ -340,5 +890,7 @@ class AnalysisResult:
             "noise": self.noise.to_dict(include_curves),
             "reflections": self.reflections.to_dict(),
             "resonances": self.resonances.to_dict(),
+            "clipping": self.clipping.to_dict() if self.clipping is not None else None,
+            "placement": self.placement.to_dict() if self.placement is not None else None,
             "warnings": list(self.warnings),
         }
