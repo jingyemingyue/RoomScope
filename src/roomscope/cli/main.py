@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from roomscope import __version__
-from roomscope.cli.report import format_report
+from roomscope.cli.report import format_comparison_report, format_report
 from roomscope.errors import RoomScopeError
 from roomscope.interpretation import available_profiles
 from roomscope.logging_config import configure_logging
@@ -209,6 +209,50 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_show.add_argument("--no-curves", action="store_true", help="omit curves from JSON output")
 
+    p_cmp = sub.add_parser("compare", help="compare two saved sessions")
+    p_cmp.add_argument("baseline", type=Path, help="baseline session directory or session.json")
+    p_cmp.add_argument("candidate", type=Path, help="candidate session directory or session.json")
+    p_cmp.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="write comparison.json here (file or directory)",
+    )
+    p_cmp.add_argument(
+        "--same-input-gain",
+        action="store_true",
+        help="declare that the input gain was unchanged (required for a VALID noise delta)",
+    )
+    p_cmp.add_argument(
+        "--profile",
+        default=None,
+        choices=available_profiles(),
+        help="recording profile for comparison findings (default: the candidate session's)",
+    )
+    p_cmp.add_argument(
+        "--json", action="store_true", help="print comparison.json instead of a report"
+    )
+
+    p_schema = sub.add_parser("schema", help="print a shipped JSON Schema")
+    p_schema.add_argument(
+        "name",
+        choices=["result", "session", "comparison", "project", "sidecar"],
+        help="which schema to print",
+    )
+
+    p_ir = sub.add_parser("analyze-ir", help="analyse an impulse-response WAV from another tool")
+    p_ir.add_argument("--ir", required=True, type=Path, help="impulse-response WAV")
+    p_ir.add_argument(
+        "--band",
+        nargs=2,
+        type=float,
+        metavar=("LO", "HI"),
+        default=None,
+        help="declared excitation band in Hz (required for band metrics)",
+    )
+    p_ir.add_argument("--out", type=Path, default=None, help="session directory")
+    _add_analysis_arguments(p_ir)
+
     sub.add_parser("gui", help="start the desktop GUI (needs the 'gui' extra)")
     return parser
 
@@ -383,6 +427,83 @@ def cmd_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_compare(args: argparse.Namespace) -> int:
+    from dataclasses import replace
+
+    from roomscope.core.compare import compare
+    from roomscope.interpretation import interpret_comparison
+    from roomscope.io.session_store import load_measurement, save_comparison
+    from roomscope.models.comparison import CompareSettings
+
+    baseline = load_measurement(args.baseline)
+    candidate = load_measurement(args.candidate)
+    settings = CompareSettings(same_input_gain=args.same_input_gain)
+    comparison = replace(
+        compare(baseline.result, candidate.result, settings=settings),
+        baseline_session=str(baseline.directory),
+        candidate_session=str(candidate.directory),
+    )
+    profile = args.profile or candidate.session.recording_profile or "generic"
+    if profile not in available_profiles():
+        profile = "generic"
+    findings = interpret_comparison(comparison, profile)
+    if args.out is not None:
+        save_comparison(args.out, comparison)
+    if args.json:
+        payload = comparison.to_dict()
+        payload["findings"] = [f.to_dict() for f in findings]
+        print(json.dumps(payload, indent=1))
+    else:
+        print(format_comparison_report(comparison, findings, profile))
+        if args.out is not None:
+            print(f"\nWrote comparison to {args.out}")
+    return 0
+
+
+def cmd_schema(args: argparse.Namespace) -> int:
+    from roomscope.schemas import schema_text
+
+    sys.stdout.write(schema_text(args.name))
+    return 0
+
+
+def cmd_analyze_ir(args: argparse.Namespace) -> int:
+    from roomscope.core.pipeline import analyze_impulse_response
+    from roomscope.interpretation import interpret
+    from roomscope.io.recent import remember_session
+    from roomscope.io.session_store import save_measurement
+    from roomscope.io.wav import read_wav
+    from roomscope.models.session import MeasurementSession
+
+    ir = read_wav(args.ir)
+    settings = _analysis_settings(args)
+    band = (float(args.band[0]), float(args.band[1])) if args.band else None
+    result = analyze_impulse_response(ir, settings, excitation_band=band)
+    findings = interpret(result, args.profile)
+    if args.out is not None:
+        session = MeasurementSession(
+            mode="analyze_ir",
+            room_name=args.room,
+            measurement_position=args.position,
+            microphone_name=args.mic,
+            notes=args.notes,
+            analysis_settings=settings,
+            recording_path=str(args.ir),
+            recording_profile=args.profile,
+        )
+        save_measurement(args.out, session, result, include_curves=not args.no_curves)
+        remember_session(args.out)
+    if args.json:
+        payload = result.to_dict(include_curves=not args.no_curves)
+        payload["findings"] = [f.to_dict() for f in findings]
+        print(json.dumps(payload, indent=1))
+    else:
+        print(format_report(result, findings, args.profile))
+        if args.out is not None:
+            print(f"\nSaved session to {args.out}")
+    return 0
+
+
 def cmd_gui(_: argparse.Namespace) -> int:
     try:
         from roomscope.ui.app import run_app
@@ -398,7 +519,10 @@ def cmd_gui(_: argparse.Namespace) -> int:
 COMMANDS = {
     "sweep": cmd_sweep,
     "analyze": cmd_analyze,
+    "analyze-ir": cmd_analyze_ir,
     "show": cmd_show,
+    "compare": cmd_compare,
+    "schema": cmd_schema,
     "devices": cmd_devices,
     "measure": cmd_measure,
     "gui": cmd_gui,

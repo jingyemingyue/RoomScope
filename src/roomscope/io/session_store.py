@@ -218,3 +218,20 @@ def _resolve_member(directory: Path, stored: str | None, default_name: str) -> P
     if candidate.is_absolute():
         return candidate
     return directory / candidate
+
+
+def save_comparison(path: str | Path, comparison: object) -> Path:
+    """Write ``comparison.json`` to ``path`` (a file or a directory)."""
+    from roomscope.models.comparison import ComparisonResult
+
+    if not isinstance(comparison, ComparisonResult):
+        raise SessionError("save_comparison expects a ComparisonResult")
+    target = Path(path)
+    if target.suffix.lower() != ".json":
+        target = target / "comparison.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        target.write_text(json.dumps(comparison.to_dict(), indent=1), encoding="utf-8")
+    except (OSError, TypeError, ValueError) as exc:
+        raise SessionError(f"cannot write {target}: {exc}") from exc
+    return target

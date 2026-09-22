@@ -44,6 +44,7 @@ Apache-2.0 project with the redistribution obligations listed in §3.
 | pytest-cov | 7.1.0 | https://github.com/pytest-dev/pytest-cov | MIT | coverage | Yes |
 | ruff | 0.16.8 | https://github.com/astral-sh/ruff | MIT | lint + format | Yes |
 | mypy | 2.3.1 | https://github.com/python/mypy | MIT (+ PSF/Apache portions) | type checking | Yes |
+| jsonschema | 4.26.0 | https://github.com/python-jsonschema/jsonschema | MIT | validate `to_dict` writers against shipped schemas (tests only) | Yes |
 
 Evaluated and **not** adopted: `hypothesis` (MPL-2.0, file-level copyleft;
 dev-only would be acceptable but it is not needed), `pytest-qt` (MIT; the

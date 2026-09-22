@@ -344,6 +344,51 @@ receiver devices). Room-*correction* filter design is densely patented
 (Dirac, Sonarworks, Audyssey/Sound United, DTS, Harman); RoomScope measures
 and reports only.
 
+## 11. Comparing two sessions
+
+`roomscope.core.compare.compare` takes two `AnalysisResult` objects and
+returns a `ComparisonResult`. It is a pure function: it never changes either
+result. Findings are re-derived by `interpret_comparison` and are not stored
+as truth.
+
+Comparability. The common excitation band is the intersection of both
+`excitation_band` ranges. Sample rates may differ. Different sweep durations
+or levels are allowed and noted. The pair is refused when the common band is
+narrower than one octave (`CompareSettings.min_common_band_octaves`, default
+1.0).
+
+Decay. A delta exists only when *both* metrics are VALID; otherwise the
+delta is `not_comparable` and carries both reasons. The report quotes the
+just-noticeable difference for T that ISO 3382-1 gives (about 5 %; clause
+not verified against the standard text) and never calls a change
+"significant" on its own: single-position repeatability is not established
+by one pair.
+
+Frequency response. Both raw magnitude curves are interpolated onto a shared
+logarithmic grid inside the common band and then smoothed with the coarser
+of the two `smoothing_fraction` values. The difference curve is candidate
+minus baseline. Mean absolute difference is reported per IEC 61260-1 octave
+band that overlaps the common range.
+
+Early reflections. Matched by delay within ±0.5 ms
+(`CompareSettings.reflection_match_ms`). Unmatched arrivals are listed as
+appeared or disappeared. Both sides must have high direct-sound confidence.
+
+Noise. RMS and band deltas are VALID only if both sessions have a verified
+quiet segment *and* the caller declares the input gain unchanged
+(`CompareSettings.same_input_gain`). Otherwise the delta is UNRELIABLE with
+the reason "gain not declared equal".
+
+Resonances. Matched within 1/6 octave
+(`CompareSettings.resonance_match_octaves`). The decay-distinguishable flags
+are compared, not a decay-time delta.
+
+Placement. Tier-2 heights are compared when both results are tier 2;
+otherwise the placement deltas are `not_comparable`.
+
+Loopback. `path_delay_ms` is compared only when both results applied
+loopback compensation.
+
 ## References
 
 17. J. B. Allen and D. A. Berkley, "Image method for efficiently simulating small-room acoustics," J. Acoust. Soc. Am. 65(4), 943-950, 1979. (confirmed, primary text) — forward image-source model; cited as the origin of the construction, not as a method for the inverse problem.

@@ -15,6 +15,13 @@ All notable changes to RoomScope are documented here. The format follows
   does the same. Saves and opens are remembered under `$ROOMSCOPE_HOME`
   (`~/.roomscope` by default). `MeasurementSession.recording_profile`
   records which interpretation was used.
+- v0.2 reopen-and-compare (ARCHITECTURE_V1.md milestone 0.2): lazy Tier 1
+  exports on `import roomscope`; lenient `from_dict` loaders; shipped JSON
+  Schemas and `roomscope schema`; `compare()` of two `AnalysisResult`s with
+  a validity on every delta; CLI `roomscope compare` and `analyze-ir`;
+  `interpret_comparison`; GUI pick-two compare view with an explicit
+  "input gain unchanged" checkbox. `jsonschema` is a dev dependency used
+  only in tests.
 - v1.0 architecture design (`docs/ARCHITECTURE_V1.md`, Chinese digest in
   `docs/ARCHITECTURE_V1.zh-CN.md`): the release open to everyone -- public
   API tiers, schema policy, session comparison, loopback reference channel,

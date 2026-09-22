@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -15,8 +15,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -39,6 +37,7 @@ from roomscope.models.audio import AudioSignal
 from roomscope.models.configuration import SUPPORTED_SAMPLE_RATES, AnalysisSettings, SweepSettings
 from roomscope.models.result import AnalysisResult
 from roomscope.models.session import MeasurementSession
+from roomscope.ui.browser import SessionBrowser
 from roomscope.ui.state import MeasurementState
 from roomscope.ui.workers import AnalysisWorker, MeasureWorker
 
@@ -56,6 +55,7 @@ class HomePage(QWidget):
     choose_mode = Signal(str)
     open_session = Signal()
     open_recent = Signal(str)
+    compare_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -85,71 +85,22 @@ class HomePage(QWidget):
         open_button = QPushButton("Open Session...")
         open_button.setToolTip("Open a session.json or a folder that contains one.")
         open_button.clicked.connect(self.open_session.emit)
-        browse_button = QPushButton("Browse Folder...")
-        browse_button.setToolTip("List session.json files under a folder.")
-        browse_button.clicked.connect(self._browse_folder)
-        recent_button = QPushButton("Recent")
-        recent_button.setToolTip("Show recently opened or saved sessions.")
-        recent_button.clicked.connect(self.refresh_recent)
+        compare_button = QPushButton("Compare two sessions...")
+        compare_button.setToolTip("Pick two saved sessions and compare their metrics.")
+        compare_button.clicked.connect(self.compare_requested.emit)
         session_row.addWidget(open_button)
-        session_row.addWidget(browse_button)
-        session_row.addWidget(recent_button)
+        session_row.addWidget(compare_button)
         layout.addLayout(session_row)
-        self.recent = QListWidget()
-        self.recent.setMinimumHeight(120)
-        self.recent.itemActivated.connect(self._open_listed)
-        layout.addWidget(self.recent, 1)
-        self.refresh_recent()
+        self.browser = SessionBrowser()
+        self.browser.open_session.connect(self.open_recent.emit)
+        self.recent = self.browser.list
+        layout.addWidget(self.browser, 1)
 
     def refresh_recent(self) -> None:
-        from roomscope.io.recent import recent_session_paths
-        from roomscope.io.session_store import load_session
-
-        self.recent.clear()
-        for path in recent_session_paths():
-            try:
-                session = load_session(path)
-            except RoomScopeError:
-                label = str(path)
-            else:
-                room = session.room_name or "(unnamed room)"
-                label = f"{room}  —  {session.created_at}  —  {path}"
-            item = QListWidgetItem(label)
-            item.setData(Qt.ItemDataRole.UserRole, str(path))
-            self.recent.addItem(item)
-        if self.recent.count() == 0:
-            empty = QListWidgetItem("No recent sessions yet. Save a measurement to see it here.")
-            empty.setFlags(Qt.ItemFlag.NoItemFlags)
-            self.recent.addItem(empty)
-
-    def _open_listed(self, item: QListWidgetItem) -> None:
-        path = item.data(Qt.ItemDataRole.UserRole)
-        if path:
-            self.open_recent.emit(str(path))
-
-    def _browse_folder(self) -> None:
-        directory = QFileDialog.getExistingDirectory(self, "Choose a folder of sessions")
-        if directory:
-            self.list_folder(Path(directory))
+        self.browser.refresh_recent()
 
     def list_folder(self, root: Path) -> None:
-        from roomscope.io.session_store import list_sessions
-
-        self.recent.clear()
-        try:
-            listings = list_sessions(root)
-        except RoomScopeError as exc:
-            QMessageBox.warning(self, "Cannot list sessions", str(exc))
-            self.refresh_recent()
-            return
-        for listing in listings:
-            item = QListWidgetItem(f"{listing.label}  —  {listing.path}")
-            item.setData(Qt.ItemDataRole.UserRole, str(listing.path))
-            self.recent.addItem(item)
-        if self.recent.count() == 0:
-            empty = QListWidgetItem(f"No session.json files under {root}")
-            empty.setFlags(Qt.ItemFlag.NoItemFlags)
-            self.recent.addItem(empty)
+        self.browser.list_folder(root)
 
 
 def _metadata_form(state: MeasurementState) -> tuple[QGroupBox, QLineEdit, QLineEdit, QLineEdit]:

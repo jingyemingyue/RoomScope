@@ -24,7 +24,7 @@ are unchanged.
 
 ```
 src/roomscope/
-  __init__.py            version
+  __init__.py            version + lazy Tier 1 re-exports
   errors.py              exception hierarchy (RoomScopeError -> ...)
   logging_config.py      logger setup for front ends
   models/                data only, no algorithms
@@ -33,6 +33,9 @@ src/roomscope/
     result.py            AnalysisResult and sub-results, Validity enum, JSON export
     result_load.py       JSON → AnalysisResult (unknown keys ignored)
     session.py           MeasurementSession (metadata, paths, summary)
+    comparison.py        ComparisonResult, MetricDelta, CompareSettings
+    project.py           Project index (SHOULD)
+    calibration.py       reserved CalibrationRecord
   core/                  pure DSP
     sweep.py             ESS generation, analytic + spectral inverse filters
     deconvolution.py     whole-recording deconvolution, IR location, confidence
@@ -44,16 +47,18 @@ src/roomscope/
     reflections.py       early-reflection candidates
     placement.py         vertical geometry from reflections + tape measurements
     resonance.py         potential low-frequency resonance candidates
-    pipeline.py          Reference + analyze(): the single entry point
+    compare.py           validity-aware comparison of two AnalysisResults
+    pipeline.py          Reference + analyze() + analyze_impulse_response()
   io/
     wav.py               soundfile-based read/write, sweep sidecar, load_reference
-    session_store.py     save_measurement / load_session / load_measurement / list_sessions
+    session_store.py     save_measurement / load_session / load_measurement / list_sessions / save_comparison
     recent.py            recent session paths under $ROOMSCOPE_HOME
+  schemas/               result / session / comparison / project / sidecar JSON Schemas
   audio/                 optional (needs PortAudio); Standalone Mode only
     devices.py           list_devices, sample-rate checks
     playrec.py           play_and_record with safety defaults
   interpretation/
-    interpreter.py       Finding, Severity, interpret()
+    interpreter.py       Finding, Severity, interpret(), interpret_comparison()
     profiles.py          RecordingProfile protocol; seven profiles (generic, vocal,
                          voiceover, acoustic_guitar, drums, room_mic, choir)
   cli/
@@ -61,6 +66,8 @@ src/roomscope/
     report.py            plain-text report shared with the GUI
   ui/                    optional (needs PySide6)
     app.py, main_window.py, pages.py, results.py, plots.py, workers.py, state.py
+    browser.py           session list (Home and Compare)
+    compare_view.py      two-session comparison
 ```
 
 Dependency direction (arrows point at what may be imported):
@@ -138,9 +145,10 @@ Key decisions:
   levels stay dBFS.
 * **Other storage formats:** `MeasurementSession.to_dict`/`from_dict` and
   `AnalysisResult.to_dict`/`from_dict` are the serialisation points;
-  `schema_version` is checked on load. Session schema still rejects unknown
-  fields; result load ignores unknown keys so a newer `result.json` can still
-  show its known metrics. IR samples live in `impulse_response.wav`.
+  `schema_version` is checked on load. Readers are lenient: unknown keys are
+  ignored and logged. Writers stay strict: `to_dict` output is validated
+  against the shipped JSON Schemas in the test suite. IR samples live in
+  `impulse_response.wav`.
 * **Multi-position measurements (ISO 3382-2 engineering/precision):** sessions
   are per position; averaging across sessions is a future module and must
   average T values, not decay curves.

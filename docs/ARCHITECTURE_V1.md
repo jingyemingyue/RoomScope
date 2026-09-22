@@ -95,10 +95,10 @@ Added for v1.0:
 
 | # | Item | Why it is a blocker | Section |
 | --- | --- | --- | --- |
-| M1 | Public API tiers and `roomscope` top-level exports | Integrators cannot depend on a moving target | §5.1 |
-| M2 | JSON Schemas for result, session, comparison, sweep sidecar; read-lenient loaders; `AnalysisResult.from_dict` *(in PR #2)* | Re-opening, comparing and exporting all need to read what was written | §5.2 |
-| M3 | Session re-opening and a session browser *(in PR #2)* | A tool that cannot show yesterday's measurement cannot compare positions | §5.8, §5.9 |
-| M4 | Comparison of two sessions (core, CLI, GUI, interpretation) | The third product question of the brief | §5.3.2 |
+| M1 | Public API tiers and `roomscope` top-level exports *(landed in 0.2)* | Integrators cannot depend on a moving target | §5.1 |
+| M2 | JSON Schemas for result, session, comparison, sweep sidecar; read-lenient loaders; `AnalysisResult.from_dict` *(landed in 0.2)* | Re-opening, comparing and exporting all need to read what was written | §5.2 |
+| M3 | Session re-opening and a session browser *(landed in 0.2; started in PR #2)* | A tool that cannot show yesterday's measurement cannot compare positions | §5.8, §5.9 |
+| M4 | Comparison of two sessions (core, CLI, GUI, interpretation) *(landed in 0.2)* | The third product question of the brief | §5.3.2 |
 | M5 | Loopback reference channel (DAW export with two channels; Standalone two-channel capture) | Removes the interface response from the frequency response and gives the electrical time origin; the largest known bias of the chain | §5.3.1 |
 | M6 | Audio backend interface, fake backend, progress, immediate stop | Standalone Mode logic must be testable in CI and safe on real hardware | §5.4 |
 | M7 | Internationalisation framework with a Simplified Chinese catalog for findings, GUI and CLI | "Everyone" includes the project's own first audience | §5.6 |
@@ -427,6 +427,7 @@ dB SPL without a schema bump. `NoiseResult.calibration` keeps saying
 ```python
 class AudioBackend(Protocol):
     name: str
+
     def list_devices(self) -> list[DeviceInfo]: ...
     def check_sample_rate(self, device: int, sample_rate: int, *, kind: str) -> None: ...
     def play_and_record(
@@ -436,13 +437,13 @@ class AudioBackend(Protocol):
         *,
         input_device: int | None,
         output_device: int | None,
-        input_channels: Sequence[int],     # 1-based; [mic] or [mic, loopback]
+        input_channels: Sequence[int],  # 1-based; [mic] or [mic, loopback]
         output_channel: int,
         level_dbfs: float,
         extra_record_s: float = 0.0,
         progress: Callable[[float], None] | None = None,
         cancel: threading.Event | None = None,
-    ) -> AudioSignal: ...                  # shape (n, len(input_channels))
+    ) -> AudioSignal: ...  # shape (n, len(input_channels))
 ```
 
 * `portaudio` (the existing sounddevice code) moves from a blocking

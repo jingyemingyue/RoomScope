@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from roomscope.interpretation import Finding
+from roomscope.models.comparison import ComparisonResult
 from roomscope.models.result import (
     AnalysisResult,
     DecayMetric,
@@ -160,6 +161,76 @@ def format_report(
         lines.append("Warnings:")
         for warning in result.warnings:
             lines.append(f"  - {warning}")
+    if findings:
+        lines.append("")
+        lines.append(f"Interpretation ({profile_name} profile):")
+        for finding in findings:
+            lines.append(f"  [{finding.severity}] {finding.topic}: {finding.message}")
+    return "\n".join(lines)
+
+
+def format_comparison_report(
+    comparison: ComparisonResult,
+    findings: list[Finding] | None = None,
+    profile_name: str = "generic",
+) -> str:
+    """Plain-text comparison. Wording may change; this is not a Tier 1 interface."""
+    lines = ["RoomScope comparison", "=" * 72]
+    if comparison.common_band is not None:
+        low, high = comparison.common_band
+        lines.append(f"Common excitation band: {low:g}–{high:g} Hz")
+    lines.append(f"Comparable: {'yes' if comparison.comparable else 'no'}")
+    for note in comparison.notes:
+        lines.append(f"  note: {note}")
+    lines.append("")
+    lines.append("Decay deltas (VALID only when both sides are VALID):")
+    lines.append(f"{'metric':<32} {'base':>8} {'cand':>8} {'delta':>10} {'%':>8}  validity")
+    for item in comparison.decay:
+        base = f"{item.baseline:.3f}" if item.baseline is not None else "—"
+        cand = f"{item.candidate:.3f}" if item.candidate is not None else "—"
+        if item.validity is Validity.VALID and item.delta is not None:
+            delta = f"{item.delta:+.3f}"
+            pct = f"{item.delta_percent:+.1f}" if item.delta_percent is not None else "—"
+        else:
+            delta = "—"
+            pct = "—"
+        lines.append(f"{item.name:<32} {base:>8} {cand:>8} {delta:>10} {pct:>8}  {item.validity}")
+        if item.reason and item.validity is not Validity.VALID:
+            lines.append(f"    {item.reason}")
+    if comparison.frequency_response is not None:
+        lines.append("")
+        lines.append("Frequency-response mean |Δ| per octave (dB):")
+        for label, mad in comparison.frequency_response.band_mad_db:
+            lines.append(f"  {label:<10} {mad:5.2f} dB")
+    if comparison.reflections:
+        lines.append("")
+        lines.append("Early reflections:")
+        for match in comparison.reflections:
+            if match.status == "matched":
+                lines.append(
+                    f"  matched  {match.baseline_delay_ms:.1f}→{match.candidate_delay_ms:.1f} ms  "
+                    f"{match.baseline_relative_db:.1f}→{match.candidate_relative_db:.1f} dB"
+                )
+            elif match.status == "appeared":
+                lines.append(
+                    f"  appeared {match.candidate_delay_ms:.1f} ms  {match.candidate_relative_db:.1f} dB"
+                )
+            else:
+                lines.append(
+                    f"  disappeared {match.baseline_delay_ms:.1f} ms  {match.baseline_relative_db:.1f} dB"
+                )
+    if comparison.noise:
+        lines.append("")
+        lines.append("Noise:")
+        for item in comparison.noise:
+            extra = f"  [{item.reason}]" if item.reason else ""
+            lines.append(f"  {item.name}: {item.validity}{extra}")
+    if comparison.placement:
+        lines.append("")
+        lines.append("Placement:")
+        for item in comparison.placement:
+            extra = f"  [{item.reason}]" if item.reason else ""
+            lines.append(f"  {item.name}: {item.validity}{extra}")
     if findings:
         lines.append("")
         lines.append(f"Interpretation ({profile_name} profile):")

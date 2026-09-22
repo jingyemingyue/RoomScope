@@ -93,6 +93,10 @@ roomscope analyze --recording recording.wav --sweep sweep_48k.wav --profile voic
 roomscope show results/
 roomscope show results/ --list
 
+# Compare two saved sessions (every delta carries a validity)
+roomscope compare results/ position-b/ --same-input-gain
+roomscope schema result
+
 # Standalone: list devices, then measure
 roomscope devices
 roomscope measure --out session1/ --input-device 2 --output-device 3 --sample-rate 48000
@@ -128,8 +132,9 @@ samples). Recently opened or saved sessions are remembered under
 ## Python API
 
 ```python
-from roomscope.core import Reference, analyze
+from roomscope import analyze, compare, interpret_comparison
 from roomscope.io.wav import read_wav, load_reference
+from roomscope.core import Reference
 
 recording = read_wav("recording.wav")
 reference = load_reference("sweep_48k.wav")  # uses the JSON sidecar if present

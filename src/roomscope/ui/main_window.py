@@ -12,6 +12,7 @@ from roomscope.errors import RoomScopeError
 from roomscope.interpretation import interpret
 from roomscope.io.recent import remember_session
 from roomscope.io.session_store import load_measurement
+from roomscope.ui.compare_view import ComparePage
 from roomscope.ui.pages import DawModePage, HomePage, StandalonePage
 from roomscope.ui.results import ResultsPage
 from roomscope.ui.state import MeasurementState
@@ -42,17 +43,20 @@ class MainWindow(QMainWindow):
         self.daw = DawModePage(self.state)
         self.standalone = StandalonePage(self.state)
         self.results = ResultsPage(self.state)
-        for page in (self.home, self.daw, self.standalone, self.results):
+        self.compare = ComparePage()
+        for page in (self.home, self.daw, self.standalone, self.results, self.compare):
             self.stack.addWidget(page)
 
         self.home.choose_mode.connect(self.show_mode)
         self.home.open_session.connect(self.choose_session)
         self.home.open_recent.connect(self.open_session_path)
+        self.home.compare_requested.connect(self.show_compare)
         self.daw.analysis_finished.connect(self.show_results)
         self.standalone.analysis_finished.connect(self.show_results)
         self.daw.back.connect(self.show_home)
         self.standalone.back.connect(self.show_home)
         self.results.new_measurement.connect(self.show_home)
+        self.compare.back.connect(self.show_home)
 
         file_menu = self.menuBar().addMenu("&File")
         new_action = QAction("&New Measurement", self)
@@ -60,10 +64,13 @@ class MainWindow(QMainWindow):
         open_action = QAction("&Open Session...", self)
         open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self.choose_session)
+        compare_action = QAction("&Compare Sessions...", self)
+        compare_action.triggered.connect(self.show_compare)
         quit_action = QAction("&Quit", self)
         quit_action.triggered.connect(self.close)
         file_menu.addAction(new_action)
         file_menu.addAction(open_action)
+        file_menu.addAction(compare_action)
         file_menu.addSeparator()
         file_menu.addAction(quit_action)
         help_menu = self.menuBar().addMenu("&Help")
@@ -117,6 +124,13 @@ class MainWindow(QMainWindow):
     def show_results(self) -> None:
         self.results.refresh()
         self.stack.setCurrentWidget(self.results)
+
+    def show_compare(self) -> None:
+        self.compare.browser.refresh_recent()
+        selected = self.home.browser.selected_paths()
+        if len(selected) == 2:
+            self.compare.set_paths(selected[0], selected[1])
+        self.stack.setCurrentWidget(self.compare)
 
     def _about(self) -> None:
         QMessageBox.about(self, "About RoomScope", ABOUT_TEXT)

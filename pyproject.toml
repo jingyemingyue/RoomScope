@@ -51,6 +51,7 @@ dev = [
   "pytest-cov>=5",
   "ruff>=0.6",
   "mypy>=1.11",
+  "jsonschema>=4.20",
 ]
 
 [project.scripts]
@@ -63,6 +64,9 @@ Issues = "https://github.com/jingyemingyue/RoomScope/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/roomscope"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/roomscope/schemas" = "roomscope/schemas"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -127,6 +131,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "src/roomscope/cli/*" = ["T20"]
 "src/roomscope/ui/results.py" = ["E402", "I001"]
+"src/roomscope/ui/compare_view.py" = ["E402", "I001"]
 "examples/*" = ["T20"]
 "scripts/*" = ["T20"]
 "tests/*" = ["ARG"]
@@ -144,7 +149,7 @@ show_error_codes = true
 
 [[tool.mypy.overrides]]
 # matplotlib's Qt canvas is not fully typed; the GUI results page only wraps it.
-module = ["roomscope.ui.results"]
+module = ["roomscope.ui.results", "roomscope.ui.compare_view"]
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]

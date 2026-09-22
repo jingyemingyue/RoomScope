@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 
 from roomscope.errors import SessionError
+from roomscope.models.loadutil import read_schema_version
 from roomscope.models.result import (
     RESULT_SCHEMA_VERSION,
     AliasedDistortion,
@@ -27,6 +28,7 @@ from roomscope.models.result import (
     HarmonicDistortion,
     HumCandidate,
     ImpulseResponseResult,
+    LoopbackResult,
     NoiseResult,
     PlacementLength,
     PlacementResult,
@@ -193,6 +195,26 @@ def impulse_from_dict(data: Any) -> ImpulseResponseResult:
         aliased_distortion=tuple(
             aliased_from_dict(a) for a in payload.get("aliased_distortion") or ()
         ),
+        loopback=loopback_from_dict(payload.get("loopback")),
+    )
+
+
+def loopback_from_dict(data: Any) -> LoopbackResult | None:
+    if data is None:
+        return None
+    payload = _obj(data, "loopback")
+    hz = payload.get("interface_response_hz")
+    db = payload.get("interface_response_db")
+    return LoopbackResult(
+        channel=payload.get("channel"),
+        compensation_applied=bool(payload.get("compensation_applied", False)),
+        reason=payload.get("reason"),
+        latency_samples=payload.get("latency_samples"),
+        path_delay_ms=payload.get("path_delay_ms"),
+        distance_upper_bound_m=payload.get("distance_upper_bound_m"),
+        interface_response_hz=None if hz is None else _array(hz),
+        interface_response_db=None if db is None else _array(db),
+        notes=_str_tuple(payload.get("notes")),
     )
 
 
@@ -350,9 +372,7 @@ def placement_from_dict(data: Any) -> PlacementResult | None:
 
 def analysis_result_from_dict(data: Any) -> AnalysisResult:
     payload = _obj(data, "result")
-    version = int(payload.get("schema_version", RESULT_SCHEMA_VERSION))
-    if version != RESULT_SCHEMA_VERSION:
-        raise SessionError(f"unsupported result schema version {version}")
+    version = read_schema_version(payload, RESULT_SCHEMA_VERSION, "result")
     try:
         return AnalysisResult(
             created_at=str(payload.get("created_at", "")),
@@ -369,6 +389,7 @@ def analysis_result_from_dict(data: Any) -> AnalysisResult:
             clipping=clipping_from_dict(payload.get("clipping")),
             placement=placement_from_dict(payload.get("placement")),
             schema_version=version,
+            roomscope_version=str(payload.get("roomscope_version", "")),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise SessionError(f"result.json is incomplete or invalid: {exc}") from exc

@@ -139,3 +139,51 @@ def test_standalone_page_builds(app: QApplication) -> None:
     # Either devices were listed or the backend is reported unavailable; both are acceptable.
     assert window.standalone.status.text()
     window.close()
+
+
+def test_compare_two_saved_sessions(
+    app: QApplication, tmp_path: Path, short_sweep: SweepSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ROOMSCOPE_HOME", str(tmp_path / "home"))
+    window = MainWindow()
+    window.show()
+    window.show_mode("universal_daw")
+    page = window.daw
+    page.sample_rate.setCurrentIndex(page.sample_rate.findData(short_sweep.sample_rate))
+    page.duration.setValue(short_sweep.duration_s)
+    page.generate_sweep_to(tmp_path / "sweep.wav")
+    ir = make_rir(
+        short_sweep.sample_rate, rt60_s=0.35, reflections=[(0.018, 0.35)], diffuse_level=0.01
+    )
+    recording = synthetic_recording(window.state.sweep_settings, ir, noise_rms=1e-5)
+    rec_path = write_wav(
+        tmp_path / "recording.wav", recording.samples, recording.sample_rate, subtype="FLOAT"
+    )
+    page.set_recording(rec_path)
+    page.start_analysis(blocking=True)
+    app.processEvents()
+    first = tmp_path / "session-a"
+    window.results.save_to(first)
+    window.show_home()
+    window.show_mode("universal_daw")
+    page = window.daw
+    page.sample_rate.setCurrentIndex(page.sample_rate.findData(short_sweep.sample_rate))
+    page.duration.setValue(short_sweep.duration_s)
+    page.generate_sweep_to(tmp_path / "sweep2.wav")
+    page.set_recording(rec_path)
+    page.start_analysis(blocking=True)
+    app.processEvents()
+    second = tmp_path / "session-b"
+    window.results.save_to(second)
+
+    window.show_compare()
+    assert window.stack.currentWidget() is window.compare
+    window.compare.set_paths(first, second)
+    window.compare.same_gain.setChecked(True)
+    window.compare.run_compare()
+    app.processEvents()
+    assert "RoomScope comparison" in window.compare.text.toPlainText()
+    assert window.compare.table.rowCount() > 0
+    assert window.compare._comparison is not None
+    assert all(item.validity is not None for item in window.compare._comparison.decay)
+    window.close()
