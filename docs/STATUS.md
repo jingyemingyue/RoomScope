@@ -36,7 +36,8 @@ bundle, GPL-module gate). Hardware cells are not marked PASS.
 Snapshot 10: 2026-09-22 — 1.0-rc software on top of 0.4: Placement tab
 (S5), Python 3.14 in CI (S6), M11 validation protocol with pre-chosen
 tolerances, bundle.lock, SBOM/checksums and a trusted-publishing job
-that still needs the maintainer `pypi` environment. Hardware cells are
+that still needs the maintainer `pypi` environment. Re-verified on
+Linux x86_64 (Ubuntu, Python 3.12.3): 304 passed. Hardware cells are
 not marked PASS. The repository is not public.
 
 Snapshot 9: 2026-09-22 — 0.4 follow-up after the first local suite: `--json`
