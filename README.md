@@ -75,6 +75,14 @@ roomscope sweep --out sweep_48k.wav
 # 3. Analyze
 roomscope analyze --recording recording.wav --sweep sweep_48k.wav --out results/
 
+# Optional: two tape measurements unlock the vertical geometry
+roomscope analyze --recording recording.wav --sweep sweep_48k.wav \
+  --speaker-distance 1.65 --mic-height 0.40 --temperature 21
+
+# Optional: interpret for a kind of recording (generic | vocal | voiceover |
+# acoustic_guitar | drums | room_mic | choir)
+roomscope analyze --recording recording.wav --sweep sweep_48k.wav --profile voiceover
+
 # Standalone: list devices, then measure
 roomscope devices
 roomscope measure --out session1/ --input-device 2 --output-device 3 --sample-rate 48000
@@ -82,6 +90,22 @@ roomscope measure --out session1/ --input-device 2 --output-device 3 --sample-ra
 # GUI (needs the gui extra)
 roomscope gui
 ```
+
+`--speaker-distance` is the straight line from the loudspeaker to the
+microphone capsule; `--mic-height` is the capsule above the first solid
+horizontal surface below it. With both, RoomScope reports the loudspeaker
+height, the plane above the devices and the horizontal separation. It reports
+**no coordinates, no room length or width, and never names a wall**: one
+omnidirectional microphone at one position measures path lengths, not
+directions, which leaves the geometry underdetermined by two even with the
+distance supplied. The result JSON carries that argument with it.
+
+`--profile` chooses how the measured numbers are turned into advice
+(`generic` by default; `vocal`, `voiceover`, `acoustic_guitar`, `drums`,
+`room_mic` and `choir` have per-recording thresholds and wording). The report
+prints the profile name next to `Interpretation` so the advice is never
+mistaken for room-agnostic truth. The GUI offers the same selector in both
+measurement modes.
 
 `results/` receives `result.json` (all metrics and curves),
 `impulse_response.wav` (raw IR, float32) and `session.json` (measurement
