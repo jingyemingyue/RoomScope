@@ -33,6 +33,13 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 16: 2026-09-22 — 1.0-rc M7 chrome / M9 wheel audit:
+Linux x86_64 wheels of numpy/scipy/soundfile/sounddevice/
+matplotlib/Pillow opened (`scripts/audit_wheel_contents.py`);
+Windows sounddevice 0.5.6 wheel listed (ASIO DLLs still a
+gate). DAW/Standalone/Results chrome goes through gettext.
+API/schema not frozen. Hardware cells empty.
+
 Snapshot 15: 2026-09-22 — 1.0-rc compare / robustness / guide:
 `load_comparison` (findings re-derived on `roomscope show
 comparison.json`); Compare GUI lists matched resonances; user
@@ -96,7 +103,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | Averaging | `average_decay`: VALID T values only; ISO 3382-2 class labelled from Table 1 (secondary-source transcription) |
 | Export | CSV exporter for decay, FR, noise PSD, reflections, resonances; `roomscope.exporters` entry points |
 | i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG` |
-| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections and resonances, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate, `gui --smoke` |
+| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections and resonances, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate, `gui --smoke`; DAW/Standalone/Results chrome through gettext |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
 | Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags (zip / tar / dmg / Inno script, `scripts/smoke_bundle.py` version + fake measure + offscreen GUI) |
 | Documentation | Hub at `docs/index.md`; themed HTML site from `scripts/build_docs_site.py` (S7) |
@@ -105,7 +112,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      334 passed  (tests/unit 260, tests/integration 42, tests/ui 12 offscreen, tests/robustness 20)
+pytest      336 passed  (tests/unit 262, tests/integration 42, tests/ui 12 offscreen, tests/robustness 20)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
 mypy        Success: no issues found in 69 source files (strict)
@@ -126,7 +133,8 @@ linestyles and Action SHA pins (311), then the themed docs site,
 dark-mode plot chrome, device-rate display and compare tables (316),
 then JSON depth, src-safety and unsigned-bundle packaging (322),
 then comparison load/show, resonance table, richer robustness and
-`gui --smoke` (334).
+`gui --smoke` (334), then the Linux wheel audit and DAW/Standalone
+gettext chrome (336).
 GUI tests also check that
 matplotlib's QtAgg backend loads against PySide6_Essentials (no Addons).
 
@@ -254,9 +262,10 @@ were not copied.
 * Windows sounddevice wheels contain ASIO DLLs built with the proprietary
   Steinberg SDK — strip them.
 * matplotlib's historical `ttconv` converter is gone in 3.8+ (DEPENDENCIES.md
-  §6). Exact Linux/Windows wheel contents of numpy/scipy/soundfile/
-  sounddevice/matplotlib/Pillow were not re-opened in this environment;
-  the license-bundle script fails if a required package ships no license.
+  §6). Linux x86_64 wheels of numpy/scipy/soundfile/sounddevice/
+  matplotlib/Pillow were opened on 2026-09-22; the Windows sounddevice
+  0.5.6 wheel lists `*-asio.dll` (still stripped by the bundle gate).
+  The license-bundle script fails if a required package ships no license.
 * Two in-force patents adjacent to the field (US 9,959,883; US 10,816,391)
   are noted in MEASUREMENT_METHODOLOGY.md §10 so the design does not drift
   into them. Not a legal opinion.

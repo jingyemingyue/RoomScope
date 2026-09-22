@@ -56,6 +56,13 @@ def test_numbers_stay_ascii() -> None:
     activate("en")
 
 
+def test_daw_chrome_is_in_the_chinese_catalog() -> None:
+    activate("zh_CN")
+    assert _("Analyze") == "分析"
+    assert _("Step 1 - Generate Test Signal").startswith("步骤")
+    activate("en")
+
+
 def test_parse_po_round_trip(tmp_path) -> None:
     import gettext
 

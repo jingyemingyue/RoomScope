@@ -27,6 +27,11 @@ All notable changes to RoomScope are documented here. The format follows
   pickle, eval and shell-outs under `src/`. Unsigned-bundle packaging
   adds Inno Setup, a Linux desktop/AppRun, a macOS dmg script, zip/tar
   archives, and `scripts/smoke_bundle.py` (fake-backend measure).
+  Linux x86_64 wheels of numpy/scipy/soundfile/sounddevice/
+  matplotlib/Pillow were opened (`scripts/audit_wheel_contents.py`);
+  the Windows sounddevice wheel was listed and still ships ASIO
+  DLLs that the bundle gate strips. DAW, Standalone and Results
+  chrome is translated through gettext (zh-CN catalog).
   `load_comparison` and `roomscope show comparison.json` re-derive
   findings (they are never stored); the Compare GUI lists matched
   resonances; the user guide names every Results tab and the

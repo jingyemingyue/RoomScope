@@ -164,14 +164,17 @@ class ResultsPage(QWidget):
         overview = QWidget()
         ov_layout = QVBoxLayout(overview)
         self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["Band", "EDT", "T20", "T30", "RT60 estimate"])
+        self.table.setHorizontalHeaderLabels([_("Band"), "EDT", "T20", "T30", _("RT60 estimate")])
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
         ov_layout.addWidget(
             QLabel(
-                "Reverberation (extrapolated to 60 dB). 'insufficient range' means the decay is not clean enough for that metric."
+                _(
+                    "Reverberation (extrapolated to 60 dB). 'insufficient range' means "
+                    "the decay is not clean enough for that metric."
+                )
             )
         )
         ov_layout.addWidget(self.table, 1)
@@ -196,9 +199,9 @@ class ResultsPage(QWidget):
         layout.addWidget(self.tabs, 1)
 
         row = QHBoxLayout()
-        self.new_button = QPushButton("New Measurement")
+        self.new_button = QPushButton(_("New Measurement"))
         self.new_button.clicked.connect(self.new_measurement.emit)
-        self.save_button = QPushButton("Save Session...")
+        self.save_button = QPushButton(_("Save Session..."))
         self.save_button.setShortcut("Ctrl+S")
         self.save_button.clicked.connect(self._choose_save_directory)
         row.addWidget(self.new_button)
@@ -233,7 +236,7 @@ class ResultsPage(QWidget):
         self.status.setText("")
 
     def _choose_save_directory(self) -> None:
-        directory = QFileDialog.getExistingDirectory(self, "Choose a folder for the session")
+        directory = QFileDialog.getExistingDirectory(self, _("Choose a folder for the session"))
         if directory:
             self.save_to(Path(directory))
 
@@ -252,7 +255,7 @@ class ResultsPage(QWidget):
                 self.state.session.recording_path = str(path)
             session_path = save_measurement(directory, self.state.session, result)
         except RoomScopeError as exc:
-            QMessageBox.critical(self, "Cannot save session", str(exc))
+            QMessageBox.critical(self, _("Cannot save session"), str(exc))
             return
         remember_session(directory)
-        self.status.setText(f"Session saved to {session_path.parent}")
+        self.status.setText(_("Session saved to {path}").format(path=session_path.parent))

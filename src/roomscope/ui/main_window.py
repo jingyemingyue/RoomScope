@@ -116,11 +116,11 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(self.home)
 
     def choose_session(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
+        path, _filter = QFileDialog.getOpenFileName(
             self,
-            "Open session",
+            _("Open session"),
             "",
-            "Session files (session.json);;JSON files (*.json);;All files (*)",
+            _("Session files (session.json);;JSON files (*.json);;All files (*)"),
         )
         if path:
             self.open_session_path(path)
@@ -129,7 +129,7 @@ class MainWindow(QMainWindow):
         try:
             loaded = load_measurement(path)
         except RoomScopeError as exc:
-            QMessageBox.critical(self, "Cannot open session", str(exc))
+            QMessageBox.critical(self, _("Cannot open session"), str(exc))
             return
         self.state.session = loaded.session
         self.state.result = loaded.result

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 
@@ -8,8 +9,26 @@ def _load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def test_linux_wheels_match_the_bundle_gate() -> None:
+    module = _load("audit_wheel_contents", Path("scripts") / "audit_wheel_contents.py")
+    reports = {item.name: item for item in module.audit_required()}
+    numpy = reports["numpy"]
+    assert any("openblas" in name.lower() for name in module.bundled_shared_libs(numpy))
+    assert any("quadmath" in name.lower() for name in module.bundled_shared_libs(numpy))
+    scipy = reports["scipy"]
+    assert any("qhull" in name.lower() for name in scipy.licenses)
+    soundfile = reports["soundfile"]
+    assert any("libsndfile" in name.lower() for name in module.bundled_shared_libs(soundfile))
+    sounddevice = reports["sounddevice"]
+    assert sounddevice.asio == ()
+    matplotlib = reports["matplotlib"]
+    assert matplotlib.ttconv == ()
+    assert not any("ttconv" in name.lower() for name in matplotlib.natives)
 
 
 def test_src_safety_script_is_clean() -> None:

@@ -116,10 +116,24 @@ the wheels, and must be checked again at packaging time:
 
 matplotlib's historical `ttconv` converter is **resolved**: it is not present
 in matplotlib 3.8+, which RoomScope requires; fonttools is used instead.
-Exact contents of Linux/Windows wheels of numpy/scipy/soundfile/sounddevice/
-matplotlib/Pillow (only macOS wheels were opened in the original audit) are
-still noted; the license-bundle script copies whatever license files the
-installed distributions ship and fails if a required package has none.
-Windows sounddevice ASIO DLLs remain a packaging gate
-(`scripts/check_bundle_contents.py` deletes/fails on `*asio*.dll`). None of
-these affect the source release.
+`scripts/audit_wheel_contents.py` lists bundled shared libraries and license
+files of the installed distributions (and of a downloaded `.whl`).
+
+**Linux x86_64, CPython 3.12, opened 2026-09-22** in this environment:
+
+| Package | Bundled shared libraries | Notes |
+| --- | --- | --- |
+| numpy 2.5.3 | `numpy.libs/libscipy_openblas64_-*.so`, `libgfortran-*.so.5`, `libquadmath-*.so.0` | Same OpenBLAS + GCC-runtime + LGPL libquadmath set as the macOS audit; `LICENSE.txt` is in `.dist-info/licenses/`. |
+| scipy 1.18.1 | `scipy.libs/libscipy_openblas-*.so`, two `libgfortran` builds, two `libquadmath` builds | `COPYING_QHULL.txt` is in the wheel; no extra GPL libraries beyond the GCC runtime exception set. |
+| soundfile 0.14.0 | `_soundfile_data/libsndfile_x86_64.so` | `_soundfile_data/COPYING` is LGPL-2.1; replaceable via `cffi.dlopen` / system libsndfile. |
+| sounddevice 0.5.6 | *none* | Linux wheel uses the system PortAudio (`libportaudio2`). No ASIO DLLs. |
+| matplotlib 3.11.2 | extension modules only (`_qhull`, `ft2font`, `_backend_agg`, …) | No `ttconv` file. Qhull is compiled into `_qhull`. |
+| Pillow 12.3.0 | `pillow.libs/` libjpeg, libtiff, libfreetype, libharfbuzz, libpng, libwebp, openjpeg, lcms2, … | MIT-CMU plus bundled codec SOs; no GPL library name in the `.so` list. |
+
+**Windows win_amd64 sounddevice 0.5.6 wheel**, downloaded 2026-09-22:
+`libportaudio64bit.dll`, `libportaudio32bit.dll`, `libportaudioarm64.dll` and
+the matching `*-asio.dll` files, plus a leftover `libportaudio.dylib`. The
+ASIO DLLs remain a packaging gate (`scripts/check_bundle_contents.py`).
+
+The license-bundle script still fails if a required package ships no license
+text. None of these affect the source release.

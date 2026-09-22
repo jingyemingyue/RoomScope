@@ -115,7 +115,7 @@ class SessionBrowser(QWidget):
             self.list.addItem(empty)
 
     def _browse_folder(self) -> None:
-        directory = QFileDialog.getExistingDirectory(self, "Choose a folder of sessions")
+        directory = QFileDialog.getExistingDirectory(self, _("Choose a folder of sessions"))
         if directory:
             self.list_folder(Path(directory))
 

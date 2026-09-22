@@ -517,3 +517,258 @@ msgstr "打开会话"
 
 msgid "Session files (session.json);;JSON files (*.json);;All files (*)"
 msgstr "会话文件 (session.json);;JSON 文件 (*.json);;所有文件 (*)"
+
+msgid "Measurement metadata (optional)"
+msgstr "测量元数据（可选）"
+
+msgid "Room"
+msgstr "房间"
+
+msgid "Position"
+msgstr "位置"
+
+msgid "Microphone"
+msgstr "话筒"
+
+msgid "Step 1 - Generate Test Signal"
+msgstr "步骤 1 — 生成测试信号"
+
+msgid "Sample rate"
+msgstr "采样率"
+
+msgid "Sweep duration"
+msgstr "扫描时长"
+
+msgid "Peak level"
+msgstr "峰值电平"
+
+msgid "Save Test Signal WAV..."
+msgstr "保存测试信号 WAV…"
+
+msgid "No test signal written yet."
+msgstr "尚未写出测试信号。"
+
+msgid "Step 2 - Record Through Your DAW"
+msgstr "步骤 2 — 在 DAW 中录音"
+
+msgid "1. Import the test-signal WAV on a new track of your DAW project.\n2. Route that track to the monitors (or the loudspeaker you want to test).\n3. Arm a second track with the measurement microphone and record while the test signal plays.\n4. Export / bounce the recorded track as a WAV file at the project sample rate.\n   Do not trim it - RoomScope finds the sweep automatically.\nStart with a low monitor level; the sweep should be clearly audible but not loud."
+msgstr "1. 把测试信号 WAV 导入 DAW 项目的新轨道。\n2. 将该轨道路由到监听（或要测的扬声器）。\n3. 用测量话筒武装第二条轨道，在测试信号播放时录音。\n4. 按工程采样率导出/bounce 为 WAV。\n   不要裁切——RoomScope 会自动找到扫描。\n先把监听开低；扫描应清楚可闻，但不要很大声。"
+
+msgid "Step 3 - Import Recording"
+msgstr "步骤 3 — 导入录音"
+
+msgid "Choose Recording WAV..."
+msgstr "选择录音 WAV…"
+
+msgid "No recording selected."
+msgstr "尚未选择录音。"
+
+msgid "Choose Reference Sweep..."
+msgstr "选择参考扫描…"
+
+msgid "Reference: the test signal from Step 1 (or choose a file)."
+msgstr "参考：步骤 1 的测试信号（或另选文件）。"
+
+msgid "Auto (highest level)"
+msgstr "自动（电平最高）"
+
+msgid "None"
+msgstr "无"
+
+msgid "Microphone channel"
+msgstr "话筒声道"
+
+msgid "Loopback channel"
+msgstr "loopback 声道"
+
+msgid "Step 4 - Analyze"
+msgstr "步骤 4 — 分析"
+
+msgid "Recording profile"
+msgstr "录音配置"
+
+msgid "Analyze"
+msgstr "分析"
+
+msgid "Save test signal"
+msgstr "保存测试信号"
+
+msgid "WAV files (*.wav)"
+msgstr "WAV 文件 (*.wav)"
+
+msgid "Cannot write test signal"
+msgstr "无法写出测试信号"
+
+msgid "Written: {wav} (+ {sidecar}). Keep both files together."
+msgstr "已写出：{wav}（+ {sidecar}）。请把两个文件放在一起。"
+
+msgid "Reference: {name}"
+msgstr "参考：{name}"
+
+msgid "Choose recording"
+msgstr "选择录音"
+
+msgid "Audio files (*.wav *.flac *.aif *.aiff)"
+msgstr "音频文件 (*.wav *.flac *.aif *.aiff)"
+
+msgid "Cannot read recording"
+msgstr "无法读取录音"
+
+msgid "Channel {n}"
+msgstr "声道 {n}"
+
+msgid "{name}: {seconds:.1f} s, {rate} Hz, {channels} channel(s)"
+msgstr "{name}：{seconds:.1f} s，{rate} Hz，{channels} 声道"
+
+msgid "Choose reference sweep"
+msgstr "选择参考扫描"
+
+msgid "Sweep files (*.wav *.json);;All files (*)"
+msgstr "扫描文件 (*.wav *.json);;所有文件 (*)"
+
+msgid "Cannot read reference sweep"
+msgstr "无法读取参考扫描"
+
+msgid "No recording"
+msgstr "没有录音"
+
+msgid "Choose the recorded WAV file first (Step 3)."
+msgstr "请先选择录好的 WAV（步骤 3）。"
+
+msgid "No reference"
+msgstr "没有参考"
+
+msgid "Generate the test signal (Step 1) or choose the sweep file."
+msgstr "请先生成测试信号（步骤 1）或选择扫描文件。"
+
+msgid "Analyzing..."
+msgstr "正在分析…"
+
+msgid "Done."
+msgstr "完成。"
+
+msgid "Analysis failed: {message}"
+msgstr "分析失败：{message}"
+
+msgid "Analysis failed"
+msgstr "分析失败"
+
+msgid "Demo mode: the fake backend synthesises a room. Nothing is sent to a loudspeaker."
+msgstr "演示模式：假后端合成一个房间。不会对扬声器发声。"
+
+msgid "Start with your monitor/interface output at a low level. RoomScope will play a sine sweep at a conservative digital level; raise the level gradually between measurements only if the recording is too quiet."
+msgstr "先把监听/接口输出开低。RoomScope 会以保守的数字电平播放正弦扫描；只有录音太轻时才在两次测量之间逐步提高电平。"
+
+msgid "Audio devices"
+msgstr "音频设备"
+
+msgid "Refresh devices"
+msgstr "刷新设备"
+
+msgid "unused"
+msgstr "未使用"
+
+msgid "Device rate: unknown"
+msgstr "设备采样率：未知"
+
+msgid "Input device"
+msgstr "输入设备"
+
+msgid "Output device"
+msgstr "输出设备"
+
+msgid "Input channel (mic)"
+msgstr "输入声道（话筒）"
+
+msgid "Loopback channel (1-based)"
+msgstr "loopback 声道（从 1 起）"
+
+msgid "Output channel (speaker)"
+msgstr "输出声道（扬声器）"
+
+msgid "Test signal"
+msgstr "测试信号"
+
+msgid "I have set the monitor level low (required above {level:g} dBFS)"
+msgstr "我已把监听开低（高于 {level:g} dBFS 必须勾选）"
+
+msgid "Playback level"
+msgstr "回放电平"
+
+msgid "Run Measurement"
+msgstr "开始测量"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "System default"
+msgstr "系统默认"
+
+msgid "Demo mode: fake backend, no loudspeaker."
+msgstr "演示模式：假后端，不对扬声器发声。"
+
+msgid "{n} audio device(s) found."
+msgstr "找到 {n} 个音频设备。"
+
+msgid "unknown"
+msgstr "未知"
+
+msgid "Device rate: {device}  (requested {requested} Hz)"
+msgstr "设备采样率：{device}  （请求 {requested} Hz）"
+
+msgid " — rates differ; the interface may resample"
+msgstr " — 采样率不一致；接口可能会重采样"
+
+msgid "Invalid settings"
+msgstr "设置无效"
+
+msgid "Level too high"
+msgstr "电平过高"
+
+msgid "Levels above {level:g} dBFS need the acknowledgement checkbox. Set the monitor level low first."
+msgstr "高于 {level:g} dBFS 需要勾选确认。请先把监听开低。"
+
+msgid "Sample rate not supported"
+msgstr "不支持该采样率"
+
+msgid "Playing the sweep and recording..."
+msgstr "正在播放扫描并录音…"
+
+msgid "Stopped."
+msgstr "已停止。"
+
+msgid "Recorded. Analyzing..."
+msgstr "已录音。正在分析…"
+
+msgid "Measurement failed: {message}"
+msgstr "测量失败：{message}"
+
+msgid "Measurement failed"
+msgstr "测量失败"
+
+msgid "Band"
+msgstr "频带"
+
+msgid "RT60 estimate"
+msgstr "RT60 估计"
+
+msgid "Reverberation (extrapolated to 60 dB). 'insufficient range' means the decay is not clean enough for that metric."
+msgstr "混响（外推到 60 dB）。“insufficient range”表示衰减对该指标不够干净。"
+
+msgid "Save Session..."
+msgstr "保存会话…"
+
+msgid "Choose a folder for the session"
+msgstr "选择会话文件夹"
+
+msgid "Cannot save session"
+msgstr "无法保存会话"
+
+msgid "Session saved to {path}"
+msgstr "会话已保存到 {path}"
+
+msgid "Cannot open session"
+msgstr "无法打开会话"
+
+msgid "Choose a folder of sessions"
+msgstr "选择会话所在文件夹"

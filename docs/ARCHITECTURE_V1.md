@@ -510,7 +510,7 @@ class AudioBackend(Protocol):
 | Command | Purpose | Status |
 | --- | --- | --- |
 | `sweep`, `analyze`, `devices`, `measure`, `gui` | as today | landed |
-| `show <session>` / `show --list <folder>` | print a stored session / list sessions | in PR #2 |
+| `show <session>` / `show --list <folder>` / `show comparison.json` | print a stored session or comparison; list sessions | landed |
 | `analyze-ir --ir <wav> [--band lo hi]` | analyse an impulse response from another tool | S1 |
 | `compare <baseline> <candidate> [--out] [--same-input-gain]` | comparison | M4 |
 | `session bundle <session> [--no-audio]` | zip for bug reports | M8 |
@@ -625,9 +625,11 @@ is asked on every measurement, as the brief's safety rules require.
   third-party attributions for the Essentials modules, the FreeType credit,
   the PortAudio license (not in the wheel), the Qhull and Agg notices. The
   About dialog links to that directory. The UNKNOWN / NEEDS REVIEW items of
-  DEPENDENCIES.md §6 (matplotlib's `ttconv`, the Linux and Windows wheel
-  contents) must be resolved before the first bundle ships; the license
-  bundle script lists any package whose license file it could not find and
+  DEPENDENCIES.md §6 (matplotlib's `ttconv` is resolved; Linux x86_64
+  wheels of numpy/scipy/soundfile/sounddevice/matplotlib/Pillow were
+  opened, and the Windows sounddevice wheel listed, on 2026-09-22)
+  must stay current when those versions change; the license bundle
+  script lists any package whose license file it could not find and
   fails the job.
 * **Reproducible inputs:** bundles are built from a lock file
   (`requirements/bundle.lock`, generated with `pip-compile` or `uv` from
