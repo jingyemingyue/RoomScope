@@ -33,6 +33,13 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 17: 2026-09-22 — 1.0-rc M7 CLI help / text-report labels:
+`--lang zh_CN` translates CLI `--help` and every text-report
+heading (ARCHITECTURE_V1.md §5.6). Windows win_amd64 wheels of
+numpy/scipy/soundfile/matplotlib/Pillow opened (OpenBLAS +
+msvcp140 / libsndfile; no ttconv; Pillow codecs are inside the
+`.pyd` files). API/schema not frozen. Hardware cells empty.
+
 Snapshot 16: 2026-09-22 — 1.0-rc M7 chrome / M9 wheel audit:
 Linux x86_64 wheels of numpy/scipy/soundfile/sounddevice/
 matplotlib/Pillow opened (`scripts/audit_wheel_contents.py`);
@@ -102,7 +109,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | Audio backends | `AudioBackend` protocol; PortAudio callback stream (progress, Stop); fake backend for CI and Demo |
 | Averaging | `average_decay`: VALID T values only; ISO 3382-2 class labelled from Table 1 (secondary-source transcription) |
 | Export | CSV exporter for decay, FR, noise PSD, reflections, resonances; `roomscope.exporters` entry points |
-| i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG` |
+| i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG`; findings, GUI chrome, CLI help and text-report labels |
 | GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections and resonances, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate, `gui --smoke`; DAW/Standalone/Results chrome through gettext |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
 | Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags (zip / tar / dmg / Inno script, `scripts/smoke_bundle.py` version + fake measure + offscreen GUI) |
@@ -112,7 +119,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      336 passed  (tests/unit 262, tests/integration 42, tests/ui 12 offscreen, tests/robustness 20)
+pytest      338 passed  (tests/unit 264, tests/integration 42, tests/ui 12 offscreen, tests/robustness 20)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
 mypy        Success: no issues found in 69 source files (strict)
@@ -134,7 +141,8 @@ dark-mode plot chrome, device-rate display and compare tables (316),
 then JSON depth, src-safety and unsigned-bundle packaging (322),
 then comparison load/show, resonance table, richer robustness and
 `gui --smoke` (334), then the Linux wheel audit and DAW/Standalone
-gettext chrome (336).
+gettext chrome (336), then CLI help / text-report labels and the
+Windows wheel listing (338).
 GUI tests also check that
 matplotlib's QtAgg backend loads against PySide6_Essentials (no Addons).
 
@@ -265,6 +273,9 @@ were not copied.
   §6). Linux x86_64 wheels of numpy/scipy/soundfile/sounddevice/
   matplotlib/Pillow were opened on 2026-09-22; the Windows sounddevice
   0.5.6 wheel lists `*-asio.dll` (still stripped by the bundle gate).
+  Windows win_amd64 wheels of numpy/scipy/soundfile/matplotlib/Pillow
+  were opened the same day (OpenBLAS + msvcp140 / libsndfile; no
+  `ttconv`; Pillow codecs live inside the `.pyd` files).
   The license-bundle script fails if a required package ships no license.
 * Two in-force patents adjacent to the field (US 9,959,883; US 10,816,391)
   are noted in MEASUREMENT_METHODOLOGY.md §10 so the design does not drift

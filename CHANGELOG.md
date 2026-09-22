@@ -32,6 +32,11 @@ All notable changes to RoomScope are documented here. The format follows
   the Windows sounddevice wheel was listed and still ships ASIO
   DLLs that the bundle gate strips. DAW, Standalone and Results
   chrome is translated through gettext (zh-CN catalog).
+  CLI `--help` and the labels of the text report go through
+  gettext (ARCHITECTURE_V1.md §5.6). Windows win_amd64 wheels of
+  numpy/scipy/soundfile/matplotlib/Pillow were opened (OpenBLAS +
+  MSVC runtime / libsndfile; matplotlib has no `ttconv`; Pillow
+  ships codecs inside the extension modules).
   `load_comparison` and `roomscope show comparison.json` re-derive
   findings (they are never stored); the Compare GUI lists matched
   resonances; the user guide names every Results tab and the

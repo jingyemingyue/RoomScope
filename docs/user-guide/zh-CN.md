@@ -74,7 +74,7 @@ RoomScope 用来测量录音房间，让你听到房间对近距离拾音声源�
 ## 导出与语言
 
 `roomscope export session/ --format csv --out curves/` 导出每条曲线。
-`--lang zh_CN`（或设置 → 语言，或 `ROOMSCOPE_LANG`）会翻译解读、报告标签、界面和命令行。单位不翻译；数字保持 ASCII。
+`--lang zh_CN`（或设置 → 语言，或 `ROOMSCOPE_LANG`）会翻译解读、文本报告标签、界面和命令行帮助（`roomscope --help` 及每个子命令）。单位不翻译；数字保持 ASCII。`roomscope.core` 的诊断字符串保持英文。
 
 ## 排错
 

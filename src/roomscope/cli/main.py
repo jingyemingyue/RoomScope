@@ -29,40 +29,51 @@ from roomscope.models.configuration import (
 log = logging.getLogger("roomscope.cli")
 
 
+def _command(sub: object, name: str, text: str) -> argparse.ArgumentParser:
+    """Subcommand with the same gettext string as help (parent list) and description."""
+    return sub.add_parser(name, help=text, description=text)  # type: ignore[attr-defined, no-any-return]
+
+
 def _add_sweep_arguments(parser: argparse.ArgumentParser, *, default_level: float) -> None:
     parser.add_argument(
         "--sample-rate",
         type=int,
         default=DEFAULT_SAMPLE_RATE,
         choices=SUPPORTED_SAMPLE_RATES,
-        help="sample rate (Hz)",
+        help=_("sample rate (Hz)"),
     )
     parser.add_argument(
-        "--duration", type=float, default=10.0, help="sweep duration in seconds (default 10)"
+        "--duration",
+        type=float,
+        default=10.0,
+        help=_("sweep duration in seconds (default 10)"),
     )
     parser.add_argument(
-        "--start-hz", type=float, default=20.0, help="sweep start frequency (default 20)"
+        "--start-hz", type=float, default=20.0, help=_("sweep start frequency (default 20)")
     )
     parser.add_argument(
-        "--end-hz", type=float, default=20000.0, help="sweep end frequency (default 20000)"
+        "--end-hz",
+        type=float,
+        default=20000.0,
+        help=_("sweep end frequency (default 20000)"),
     )
     parser.add_argument(
-        "--fade-in", type=float, default=0.05, help="fade-in in seconds (default 0.05)"
+        "--fade-in", type=float, default=0.05, help=_("fade-in in seconds (default 0.05)")
     )
     parser.add_argument(
-        "--fade-out", type=float, default=0.01, help="fade-out in seconds (default 0.01)"
+        "--fade-out", type=float, default=0.01, help=_("fade-out in seconds (default 0.01)")
     )
     parser.add_argument(
         "--level",
         type=float,
         default=default_level,
-        help=f"peak level in dBFS (default {default_level:g})",
+        help=_("peak level in dBFS (default {level:g})").format(level=default_level),
     )
     parser.add_argument(
-        "--pre-silence", type=float, default=1.0, help="silence before the sweep (s)"
+        "--pre-silence", type=float, default=1.0, help=_("silence before the sweep (s)")
     )
     parser.add_argument(
-        "--post-silence", type=float, default=3.0, help="silence after the sweep (s)"
+        "--post-silence", type=float, default=3.0, help=_("silence after the sweep (s)")
     )
 
 
@@ -82,25 +93,28 @@ def _sweep_settings(args: argparse.Namespace) -> SweepSettings:
 
 def _add_analysis_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--channel", type=int, default=None, help="recording channel to analyse (0-based)"
+        "--channel", type=int, default=None, help=_("recording channel to analyse (0-based)")
     )
     parser.add_argument(
-        "--smoothing", type=int, default=6, help="fractional-octave smoothing 1/N (0 = off)"
+        "--smoothing",
+        type=int,
+        default=6,
+        help=_("fractional-octave smoothing 1/N (0 = off)"),
     )
-    parser.add_argument("--room", default="", help="room name (metadata)")
-    parser.add_argument("--position", default="", help="measurement position (metadata)")
-    parser.add_argument("--mic", default="", help="microphone name (metadata)")
-    parser.add_argument("--notes", default="", help="free-text notes (metadata)")
-    parser.add_argument("--no-curves", action="store_true", help="omit curves from result.json")
+    parser.add_argument("--room", default="", help=_("room name (metadata)"))
+    parser.add_argument("--position", default="", help=_("measurement position (metadata)"))
+    parser.add_argument("--mic", default="", help=_("microphone name (metadata)"))
+    parser.add_argument("--notes", default="", help=_("free-text notes (metadata)"))
+    parser.add_argument("--no-curves", action="store_true", help=_("omit curves from result.json"))
     parser.add_argument(
-        "--json", action="store_true", help="print the result as JSON instead of a report"
+        "--json", action="store_true", help=_("print the result as JSON instead of a report")
     )
     parser.add_argument(
         "--speaker-distance",
         type=float,
         default=None,
         metavar="M",
-        help=(
+        help=_(
             "straight line from the loudspeaker to the microphone capsule (m), measured "
             "with a tape. Without it no geometry can be derived from the reflections"
         ),
@@ -110,7 +124,7 @@ def _add_analysis_arguments(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=None,
         metavar="M",
-        help=(
+        help=_(
             "microphone capsule above the first solid horizontal surface below it (m) -- "
             "the desk top at a desk, otherwise the floor. Needs --speaker-distance"
         ),
@@ -120,13 +134,13 @@ def _add_analysis_arguments(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=None,
         metavar="C",
-        help="air temperature (C); 20 C is assumed, and reported as assumed, without it",
+        help=_("air temperature (C); 20 C is assumed, and reported as assumed, without it"),
     )
     parser.add_argument(
         "--profile",
         default=None,
         choices=available_profiles(),
-        help="recording profile that shapes the interpretation (default: user settings)",
+        help=_("recording profile that shapes the interpretation (default: user settings)"),
     )
 
 
@@ -135,13 +149,15 @@ def _add_loopback_file_arguments(parser: argparse.ArgumentParser) -> None:
         "--loopback",
         type=Path,
         default=None,
-        help="separate loopback WAV from the same take (same sample rate)",
+        help=_("separate loopback WAV from the same take (same sample rate)"),
     )
     parser.add_argument(
         "--loopback-channel",
         type=int,
         default=None,
-        help="0-based loopback channel of the recording (or of --loopback if it is multi-channel)",
+        help=_(
+            "0-based loopback channel of the recording (or of --loopback if it is multi-channel)"
+        ),
     )
 
 
@@ -162,10 +178,10 @@ def _analysis_settings(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="roomscope",
-        description="RoomScope: an open-source, DAW-independent recording environment analyzer.",
+        description=_("RoomScope: an open-source, DAW-independent recording environment analyzer."),
     )
     parser.add_argument("--version", action="version", version=f"roomscope {__version__}")
-    parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
+    parser.add_argument("-v", "--verbose", action="store_true", help=_("debug logging"))
     parser.add_argument(
         "--backend",
         default=None,
@@ -190,137 +206,143 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_sweep = sub.add_parser("sweep", help="write the ESS test signal WAV (+ JSON sidecar)")
-    p_sweep.add_argument("--out", required=True, type=Path, help="output WAV path")
+    p_sweep = _command(sub, "sweep", _("write the ESS test signal WAV (+ JSON sidecar)"))
+    p_sweep.add_argument("--out", required=True, type=Path, help=_("output WAV path"))
     _add_sweep_arguments(p_sweep, default_level=-12.0)
 
-    p_an = sub.add_parser("analyze", help="analyse a recording made with the sweep")
+    p_an = _command(sub, "analyze", _("analyse a recording made with the sweep"))
     p_an.add_argument(
-        "--recording", required=True, type=Path, help="recorded WAV (any length, untrimmed)"
+        "--recording", required=True, type=Path, help=_("recorded WAV (any length, untrimmed)")
     )
     p_an.add_argument(
-        "--sweep", required=True, type=Path, help="sweep WAV or its .roomscope-sweep.json sidecar"
+        "--sweep",
+        required=True,
+        type=Path,
+        help=_("sweep WAV or its .roomscope-sweep.json sidecar"),
     )
     p_an.add_argument(
-        "--out", type=Path, default=None, help="directory for session.json, result.json, IR WAV"
+        "--out",
+        type=Path,
+        default=None,
+        help=_("directory for session.json, result.json, IR WAV"),
     )
     _add_analysis_arguments(p_an)
     _add_loopback_file_arguments(p_an)
 
-    sub.add_parser("devices", help="list audio devices (Standalone Mode)")
+    _command(sub, "devices", _("list audio devices (Standalone Mode)"))
 
-    p_me = sub.add_parser(
-        "measure", help="Standalone Mode: play the sweep and record the microphone"
-    )
-    p_me.add_argument("--out", required=True, type=Path, help="session directory (created)")
+    p_me = _command(sub, "measure", _("Standalone Mode: play the sweep and record the microphone"))
+    p_me.add_argument("--out", required=True, type=Path, help=_("session directory (created)"))
     p_me.add_argument(
-        "--input-device", type=int, default=None, help="input device index (see 'devices')"
+        "--input-device", type=int, default=None, help=_("input device index (see 'devices')")
     )
-    p_me.add_argument("--output-device", type=int, default=None, help="output device index")
+    p_me.add_argument("--output-device", type=int, default=None, help=_("output device index"))
     p_me.add_argument(
-        "--input-channel", type=int, default=1, help="input channel, 1-based (default 1)"
+        "--input-channel", type=int, default=1, help=_("input channel, 1-based (default 1)")
     )
     p_me.add_argument(
         "--input-channels",
         default=None,
-        help="1-based input channels, comma-separated (e.g. 1,2); overrides --input-channel",
+        help=_("1-based input channels, comma-separated (e.g. 1,2); overrides --input-channel"),
     )
     p_me.add_argument(
-        "--output-channel", type=int, default=1, help="output channel, 1-based (default 1)"
+        "--output-channel", type=int, default=1, help=_("output channel, 1-based (default 1)")
     )
     p_me.add_argument(
         "--loopback-channel",
         type=int,
         default=None,
         dest="measure_loopback_channel",
-        help="1-based loopback input channel (recorded with the microphone)",
+        help=_("1-based loopback input channel (recorded with the microphone)"),
     )
     p_me.add_argument(
         "--acknowledge-level",
         action="store_true",
-        help="required for levels above -12 dBFS; confirms the monitor level was set low first",
+        help=_("required for levels above -12 dBFS; confirms the monitor level was set low first"),
     )
     _add_sweep_arguments(p_me, default_level=-20.0)
     _add_analysis_arguments(p_me)
 
-    p_show = sub.add_parser(
-        "show", help="print a saved session or comparison.json report, or list sessions"
+    p_show = _command(
+        sub, "show", _("print a saved session or comparison.json report, or list sessions")
     )
     p_show.add_argument(
         "path",
         type=Path,
-        help="session directory, session.json, comparison.json, or folder to list",
+        help=_("session directory, session.json, comparison.json, or folder to list"),
     )
     p_show.add_argument(
         "--list",
         action="store_true",
-        help="list session.json files under path instead of opening one session",
+        help=_("list session.json files under path instead of opening one session"),
     )
     p_show.add_argument(
         "--profile",
         default=None,
         choices=available_profiles(),
-        help="override the recording profile stored in the session",
+        help=_("override the recording profile stored in the session"),
     )
     p_show.add_argument(
-        "--json", action="store_true", help="print the result as JSON instead of a report"
+        "--json", action="store_true", help=_("print the result as JSON instead of a report")
     )
-    p_show.add_argument("--no-curves", action="store_true", help="omit curves from JSON output")
+    p_show.add_argument("--no-curves", action="store_true", help=_("omit curves from JSON output"))
 
-    p_cmp = sub.add_parser("compare", help="compare two saved sessions")
-    p_cmp.add_argument("baseline", type=Path, help="baseline session directory or session.json")
-    p_cmp.add_argument("candidate", type=Path, help="candidate session directory or session.json")
+    p_cmp = _command(sub, "compare", _("compare two saved sessions"))
+    p_cmp.add_argument("baseline", type=Path, help=_("baseline session directory or session.json"))
+    p_cmp.add_argument(
+        "candidate", type=Path, help=_("candidate session directory or session.json")
+    )
     p_cmp.add_argument(
         "--out",
         type=Path,
         default=None,
-        help="write comparison.json here (file or directory)",
+        help=_("write comparison.json here (file or directory)"),
     )
     p_cmp.add_argument(
         "--same-input-gain",
         action="store_true",
-        help="declare that the input gain was unchanged (required for a VALID noise delta)",
+        help=_("declare that the input gain was unchanged (required for a VALID noise delta)"),
     )
     p_cmp.add_argument(
         "--profile",
         default=None,
         choices=available_profiles(),
-        help="recording profile for comparison findings (default: the candidate session's)",
+        help=_("recording profile for comparison findings (default: the candidate session's)"),
     )
     p_cmp.add_argument(
-        "--json", action="store_true", help="print comparison.json instead of a report"
+        "--json", action="store_true", help=_("print comparison.json instead of a report")
     )
 
-    p_schema = sub.add_parser("schema", help="print a shipped JSON Schema")
+    p_schema = _command(sub, "schema", _("print a shipped JSON Schema"))
     p_schema.add_argument(
         "name",
         choices=["result", "session", "comparison", "project", "sidecar"],
-        help="which schema to print",
+        help=_("which schema to print"),
     )
 
-    p_ir = sub.add_parser("analyze-ir", help="analyse an impulse-response WAV from another tool")
-    p_ir.add_argument("--ir", required=True, type=Path, help="impulse-response WAV")
+    p_ir = _command(sub, "analyze-ir", _("analyse an impulse-response WAV from another tool"))
+    p_ir.add_argument("--ir", required=True, type=Path, help=_("impulse-response WAV"))
     p_ir.add_argument(
         "--band",
         nargs=2,
         type=float,
         metavar=("LO", "HI"),
         default=None,
-        help="declared excitation band in Hz (required for band metrics)",
+        help=_("declared excitation band in Hz (required for band metrics)"),
     )
-    p_ir.add_argument("--out", type=Path, default=None, help="session directory")
+    p_ir.add_argument("--out", type=Path, default=None, help=_("session directory"))
     _add_analysis_arguments(p_ir)
 
-    p_gui = sub.add_parser("gui", help=_("start the desktop GUI (needs the 'gui' extra)"))
+    p_gui = _command(sub, "gui", _("start the desktop GUI (needs the 'gui' extra)"))
     p_gui.add_argument(
         "--smoke",
         action="store_true",
         help=_("construct the window offscreen and exit (bundle smoke; no loudspeaker)"),
     )
 
-    p_sess = sub.add_parser("session", help=_("session folder tools"))
+    p_sess = _command(sub, "session", _("session folder tools"))
     sess_sub = p_sess.add_subparsers(dest="session_command", required=True)
-    p_bundle = sess_sub.add_parser("bundle", help=_("zip a session for a bug report"))
+    p_bundle = _command(sess_sub, "bundle", _("zip a session for a bug report"))
     p_bundle.add_argument("session", type=Path, help=_("session directory or session.json"))
     p_bundle.add_argument(
         "--no-audio",
@@ -329,7 +351,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_bundle.add_argument("--out", type=Path, default=None, help=_("zip path (file or directory)"))
 
-    p_ex = sub.add_parser("export", help=_("export curves through an exporter"))
+    p_ex = _command(sub, "export", _("export curves through an exporter"))
     p_ex.add_argument("session", type=Path, help=_("session directory or session.json"))
     p_ex.add_argument(
         "--format",
@@ -339,21 +361,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_ex.add_argument("--out", type=Path, default=None, help=_("output directory"))
 
-    p_proj = sub.add_parser("project", help=_("project folders (one room, several positions)"))
+    p_proj = _command(sub, "project", _("project folders (one room, several positions)"))
     proj_sub = p_proj.add_subparsers(dest="project_command", required=True)
-    p_init = proj_sub.add_parser("init", help=_("create a project.json"))
+    p_init = _command(proj_sub, "init", _("create a project.json"))
     p_init.add_argument("--out", required=True, type=Path, help=_("project directory"))
     p_init.add_argument("--name", default="", help=_("room name"))
     p_init.add_argument("--notes", default="", help=_("free-text notes"))
-    p_add = proj_sub.add_parser("add", help=_("add a session to a position"))
+    p_add = _command(proj_sub, "add", _("add a session to a position"))
     p_add.add_argument("project", type=Path, help=_("project directory"))
     p_add.add_argument("session", type=Path, help=_("session directory"))
     p_add.add_argument("--position", required=True, help=_("position label"))
-    p_avg = proj_sub.add_parser("average", help=_("spatial average of VALID T values"))
+    p_avg = _command(proj_sub, "average", _("spatial average of VALID T values"))
     p_avg.add_argument("project", type=Path, help=_("project directory"))
     p_avg.add_argument("--sources", type=int, default=1, help=_("number of source positions"))
     p_avg.add_argument("--json", action="store_true", help=_("print JSON instead of a table"))
-    p_show_proj = proj_sub.add_parser("show", help=_("list positions and sessions"))
+    p_show_proj = _command(proj_sub, "show", _("list positions and sessions"))
     p_show_proj.add_argument("project", type=Path, help=_("project directory"))
     return parser
 

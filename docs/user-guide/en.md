@@ -111,8 +111,9 @@ curves, and names the ISO 3382-2 class the position counts reach.
 
 `roomscope export session/ --format csv --out curves/` writes every curve.
 `--lang zh_CN` (or Settings → Language, or `ROOMSCOPE_LANG`) translates
-findings, the report labels, the GUI and the CLI. Units stay untranslated;
-digits stay ASCII.
+findings, the text-report labels, the GUI and CLI help (`roomscope --help`
+and every subcommand). Units stay untranslated; digits stay ASCII.
+Core diagnostic strings from `roomscope.core` stay English.
 
 ## Troubleshooting
 

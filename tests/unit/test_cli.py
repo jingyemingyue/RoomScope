@@ -320,6 +320,28 @@ def test_lang_zh_cn_translates_report(tmp_path: Path, capsys: pytest.CaptureFixt
     )
     out = capsys.readouterr().out
     assert "RoomScope 分析" in out
+    assert "混响" in out
+    assert "脉冲响应" in out
+    from roomscope.i18n import activate
+
+    activate("en")
+
+
+def test_lang_zh_cn_translates_cli_help(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--lang", "zh_CN", "--help"])
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "不依赖 DAW" in out
+    assert "调试日志" in out
+    assert "分析用该扫描录下的录音" in out
+    with pytest.raises(SystemExit) as exc:
+        main(["--lang", "zh_CN", "analyze", "--help"])
+    assert exc.value.code == 0
+    analyze = capsys.readouterr().out
+    assert "分析用该扫描录下的录音" in analyze
+    assert "不要裁切" in analyze
+    assert "附属文件" in analyze
     from roomscope.i18n import activate
 
     activate("en")

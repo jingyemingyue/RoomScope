@@ -130,10 +130,17 @@ files of the installed distributions (and of a downloaded `.whl`).
 | matplotlib 3.11.2 | extension modules only (`_qhull`, `ft2font`, `_backend_agg`, …) | No `ttconv` file. Qhull is compiled into `_qhull`. |
 | Pillow 12.3.0 | `pillow.libs/` libjpeg, libtiff, libfreetype, libharfbuzz, libpng, libwebp, openjpeg, lcms2, … | MIT-CMU plus bundled codec SOs; no GPL library name in the `.so` list. |
 
-**Windows win_amd64 sounddevice 0.5.6 wheel**, downloaded 2026-09-22:
-`libportaudio64bit.dll`, `libportaudio32bit.dll`, `libportaudioarm64.dll` and
-the matching `*-asio.dll` files, plus a leftover `libportaudio.dylib`. The
-ASIO DLLs remain a packaging gate (`scripts/check_bundle_contents.py`).
+**Windows win_amd64 CPython 3.12 wheels**, downloaded 2026-09-22
+(`scripts/audit_wheel_contents.py --wheel`):
+
+| Package | Bundled shared libraries | Notes |
+| --- | --- | --- |
+| numpy 2.5.3 | `numpy.libs/libscipy_openblas64_-*.dll`, `msvcp140-*.dll` | OpenBLAS + MSVC C++ runtime; no separate libgfortran / libquadmath DLLs. `LICENSE.txt` is under `.dist-info/licenses/`. |
+| scipy 1.18.1 | `scipy.libs/libscipy_openblas-*.dll` | `COPYING_QHULL.txt` is in the wheel; OpenBLAS only at the `.libs/` layer. |
+| soundfile 0.14.0 | `_soundfile_data/libsndfile_x64.dll` | `_soundfile_data/COPYING` is LGPL-2.1. |
+| matplotlib 3.11.2 | extension modules only (`_qhull`, `ft2font`, `_backend_agg`, …) | No `ttconv` file. |
+| Pillow 12.3.0 | extension modules only (`_imaging`, `_webp`, …) | No `pillow.libs/` folder; codecs are inside the `.pyd` files. MIT-CMU `LICENSE` in `.dist-info/licenses/`. |
+| sounddevice 0.5.6 | `libportaudio{32,64,arm64}bit.dll` and matching `*-asio.dll`, plus a leftover `libportaudio.dylib` | ASIO DLLs remain a packaging gate (`scripts/check_bundle_contents.py`). |
 
 The license-bundle script still fails if a required package ships no license
 text. None of these affect the source release.

@@ -63,6 +63,16 @@ def test_daw_chrome_is_in_the_chinese_catalog() -> None:
     activate("en")
 
 
+def test_cli_help_and_report_labels_are_in_the_chinese_catalog() -> None:
+    activate("zh_CN")
+    assert _("write the ESS test signal WAV (+ JSON sidecar)").startswith("写出")
+    assert _(
+        "Reverberation (extrapolated to 60 dB; 'insuff.' = insufficient decay range)"
+    ).startswith("混响")
+    assert _("Comparable: {value}").startswith("可对比")
+    activate("en")
+
+
 def test_parse_po_round_trip(tmp_path) -> None:
     import gettext
 
