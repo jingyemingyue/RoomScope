@@ -80,6 +80,16 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: find dist/roomscope -iname '*asio*.dll' -delete
+      - name: Strip GPL-named Qt plugins Essentials still ships
+        shell: bash
+        run: |
+          find dist/roomscope dist/RoomScope.app \
+            \( -iname '*qtvirtualkeyboard*' -o -iname '*qtquicktimeline*' \
+               -o -iname '*qtcharts*' -o -iname '*qtdatavisualization*' \
+               -o -iname '*qtgraphs*' -o -iname '*qtlottie*' \
+               -o -iname '*qtquick3d*' -o -iname '*qthttpserver*' \
+               -o -iname '*qtnetworkauth*' -o -iname '*qtshadertools*' \) \
+            -delete 2>/dev/null || true
       - name: Bundle contents gate
         run: python scripts/check_bundle_contents.py --root dist/roomscope --require-licenses
       - name: Smoke test

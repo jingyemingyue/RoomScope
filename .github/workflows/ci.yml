@@ -171,9 +171,13 @@ jobs:
       - name: Gate installed PySide6 Essentials
         run: |
           python - <<'PY'
-          import PySide6, pathlib
-          from pathlib import Path
-          import subprocess, sys
-          root = pathlib.Path(PySide6.__file__).parent
-          raise SystemExit(subprocess.call([sys.executable, "scripts/check_bundle_contents.py", "--root", str(root)]))
+          import PySide6, subprocess, sys
+          root = next(iter(PySide6.__path__))
+          raise SystemExit(subprocess.call([
+              sys.executable,
+              "scripts/check_bundle_contents.py",
+              "--root",
+              str(root),
+              "--installed-essentials",
+          ]))
           PY

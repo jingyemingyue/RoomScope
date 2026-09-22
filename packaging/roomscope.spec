@@ -30,6 +30,8 @@ a = Analysis(
         "PySide6.QtHttpServer",
         "PySide6.QtNetworkAuth",
         "PySide6.QtShaderTools",
+        "PySide6.QtQuickTimeline",
+        "PySide6.QtVirtualKeyboard",
     ],
     noarchive=False,
 )

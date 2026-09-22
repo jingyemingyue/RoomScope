@@ -42,6 +42,7 @@ def test_bundle_gate_rejects_asio_and_qtcharts(tmp_path: Path) -> None:
     tree = tmp_path / "bundle"
     (tree / "ok").mkdir(parents=True)
     (tree / "ok" / "QtCore.so").write_text("", encoding="utf-8")
+    (tree / "ok" / "QtCharts.pyi").write_text("", encoding="utf-8")
     assert gate.check(tree) == []
     (tree / "libportaudio-asio.dll").write_text("", encoding="utf-8")
     charts = tree / "PySide6"
@@ -50,3 +51,21 @@ def test_bundle_gate_rejects_asio_and_qtcharts(tmp_path: Path) -> None:
     errors = gate.check(tree)
     assert any("ASIO" in item for item in errors)
     assert any("GPL-only" in item or "QtCharts" in item for item in errors)
+
+
+def test_installed_essentials_mode_ignores_wheel_stubs_and_stock_plugins(
+    tmp_path: Path,
+) -> None:
+    gate = _load("check_bundle_contents")
+    root = tmp_path / "PySide6"
+    plugins = root / "Qt" / "plugins" / "platforminputcontexts"
+    qml = root / "Qt" / "qml" / "QtQuick" / "Timeline"
+    plugins.mkdir(parents=True)
+    qml.mkdir(parents=True)
+    (root / "QtCharts.pyi").write_text("", encoding="utf-8")
+    (plugins / "libqtvirtualkeyboardplugin.so").write_text("", encoding="utf-8")
+    (qml / "libqtquicktimelineplugin.so").write_text("", encoding="utf-8")
+    assert gate.check(root, installed_essentials=True) == []
+    (root / "QtCharts.abi3.so").write_text("", encoding="utf-8")
+    errors = gate.check(root, installed_essentials=True)
+    assert any("QtCharts" in item for item in errors)
