@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -52,6 +54,8 @@ DAW_INSTRUCTIONS = (
 
 class HomePage(QWidget):
     choose_mode = Signal(str)
+    open_session = Signal()
+    open_recent = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -75,7 +79,77 @@ class HomePage(QWidget):
         standalone.clicked.connect(lambda: self.choose_mode.emit("standalone"))
         layout.addWidget(daw)
         layout.addWidget(standalone)
-        layout.addStretch(1)
+        layout.addSpacing(16)
+        layout.addWidget(QLabel("Saved sessions"))
+        session_row = QHBoxLayout()
+        open_button = QPushButton("Open Session...")
+        open_button.setToolTip("Open a session.json or a folder that contains one.")
+        open_button.clicked.connect(self.open_session.emit)
+        browse_button = QPushButton("Browse Folder...")
+        browse_button.setToolTip("List session.json files under a folder.")
+        browse_button.clicked.connect(self._browse_folder)
+        recent_button = QPushButton("Recent")
+        recent_button.setToolTip("Show recently opened or saved sessions.")
+        recent_button.clicked.connect(self.refresh_recent)
+        session_row.addWidget(open_button)
+        session_row.addWidget(browse_button)
+        session_row.addWidget(recent_button)
+        layout.addLayout(session_row)
+        self.recent = QListWidget()
+        self.recent.setMinimumHeight(120)
+        self.recent.itemActivated.connect(self._open_listed)
+        layout.addWidget(self.recent, 1)
+        self.refresh_recent()
+
+    def refresh_recent(self) -> None:
+        from roomscope.io.recent import recent_session_paths
+        from roomscope.io.session_store import load_session
+
+        self.recent.clear()
+        for path in recent_session_paths():
+            try:
+                session = load_session(path)
+            except RoomScopeError:
+                label = str(path)
+            else:
+                room = session.room_name or "(unnamed room)"
+                label = f"{room}  —  {session.created_at}  —  {path}"
+            item = QListWidgetItem(label)
+            item.setData(Qt.ItemDataRole.UserRole, str(path))
+            self.recent.addItem(item)
+        if self.recent.count() == 0:
+            empty = QListWidgetItem("No recent sessions yet. Save a measurement to see it here.")
+            empty.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.recent.addItem(empty)
+
+    def _open_listed(self, item: QListWidgetItem) -> None:
+        path = item.data(Qt.ItemDataRole.UserRole)
+        if path:
+            self.open_recent.emit(str(path))
+
+    def _browse_folder(self) -> None:
+        directory = QFileDialog.getExistingDirectory(self, "Choose a folder of sessions")
+        if directory:
+            self.list_folder(Path(directory))
+
+    def list_folder(self, root: Path) -> None:
+        from roomscope.io.session_store import list_sessions
+
+        self.recent.clear()
+        try:
+            listings = list_sessions(root)
+        except RoomScopeError as exc:
+            QMessageBox.warning(self, "Cannot list sessions", str(exc))
+            self.refresh_recent()
+            return
+        for listing in listings:
+            item = QListWidgetItem(f"{listing.label}  —  {listing.path}")
+            item.setData(Qt.ItemDataRole.UserRole, str(listing.path))
+            self.recent.addItem(item)
+        if self.recent.count() == 0:
+            empty = QListWidgetItem(f"No session.json files under {root}")
+            empty.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.recent.addItem(empty)
 
 
 def _metadata_form(state: MeasurementState) -> tuple[QGroupBox, QLineEdit, QLineEdit, QLineEdit]:
@@ -288,6 +362,7 @@ class DawModePage(QWidget):
             analysis_settings=self.state.analysis_settings,
             sweep_path=str(self.state.sweep_path) if self.state.sweep_path else None,
             recording_path=str(self.state.recording_path) if self.state.recording_path else None,
+            recording_profile=self.state.profile,
         )
         self._set_busy(True, "Analyzing...")
         self._worker = AnalysisWorker(
@@ -472,6 +547,7 @@ class StandalonePage(QWidget):
             output_channel=int(self.output_channel.value()),
             sweep_settings=self.state.sweep_settings,
             analysis_settings=self.state.analysis_settings,
+            recording_profile=self.state.profile,
         )
         assert self.state.reference is not None
         self.status.setText("Recorded. Analyzing...")

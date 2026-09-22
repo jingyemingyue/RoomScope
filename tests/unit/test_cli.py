@@ -114,6 +114,57 @@ def test_analyze_accepts_recording_profile(
         )
 
 
+def test_show_prints_saved_session_and_lists_folder(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sweep = tmp_path / "sweep.wav"
+    assert main(["sweep", "--out", str(sweep), "--duration", "2", "--post-silence", "1.5"]) == 0
+    signal = read_wav(sweep)
+    ir = make_rir(signal.sample_rate, rt60_s=0.4, reflections=[(0.018, 0.35)], diffuse_level=0.02)
+    rec = fftconvolve(signal.samples, ir)[: signal.n_samples + ir.shape[0]]
+    recording = write_wav(tmp_path / "recording.wav", rec, signal.sample_rate, subtype="FLOAT")
+    session = tmp_path / "session"
+    assert (
+        main(
+            [
+                "analyze",
+                "--recording",
+                str(recording),
+                "--sweep",
+                str(sweep),
+                "--out",
+                str(session),
+                "--room",
+                "Booth",
+                "--profile",
+                "vocal",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    assert main(["show", str(session)]) == 0
+    shown = capsys.readouterr().out
+    assert "RoomScope analysis" in shown
+    assert "Interpretation (vocal profile):" in shown
+    assert str(session) in shown
+
+    assert main(["show", str(session), "--json", "--no-curves"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["session"]["room_name"] == "Booth"
+    assert payload["session"]["recording_profile"] == "vocal"
+    assert payload["findings"]
+
+    assert main(["show", str(tmp_path), "--list"]) == 0
+    listing = capsys.readouterr().out
+    assert str(session) in listing
+    assert "Booth" in listing
+
+    assert main(["show", str(tmp_path / "empty"), "--list"]) == 1
+    assert "error:" in capsys.readouterr().err
+
+
 def test_analyze_missing_file_returns_error(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

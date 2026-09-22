@@ -13,6 +13,9 @@ templates, code of conduct, security policy). Re-verified on Linux x86_64
 (Ubuntu, Python 3.12.3). The `gui` extra now installs PySide6_Essentials
 only.
 
+Snapshot 4: 2026-09-22 — session re-opening (GUI + CLI `show`) and a small
+session browser on the Home page. Hardware validation is still not claimed.
+
 ## Implemented
 
 | Area | What exists |
@@ -26,11 +29,11 @@ only.
 | Early reflections | ETC peak candidates (delay ms, level dB re direct) with local-trend prominence |
 | Placement geometry | Excess path per candidate; with a tape-measured loudspeaker distance the exact product of perpendicular distances and its two-sided bracket; with a microphone height the vertical axis (loudspeaker height, plane above the devices, horizontal separation). No coordinates, no room length or width, no wall named |
 | Low-frequency resonances | Candidate peaks (< 300 Hz) with narrow-band decay vs. filter ringing comparison |
-| Models & storage | Validated settings; result model with JSON export; MeasurementSession; session directory (session.json, result.json, impulse_response.wav) |
+| Models & storage | Validated settings; result model with JSON export and `from_dict` load; MeasurementSession (optional `recording_profile`); session directory (session.json, result.json, impulse_response.wav); `load_measurement` / `list_sessions`; recent list under `$ROOMSCOPE_HOME` |
 | Interpretation | Finding model; RecordingProfile interface; seven profiles (generic, vocal, voiceover, acoustic_guitar, drums, room_mic, choir) with per-profile thresholds and advice; CLI `--profile`, GUI profile selector |
-| CLI | `roomscope sweep / analyze / devices / measure / gui`, text report and JSON output |
+| CLI | `roomscope sweep / analyze / show / devices / measure / gui`, text report and JSON output |
 | Standalone Mode | Device enumeration and play+record through PortAudio with safety defaults |
-| GUI | PySide6 window: Home, Universal DAW Mode (4 steps), Standalone Mode, Results (Overview, IR, FR, Decay, Noise, Reflections), session saving |
+| GUI | PySide6 window: Home, Universal DAW Mode (4 steps), Standalone Mode, Results (Overview, IR, FR, Decay, Noise, Reflections), session saving, Open Session / Browse Folder / recent list, File → Open Session |
 
 ## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
@@ -85,7 +88,9 @@ as evidence):
   48 kHz sweep definition; stereo channel auto-selection and explicit
   selection; WAV-only reference (spectral inverse) and resampled reference;
   loudspeaker distortion (2nd/3rd order) leaves the linear IR clean; CLI
-  round trip incl. JSON; session save/load; GUI DAW-mode flow offscreen.
+  round trip incl. JSON; session save/load/re-open (`load_measurement`,
+  `roomscope show`, GUI File → Open and Home recent/browse); GUI DAW-mode
+  flow offscreen.
 * macOS basic run: `roomscope sweep`, `roomscope analyze`,
   `roomscope devices` (12 Core Audio devices listed), the example script,
   and the GUI (offscreen) ran successfully. **Not run:** a real Standalone
@@ -116,14 +121,14 @@ algebra and the refusals, not the acoustics of any real surface.
   devices (Universal DAW Mode relies on the DAW/interface clocking).
 * `result.json` with curves is several MB for long IRs (`--no-curves` to
   shrink); the raw IR WAV is the authoritative record.
-* The GUI is functional but plain; no session re-opening in the GUI yet.
+* The GUI is functional but plain. Session re-opening and a folder/recent
+  list are in; there is no multi-session comparison or project library.
 
 ## Not implemented (by design for v0.1 or deferred)
 
 VST3/AU/AAX plug-ins, room score, auto-EQ/correction, cloud/accounts, 3D
 room modelling, absorption material calculators, dB SPL, room-mode
-identification, multi-position averaging, phase display, session browser,
-packaged binaries.
+identification, multi-position averaging, phase display, packaged binaries.
 
 ## Dependencies
 
@@ -183,6 +188,5 @@ Scientific / product work after that:
    selection, channel mapping, sample-rate negotiation).
 3. Loopback/reference-channel support (second input for the interface
    output) to remove interface response and clock ambiguity.
-4. Session re-opening in the GUI and a small session browser.
-5. Packaging (briefcase/PyInstaller one-dir) with the license bundle from
+4. Packaging (briefcase/PyInstaller one-dir) with the license bundle from
    DEPENDENCIES.md §3–4.

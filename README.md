@@ -89,6 +89,10 @@ roomscope analyze --recording recording.wav --sweep sweep_48k.wav \
 # acoustic_guitar | drums | room_mic | choir)
 roomscope analyze --recording recording.wav --sweep sweep_48k.wav --profile voiceover
 
+# Re-open a saved session (same report; --profile overrides the stored one)
+roomscope show results/
+roomscope show results/ --list
+
 # Standalone: list devices, then measure
 roomscope devices
 roomscope measure --out session1/ --input-device 2 --output-device 3 --sample-rate 48000
@@ -115,7 +119,11 @@ measurement modes.
 
 `results/` receives `result.json` (all metrics and curves),
 `impulse_response.wav` (raw IR, float32) and `session.json` (measurement
-metadata). Raw recordings are never modified.
+metadata). Raw recordings are never modified. `roomscope show` and the GUI
+**Open Session** / Home session list reopen that directory; the IR WAV is
+the authoritative sample record (`result.json` stores metrics, not IR
+samples). Recently opened or saved sessions are remembered under
+`$ROOMSCOPE_HOME` (default `~/.roomscope`).
 
 ## Python API
 

@@ -25,6 +25,7 @@ src/roomscope/
     audio.py             AudioSignal (samples, sample_rate, channel selection)
     configuration.py     SweepSettings, AnalysisSettings (validated, immutable)
     result.py            AnalysisResult and sub-results, Validity enum, JSON export
+    result_load.py       JSON → AnalysisResult (unknown keys ignored)
     session.py           MeasurementSession (metadata, paths, summary)
   core/                  pure DSP
     sweep.py             ESS generation, analytic + spectral inverse filters
@@ -40,7 +41,8 @@ src/roomscope/
     pipeline.py          Reference + analyze(): the single entry point
   io/
     wav.py               soundfile-based read/write, sweep sidecar, load_reference
-    session_store.py     save_measurement / load_session
+    session_store.py     save_measurement / load_session / load_measurement / list_sessions
+    recent.py            recent session paths under $ROOMSCOPE_HOME
   audio/                 optional (needs PortAudio); Standalone Mode only
     devices.py           list_devices, sample-rate checks
     playrec.py           play_and_record with safety defaults
@@ -91,6 +93,7 @@ Reference (settings | signal) ──inverse_filter(_spectral)──▶ inverse f
                                                                │
                                    interpret(result) ──▶ Findings (advice layer)
                                    save_measurement ──▶ session.json, result.json, IR WAV
+                                   load_measurement  ◀── session directory (IR from WAV)
 ```
 
 Key decisions:
@@ -127,8 +130,11 @@ Key decisions:
 * **Calibration (later):** add an optional calibration object to
   `AnalysisSettings`; `noise.py` would then also report dB SPL. Until then all
   levels stay dBFS.
-* **Other storage formats:** `MeasurementSession.to_dict`/`from_dict` are the
-  only serialisation points; `schema_version` is checked on load.
+* **Other storage formats:** `MeasurementSession.to_dict`/`from_dict` and
+  `AnalysisResult.to_dict`/`from_dict` are the serialisation points;
+  `schema_version` is checked on load. Session schema still rejects unknown
+  fields; result load ignores unknown keys so a newer `result.json` can still
+  show its known metrics. IR samples live in `impulse_response.wav`.
 * **Multi-position measurements (ISO 3382-2 engineering/precision):** sessions
   are per position; averaging across sessions is a future module and must
   average T values, not decay curves.
@@ -164,5 +170,6 @@ Synthetic rooms (`tests/conftest.py`) with known RT60, reflections and
 noise floors give exact expectations: sweep formula checks, unit-pulse
 inverse filters, loopback = unit impulse, RT60 recovery within 5-10 %,
 insufficient-range flags at low SNR, hum detection, stereo/mono and
-sample-rate handling, invalid-file handling, CLI round trip, offscreen GUI
-smoke test. Real-room recordings are never the only evidence.
+sample-rate handling, invalid-file handling, CLI round trip, session
+save/load/re-open, offscreen GUI smoke test (including reopening a saved
+session). Real-room recordings are never the only evidence.

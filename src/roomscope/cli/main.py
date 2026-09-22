@@ -1,6 +1,6 @@
 """``roomscope`` command-line interface.
 
-Subcommands: ``sweep``, ``analyze``, ``devices``, ``measure``, ``gui``.
+Subcommands: ``sweep``, ``analyze``, ``show``, ``devices``, ``measure``, ``gui``.
 """
 
 from __future__ import annotations
@@ -187,6 +187,28 @@ def build_parser() -> argparse.ArgumentParser:
     _add_sweep_arguments(p_me, default_level=-20.0)
     _add_analysis_arguments(p_me)
 
+    p_show = sub.add_parser(
+        "show", help="print a saved session report, or list sessions in a folder"
+    )
+    p_show.add_argument(
+        "path", type=Path, help="session directory, session.json, or folder to list"
+    )
+    p_show.add_argument(
+        "--list",
+        action="store_true",
+        help="list session.json files under path instead of opening one session",
+    )
+    p_show.add_argument(
+        "--profile",
+        default=None,
+        choices=available_profiles(),
+        help="override the recording profile stored in the session",
+    )
+    p_show.add_argument(
+        "--json", action="store_true", help="print the result as JSON instead of a report"
+    )
+    p_show.add_argument("--no-curves", action="store_true", help="omit curves from JSON output")
+
     sub.add_parser("gui", help="start the desktop GUI (needs the 'gui' extra)")
     return parser
 
@@ -222,6 +244,7 @@ def _run_analysis(
 ) -> int:
     from roomscope.core.pipeline import Reference, analyze
     from roomscope.interpretation import interpret
+    from roomscope.io.recent import remember_session
     from roomscope.io.session_store import save_measurement
     from roomscope.io.wav import load_reference, read_wav
     from roomscope.models.session import MeasurementSession
@@ -248,8 +271,10 @@ def _run_analysis(
             sweep_path=str(reference_path) if reference_path else None,
             recording_path=str(recording_path),
             input_channel=result.analysis_settings.get("channel_analysed"),
+            recording_profile=args.profile,
         )
         session_path = save_measurement(out_dir, session, result, include_curves=not args.no_curves)
+        remember_session(out_dir)
         log.info("session saved to %s", session_path)
 
     if args.json:
@@ -329,6 +354,35 @@ def cmd_measure(args: argparse.Namespace) -> int:
     )
 
 
+def cmd_show(args: argparse.Namespace) -> int:
+    from roomscope.interpretation import interpret
+    from roomscope.io.session_store import list_sessions, load_measurement
+
+    if args.list:
+        listings = list_sessions(args.path)
+        if not listings:
+            print(f"No session.json files under {args.path}")
+            return 0
+        for item in listings:
+            print(f"{item.path}\t{item.label}")
+        return 0
+
+    loaded = load_measurement(args.path)
+    profile = args.profile or loaded.session.recording_profile or "generic"
+    if profile not in available_profiles():
+        profile = "generic"
+    findings = interpret(loaded.result, profile)
+    if args.json:
+        payload = loaded.result.to_dict(include_curves=not args.no_curves)
+        payload["findings"] = [f.to_dict() for f in findings]
+        payload["session"] = loaded.session.to_dict()
+        print(json.dumps(payload, indent=1))
+    else:
+        print(format_report(loaded.result, findings, profile))
+        print(f"\nSession: {loaded.directory}")
+    return 0
+
+
 def cmd_gui(_: argparse.Namespace) -> int:
     try:
         from roomscope.ui.app import run_app
@@ -344,6 +398,7 @@ def cmd_gui(_: argparse.Namespace) -> int:
 COMMANDS = {
     "sweep": cmd_sweep,
     "analyze": cmd_analyze,
+    "show": cmd_show,
     "devices": cmd_devices,
     "measure": cmd_measure,
     "gui": cmd_gui,

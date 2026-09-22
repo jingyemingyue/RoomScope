@@ -73,10 +73,11 @@ def format_report(
     lines.append("RoomScope analysis")
     lines.append("=" * 72)
     lines.append(f"Sample rate: {result.sample_rate} Hz    created: {result.created_at}")
+    margin = f"{ir.pre_peak_margin_db:.1f} dB" if ir.pre_peak_margin_db is not None else "n/a"
     lines.append(
         f"Impulse response: {ir.samples.shape[0] / result.sample_rate:.2f} s analysed, "
         f"{ir.valid_length_s:.2f} s of decay recorded, direct-sound confidence {ir.direct_sound_confidence} "
-        f"(pre-peak margin {ir.pre_peak_margin_db:.1f} dB)"
+        f"(pre-peak margin {margin})"
     )
     lines.append(f"Sweep found at {ir.sweep_start_in_recording_s:.2f} s in the recording.")
     lines.append("")

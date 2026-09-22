@@ -4,12 +4,16 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from roomscope.core.pipeline import Reference, analyze, synthetic_recording
+from roomscope.errors import SessionError
 from roomscope.io.session_store import (
     IR_FILE,
     RESULT_FILE,
     SESSION_FILE,
+    list_sessions,
+    load_measurement,
     load_session,
     save_measurement,
 )
@@ -44,3 +48,73 @@ def test_save_and_load_measurement(tmp_path: Path, short_sweep: SweepSettings) -
     payload = json.loads((out / RESULT_FILE).read_text())
     assert payload["schema_version"] == 1
     assert "edc_db" not in payload["decay"]["broadband"]
+
+    measurement = load_measurement(out)
+    assert measurement.session.room_name == "Booth"
+    assert np.allclose(
+        measurement.result.impulse_response.samples,
+        result.impulse_response.samples,
+        atol=1e-6,
+    )
+    assert measurement.result.decay.broadband.rt60_estimate_s == (
+        result.decay.broadband.rt60_estimate_s
+    )
+    from_file = load_measurement(out / SESSION_FILE)
+    assert from_file.directory == measurement.directory
+
+
+def test_load_measurement_requires_ir_when_result_has_no_samples(
+    tmp_path: Path, short_sweep: SweepSettings
+) -> None:
+    ir = make_rir(short_sweep.sample_rate, rt60_s=0.3)
+    rec = synthetic_recording(short_sweep, ir, noise_rms=1e-5)
+    result = analyze(rec, Reference.from_settings(short_sweep))
+    out = tmp_path / "session"
+    save_measurement(out, MeasurementSession(room_name="Booth"), result, include_curves=False)
+    (out / IR_FILE).unlink()
+    with pytest.raises(SessionError, match=r"impulse_response\.wav"):
+        load_measurement(out)
+
+
+def test_load_measurement_requires_result_json(tmp_path: Path, short_sweep: SweepSettings) -> None:
+    ir = make_rir(short_sweep.sample_rate, rt60_s=0.3)
+    rec = synthetic_recording(short_sweep, ir, noise_rms=1e-5)
+    result = analyze(rec, Reference.from_settings(short_sweep))
+    out = tmp_path / "session"
+    save_measurement(out, MeasurementSession(room_name="Booth"), result, include_curves=False)
+    (out / RESULT_FILE).unlink()
+    with pytest.raises(SessionError, match=r"result\.json"):
+        load_measurement(out)
+
+
+def test_list_sessions_skips_broken_and_orders_newest(
+    tmp_path: Path, short_sweep: SweepSettings
+) -> None:
+    ir = make_rir(short_sweep.sample_rate, rt60_s=0.3)
+    rec = synthetic_recording(short_sweep, ir, noise_rms=1e-5)
+    result = analyze(rec, Reference.from_settings(short_sweep))
+    first = tmp_path / "older"
+    second = tmp_path / "nested" / "newer"
+    save_measurement(
+        first,
+        MeasurementSession(room_name="Older", created_at="2020-01-01T00:00:00+00:00"),
+        result,
+        include_curves=False,
+    )
+    save_measurement(
+        second,
+        MeasurementSession(room_name="Newer", created_at="2024-01-01T00:00:00+00:00"),
+        result,
+        include_curves=False,
+    )
+    broken = tmp_path / "broken"
+    broken.mkdir()
+    (broken / SESSION_FILE).write_text("not json", encoding="utf-8")
+    hidden = tmp_path / ".hidden" / "secret"
+    save_measurement(hidden, MeasurementSession(room_name="Hidden"), result, include_curves=False)
+
+    listings = list_sessions(tmp_path)
+    names = [item.session.room_name for item in listings]
+    assert names == ["Newer", "Older"]
+    assert "Newer" in listings[0].label
+    assert "RT60" in listings[0].label

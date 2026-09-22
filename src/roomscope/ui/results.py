@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from roomscope.cli.report import format_report
 from roomscope.errors import RoomScopeError
+from roomscope.io.recent import remember_session
 from roomscope.io.session_store import save_measurement
 from roomscope.io.wav import write_wav
 from roomscope.ui.plots import (
@@ -147,4 +148,5 @@ class ResultsPage(QWidget):
         except RoomScopeError as exc:
             QMessageBox.critical(self, "Cannot save session", str(exc))
             return
+        remember_session(directory)
         self.status.setText(f"Session saved to {session_path.parent}")

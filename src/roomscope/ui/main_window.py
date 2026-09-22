@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMainWindow, QMessageBox, QStackedWidget
+from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QStackedWidget
 
 from roomscope import __version__
+from roomscope.errors import RoomScopeError
+from roomscope.interpretation import interpret
+from roomscope.io.recent import remember_session
+from roomscope.io.session_store import load_measurement
 from roomscope.ui.pages import DawModePage, HomePage, StandalonePage
 from roomscope.ui.results import ResultsPage
 from roomscope.ui.state import MeasurementState
@@ -40,6 +46,8 @@ class MainWindow(QMainWindow):
             self.stack.addWidget(page)
 
         self.home.choose_mode.connect(self.show_mode)
+        self.home.open_session.connect(self.choose_session)
+        self.home.open_recent.connect(self.open_session_path)
         self.daw.analysis_finished.connect(self.show_results)
         self.standalone.analysis_finished.connect(self.show_results)
         self.daw.back.connect(self.show_home)
@@ -49,9 +57,14 @@ class MainWindow(QMainWindow):
         file_menu = self.menuBar().addMenu("&File")
         new_action = QAction("&New Measurement", self)
         new_action.triggered.connect(self.show_home)
+        open_action = QAction("&Open Session...", self)
+        open_action.setShortcut("Ctrl+O")
+        open_action.triggered.connect(self.choose_session)
         quit_action = QAction("&Quit", self)
         quit_action.triggered.connect(self.close)
         file_menu.addAction(new_action)
+        file_menu.addAction(open_action)
+        file_menu.addSeparator()
         file_menu.addAction(quit_action)
         help_menu = self.menuBar().addMenu("&Help")
         about_action = QAction("&About RoomScope", self)
@@ -61,7 +74,38 @@ class MainWindow(QMainWindow):
 
     def show_home(self) -> None:
         self.state.reset()
+        self.home.refresh_recent()
         self.stack.setCurrentWidget(self.home)
+
+    def choose_session(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open session",
+            "",
+            "Session files (session.json);;JSON files (*.json);;All files (*)",
+        )
+        if path:
+            self.open_session_path(path)
+
+    def open_session_path(self, path: str | Path) -> None:
+        try:
+            loaded = load_measurement(path)
+        except RoomScopeError as exc:
+            QMessageBox.critical(self, "Cannot open session", str(exc))
+            return
+        self.state.session = loaded.session
+        self.state.result = loaded.result
+        self.state.mode = loaded.session.mode
+        profile = loaded.session.recording_profile or "generic"
+        try:
+            findings = interpret(loaded.result, profile)
+        except RoomScopeError:
+            profile = "generic"
+            findings = interpret(loaded.result, profile)
+        self.state.profile = profile
+        self.state.findings = findings
+        remember_session(loaded.directory)
+        self.show_results()
 
     def show_mode(self, mode: str) -> None:
         self.state.mode = mode

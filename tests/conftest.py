@@ -13,6 +13,15 @@ from roomscope.models.audio import FloatArray
 from roomscope.models.configuration import SweepSettings
 from roomscope.models.result import AnalysisResult
 
+
+@pytest.fixture(autouse=True)
+def isolate_roomscope_home(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Keep recent-session writes out of the real ``~/.roomscope``."""
+    monkeypatch.setenv("ROOMSCOPE_HOME", str(tmp_path_factory.mktemp("roomscope_home")))
+
+
 DECAY_CONSTANT = 3.0 * np.log(10.0) * 2.0  # 60 dB in natural-log units: ln(10^6) = 13.8155
 
 

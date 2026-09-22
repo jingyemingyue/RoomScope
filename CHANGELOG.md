@@ -7,6 +7,14 @@ All notable changes to RoomScope are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Session re-opening: `AnalysisResult.from_dict` rebuilds a saved result;
+  `load_measurement` reloads `session.json` + `result.json` + the IR WAV;
+  `list_sessions` finds session directories. CLI `roomscope show` prints a
+  saved report (`--list` browses a folder). The GUI Home page has Open
+  Session, Browse Folder and a recent-session list; File → Open Session
+  does the same. Saves and opens are remembered under `$ROOMSCOPE_HOME`
+  (`~/.roomscope` by default). `MeasurementSession.recording_profile`
+  records which interpretation was used.
 - GitHub project files so other developers can clone, review and open pull
   requests: CI (pytest on Python 3.12/3.13, ruff, mypy, sdist/wheel), issue
   and pull-request templates, Dependabot, Contributor Covenant, and a

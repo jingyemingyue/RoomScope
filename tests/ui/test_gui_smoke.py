@@ -81,6 +81,57 @@ def test_daw_mode_end_to_end(app: QApplication, tmp_path: Path, short_sweep: Swe
     window.close()
 
 
+def test_reopen_saved_session(
+    app: QApplication, tmp_path: Path, short_sweep: SweepSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ROOMSCOPE_HOME", str(tmp_path / "home"))
+    window = MainWindow()
+    window.show()
+    window.show_mode("universal_daw")
+    page = window.daw
+    page.sample_rate.setCurrentIndex(page.sample_rate.findData(short_sweep.sample_rate))
+    page.duration.setValue(short_sweep.duration_s)
+    page.generate_sweep_to(tmp_path / "sweep.wav")
+    ir = make_rir(
+        short_sweep.sample_rate, rt60_s=0.35, reflections=[(0.018, 0.35)], diffuse_level=0.01
+    )
+    recording = synthetic_recording(window.state.sweep_settings, ir, noise_rms=1e-5)
+    rec_path = write_wav(
+        tmp_path / "recording.wav", recording.samples, recording.sample_rate, subtype="FLOAT"
+    )
+    page.set_recording(rec_path)
+    page.room.setText("Booth A")
+    page.profile.setCurrentText("vocal")
+    page.start_analysis(blocking=True)
+    app.processEvents()
+    out = tmp_path / "session"
+    window.results.save_to(out)
+    saved_rt60 = window.state.result.decay.broadband.rt60_estimate_s
+    assert window.state.session.recording_profile == "vocal"
+
+    window.show_home()
+    assert window.state.result is None
+    window.home.refresh_recent()
+    assert window.home.recent.count() == 1
+    assert "Booth A" in window.home.recent.item(0).text()
+
+    window.home.list_folder(tmp_path)
+    assert window.home.recent.count() == 1
+    assert "Booth A" in window.home.recent.item(0).text()
+
+    window.open_session_path(out)
+    app.processEvents()
+    assert window.stack.currentWidget() is window.results
+    assert window.state.result is not None
+    assert window.state.session.room_name == "Booth A"
+    assert window.state.profile == "vocal"
+    assert window.state.result.decay.broadband.rt60_estimate_s == saved_rt60
+    assert window.state.result.impulse_response.samples.size > 0
+    assert "RoomScope analysis" in window.results.text.toPlainText()
+    assert "vocal profile" in window.results.text.toPlainText()
+    window.close()
+
+
 def test_standalone_page_builds(app: QApplication) -> None:
     window = MainWindow()
     window.show_mode("standalone")

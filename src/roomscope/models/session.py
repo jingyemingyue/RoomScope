@@ -51,6 +51,8 @@ class MeasurementSession:
     #: Scalar summary of the analysis (no curves) for quick listing.
     analysis_summary: dict[str, Any] = field(default_factory=dict)
     notes: str = ""
+    #: Recording profile used when the result was last interpreted.
+    recording_profile: str = "generic"
     schema_version: int = SESSION_SCHEMA_VERSION
 
     def to_dict(self) -> dict[str, Any]:

@@ -9,6 +9,7 @@ from roomscope.core.pipeline import Reference, analyze, synthetic_recording
 from roomscope.errors import ConfigurationError, InvalidAudioError, SessionError
 from roomscope.models.audio import AudioSignal
 from roomscope.models.configuration import AnalysisSettings, SweepSettings
+from roomscope.models.result import AnalysisResult
 from roomscope.models.session import MeasurementSession
 from tests.conftest import make_rir
 
@@ -89,3 +90,27 @@ def test_analysis_result_is_json_serialisable(short_sweep: SweepSettings) -> Non
     assert "samples" not in back["impulse_response"]
     slim = result.to_dict(include_curves=False)
     assert "magnitude_db_raw" not in slim["frequency_response"]
+
+    loaded = AnalysisResult.from_dict(json.loads(text))
+    assert loaded.sample_rate == result.sample_rate
+    assert loaded.decay.broadband.rt60_estimate_s == result.decay.broadband.rt60_estimate_s
+    assert loaded.impulse_response.direct_sound_index == result.impulse_response.direct_sound_index
+    assert loaded.impulse_response.samples.size == 0
+    slim_loaded = AnalysisResult.from_dict(slim)
+    assert slim_loaded.frequency_response.frequencies_hz.size == 0
+    assert slim_loaded.reflections.reflections == result.reflections.reflections
+
+    extra = dict(slim)
+    extra["future_field"] = {"ok": True}
+    AnalysisResult.from_dict(extra)
+    with pytest.raises(SessionError):
+        AnalysisResult.from_dict({**slim, "schema_version": 99})
+
+
+def test_session_recording_profile_defaults_when_absent() -> None:
+    session = MeasurementSession(room_name="A", recording_profile="vocal")
+    data = session.to_dict()
+    assert data["recording_profile"] == "vocal"
+    del data["recording_profile"]
+    loaded = MeasurementSession.from_dict(data)
+    assert loaded.recording_profile == "generic"

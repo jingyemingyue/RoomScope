@@ -894,3 +894,9 @@ class AnalysisResult:
             "placement": self.placement.to_dict() if self.placement is not None else None,
             "warnings": list(self.warnings),
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AnalysisResult:
+        from roomscope.models.result_load import analysis_result_from_dict
+
+        return analysis_result_from_dict(data)
