@@ -4,6 +4,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def _load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -71,6 +73,75 @@ def test_bundled_shared_libs_recognises_macos_dylibs() -> None:
 def test_src_safety_script_is_clean() -> None:
     module = _load("check_src_safety", Path("scripts") / "check_src_safety.py")
     assert module.check(Path("src")) == []
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("import numpy as np\nnp.load('x.npy')\n", "numpy.load"),
+        ("from numpy import load\nload('x.npy')\n", "from numpy import load"),
+        ("from os import system\n", "from os import system"),
+        ("from os import system as run\nrun('ls')\n", "os.system"),
+        ("import os as o\no.popen('ls')\n", "os.popen"),
+        ("import os\nos.execv('/bin/sh', ['sh'])\n", "os.execv"),
+        ("import os\nos.spawnlp(0, 'sh', 'sh')\n", "os.spawnlp"),
+        ("import importlib\nimportlib.import_module('subprocess')\n", "'subprocess'"),
+        ("from importlib import import_module\nimport_module('socket')\n", "'socket'"),
+        ("__import__('subprocess')\n", "__import__('subprocess')"),
+        ("import importlib\nname = 'x'\nimportlib.import_module(name)\n", "computed"),
+        ("eval('1 + 1')\n", "eval"),
+        ("import pickle as p\n", "import ['pickle']"),
+        ("import numpy as np\nnp.load('x.npy', allow_pickle=True)\n", "allow_pickle=True"),
+        ("from os import *\nsystem('ls')\n", "from os import *"),
+        ("import importlib\nimportlib.__import__('subprocess')\n", "'subprocess'"),
+        ("import numpy\nnumpy.lib.npyio.load('x.npy')\n", "numpy.lib.npyio.load"),
+        ("import asyncio\nasyncio.create_subprocess_shell('ls')\n", "create_subprocess_shell"),
+        ("import pty\n", "import ['pty']"),
+        ("import os\nos.fork()\n", "os.fork"),
+    ],
+)
+def test_src_safety_catches_aliases_and_dynamic_imports(
+    tmp_path: Path, source: str, expected: str
+) -> None:
+    """#16: every pattern is reported from a scratch tree."""
+    module = _load("check_src_safety", Path("scripts") / "check_src_safety.py")
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "bad.py").write_text(source, encoding="utf-8")
+    found = module.check(tmp_path)
+    assert found, source
+    assert any(expected in item for item in found), found
+
+
+def test_src_safety_leaves_look_alikes_alone(tmp_path: Path) -> None:
+    module = _load("check_src_safety", Path("scripts") / "check_src_safety.py")
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "fine.py").write_text(
+        "import numpy as np\n"
+        "np.loadtxt('x.txt')\n"
+        "class Model:\n"
+        "    def eval(self):\n"
+        "        return 1\n"
+        "Model().eval()\n"
+        "import importlib\n"
+        "importlib.import_module('json')\n",
+        encoding="utf-8",
+    )
+    # The one computed import RoomScope makes is allowed by file, with a reason,
+    # whether the scan starts at src/ or at src/roomscope/.
+    (tmp_path / "roomscope").mkdir()
+    (tmp_path / "roomscope" / "__init__.py").write_text(
+        "from importlib import import_module\nname = 'roomscope.core'\nimport_module(name)\n",
+        encoding="utf-8",
+    )
+    assert module.check(tmp_path) == []
+    assert module.check(tmp_path / "roomscope") == []
+    # The allowance is for that file only, not for any __init__.py below it.
+    nested = tmp_path / "pkg" / "roomscope"
+    nested.mkdir(parents=True)
+    (nested / "__init__.py").write_text(
+        "from importlib import import_module\nimport_module(name)\n", encoding="utf-8"
+    )
+    assert any("computed" in item for item in module.check(tmp_path))
 
 
 def test_inno_setup_and_linux_desktop_files_exist() -> None:
