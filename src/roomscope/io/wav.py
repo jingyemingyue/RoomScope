@@ -119,8 +119,12 @@ def read_sweep_sidecar(path: str | Path) -> SweepSettings | None:
     if not side.is_file():
         return None
     try:
+        if side.stat().st_size > 1_000_000:
+            raise ConfigurationError(
+                f"{side.name} is larger than 1 MB; a sweep sidecar cannot be that large"
+            )
         payload = json.loads(side.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise ConfigurationError(f"cannot read sweep sidecar {side.name}: {exc}") from exc
     if not isinstance(payload, dict) or SIDECAR_KEY not in payload:
         raise ConfigurationError(f"{side.name} is not a RoomScope sweep sidecar")

@@ -115,8 +115,16 @@ class MainWindow(QMainWindow):
         self.show_results()
 
     def show_mode(self, mode: str) -> None:
+        if mode == "demo":
+            self.state.mode = "standalone"
+            self.standalone.demo_mode = True
+            self.standalone.refresh_devices()
+            self.stack.setCurrentWidget(self.standalone)
+            return
         self.state.mode = mode
+        self.standalone.demo_mode = False
         if mode == "standalone":
+            self.standalone.refresh_devices()
             self.stack.setCurrentWidget(self.standalone)
         else:
             self.stack.setCurrentWidget(self.daw)

@@ -141,6 +141,19 @@ def test_standalone_page_builds(app: QApplication) -> None:
     window.close()
 
 
+def test_demo_mode_uses_fake_backend(app: QApplication) -> None:
+    window = MainWindow()
+    window.show()
+    window.show_mode("demo")
+    app.processEvents()
+    assert window.stack.currentWidget() is window.standalone
+    assert window.standalone.demo_mode is True
+    assert not window.standalone.demo_banner.isHidden()
+    assert window.standalone.stop_button is not None
+    assert "fake" in window.standalone.status.text().lower()
+    window.close()
+
+
 def test_compare_two_saved_sessions(
     app: QApplication, tmp_path: Path, short_sweep: SweepSettings, monkeypatch: pytest.MonkeyPatch
 ) -> None:

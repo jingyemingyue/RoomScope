@@ -202,13 +202,9 @@ def _session_file(path: str | Path) -> Path:
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise SessionError(f"cannot read {path}: {exc}") from exc
-    if not isinstance(data, dict):
-        raise SessionError(f"{path} is not a JSON object")
-    return data
+    from roomscope.io.jsonutil import read_json_object
+
+    return read_json_object(path, kind="session")
 
 
 def _resolve_member(directory: Path, stored: str | None, default_name: str) -> Path:

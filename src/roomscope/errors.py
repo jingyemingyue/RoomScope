@@ -40,5 +40,9 @@ class AudioBackendUnavailableError(AudioDeviceError):
     """The optional audio backend (sounddevice / PortAudio) is not available."""
 
 
+class MeasurementCancelledError(RoomScopeError):
+    """Stop was pressed during playback; the output was silenced."""
+
+
 class SessionError(RoomScopeError):
     """A measurement session could not be saved or loaded."""

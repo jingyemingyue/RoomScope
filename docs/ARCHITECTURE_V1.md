@@ -99,8 +99,8 @@ Added for v1.0:
 | M2 | JSON Schemas for result, session, comparison, sweep sidecar; read-lenient loaders; `AnalysisResult.from_dict` *(landed in 0.2)* | Re-opening, comparing and exporting all need to read what was written | §5.2 |
 | M3 | Session re-opening and a session browser *(landed in 0.2; started in PR #2)* | A tool that cannot show yesterday's measurement cannot compare positions | §5.8, §5.9 |
 | M4 | Comparison of two sessions (core, CLI, GUI, interpretation) *(landed in 0.2)* | The third product question of the brief | §5.3.2 |
-| M5 | Loopback reference channel (DAW export with two channels; Standalone two-channel capture) | Removes the interface response from the frequency response and gives the electrical time origin; the largest known bias of the chain | §5.3.1 |
-| M6 | Audio backend interface, fake backend, progress, immediate stop | Standalone Mode logic must be testable in CI and safe on real hardware | §5.4 |
+| M5 | Loopback reference channel (DAW export with two channels; Standalone two-channel capture) *(landed in 0.3)* | Removes the interface response from the frequency response and gives the electrical time origin; the largest known bias of the chain | §5.3.1 |
+| M6 | Audio backend interface, fake backend, progress, immediate stop *(landed in 0.3)* | Standalone Mode logic must be testable in CI and safe on real hardware | §5.4 |
 | M7 | Internationalisation framework with a Simplified Chinese catalog for findings, GUI and CLI | "Everyone" includes the project's own first audience | §5.6 |
 | M8 | Self-contained sessions, bug-report bundles, user settings | Support without a screen-share | §5.9, §5.10 |
 | M9 | PyPI release with trusted publishing; desktop bundles for macOS, Windows and Linux with the license bundle and the GPL-module gate | Nobody outside the project installs from git | §6 |

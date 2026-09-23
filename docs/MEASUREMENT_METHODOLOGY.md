@@ -88,6 +88,38 @@ mismatch between separate playback and recording devices smears high
 frequencies [2]; Standalone Mode uses one full-duplex device, Universal DAW
 Mode inherits whatever clocking the DAW/interface provides.
 
+## 2a. Loopback reference channel
+
+An optional electrical return of the same interface output that drives the
+loudspeaker (`core/loopback.py`). Both channels share one converter clock;
+nothing here estimates or corrects drift.
+
+**Validation.** The loopback recording is deconvolved with the same inverse
+filter as the microphone. The result must be an electrical pulse: high
+direct-sound confidence, no clipping, 99 % of the energy after the peak
+inside `MAX_ELECTRICAL_SETTLE_MS` (10 ms), and the strongest sample 5–80 ms
+later at least `MIN_LATE_PEAK_DROP_DB` (25 dB) down. A channel that still
+carries room energy is refused with that reason and the analysis continues
+uncompensated (`LoopbackResult.compensation_applied = false`).
+
+**Compensation.** A short FIR around the loopback peak is divided out of
+the microphone's deconvolved response by regularised spectral division
+`H_room = H_mic · conj(H_lb) / (|H_lb|² + ε(f))`, with the same in-band /
+out-of-band regularisation shape as `design_spectral_inverse` (Kirkeby-type;
+Müller & Massarani [3] §"reference measurement"). The FIR is time-aligned
+to the start of the array so compensation removes the interface *response*
+and does not shift the acoustic time origin. On a synthetic interface the
+median absolute frequency-response error against the dry room, over the
+normalisation band, is required to stay below `COMPENSATION_TOLERANCE_DB`
+(1.0 dB). `FrequencyResponseResult.reference` then reads
+`relative dB (0 dB = the interface loopback)`.
+
+**Time origin.** `path_delay_ms` is the microphone peak minus the loopback
+peak. `distance_upper_bound_m = c · path_delay` is a bound: loudspeaker DSP
+latency only adds delay, so the true loudspeaker-to-microphone distance is
+at most this value. A tape-measured `placement_distance_m` that exceeds the
+bound marks the placement figures unreliable.
+
 ## 3. Reverberation: EDT, T20, T30, estimated RT60
 
 **Source.** Schroeder (1965) [4] for backward integration; Lundeby et al.

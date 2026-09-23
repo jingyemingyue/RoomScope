@@ -23,6 +23,11 @@ instead of forbidding the word "significant", and the wheel `force-include`
 lists each schema JSON file so `roomscope/schemas/__init__.py` is not
 added twice. Re-verified on Linux x86_64 (Ubuntu, Python 3.12.3).
 
+Snapshot 7: 2026-09-22 — v0.3 trust the chain: loopback compensation,
+`AudioBackend` + fake backend, progress and Stop, robustness tests, CI
+OS matrix, hardware matrix started. Hardware cells are not marked PASS.
+Re-verified on Linux x86_64 (Ubuntu, Python 3.12.3).
+
 ## Implemented
 
 | Area | What exists |
@@ -40,17 +45,19 @@ added twice. Re-verified on Linux x86_64 (Ubuntu, Python 3.12.3).
 | Interpretation | Finding model (`message_id` / `params` / `locale`); RecordingProfile interface; seven profiles; `interpret_comparison` using each profile's thresholds |
 | CLI | `roomscope sweep / analyze / analyze-ir / show / compare / schema / devices / measure / gui` |
 | Public API | Lazy Tier 1 exports from `import roomscope` (ARCHITECTURE_V1.md §5.1) |
-| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results, session save/open, Compare two sessions (deltas + difference curve + same-gain checkbox) |
-| Standalone Mode | Device enumeration and play+record through PortAudio with safety defaults |
+| Loopback | Optional electrical return: pulse validation, regularised compensation, path-delay bound; refused room-like or clipped channels leave the analysis uncompensated |
+| Audio backends | `AudioBackend` protocol; PortAudio callback stream (progress, Stop); fake backend for CI and Demo |
+| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results, session save/open, Compare two sessions (deltas + difference curve + same-gain checkbox), Demo, Stop |
+| Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
 
 ## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      259 passed  (tests/unit 212, tests/integration 42, tests/ui 5 offscreen)
+pytest      283 passed  (tests/unit 227, tests/integration 42, tests/ui 6 offscreen, tests/robustness 8)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
-mypy        Success: no issues found in 54 source files (strict)
+mypy        Success: no issues found in 59 source files (strict)
 ```
 
 The 2026-09-17 macOS log recorded 256 tests. Later DSP work replaced a
@@ -104,8 +111,11 @@ as evidence):
   positions compare with a validity on every decay delta and a noise delta
   that stays UNRELIABLE until `same_input_gain` is declared; `roomscope
   schema` matches the shipped files; the Tier 1 export list matches
-  ARCHITECTURE_V1.md §5.1; GUI DAW-mode flow and pick-two compare
-  offscreen.
+  ARCHITECTURE_V1.md §5.1; a synthetic interface FIR is removed to within
+  1.0 dB median in-band error; a room-like loopback is refused; Stop on
+  the fake backend zeroes the next callback block; `roomscope --backend
+  fake measure` completes a Standalone session; GUI DAW-mode, Demo and
+  pick-two compare offscreen.
 * macOS basic run: `roomscope sweep`, `roomscope analyze`,
   `roomscope devices` (12 Core Audio devices listed), the example script,
   and the GUI (offscreen) ran successfully. **Not run:** a real Standalone
@@ -181,17 +191,20 @@ were not copied.
   are noted in MEASUREMENT_METHODOLOGY.md §10 so the design does not drift
   into them. Not a legal opinion.
 
-## Next recommended milestone (v0.3)
+## Next recommended milestone (v0.4)
 
-0.2 exit criteria of [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) §10 are
-implemented on this revision: v0.1 sessions reopen; two sessions compare
-with a validity on every delta; `roomscope schema` matches the shipped
-files; the Tier 1 export list is locked against the design document.
+0.3 exit criteria of [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) §10 that
+can be proven without hardware are implemented on this revision: a
+synthetic interface response is removed within 1.0 dB; Stop silences
+within one callback period on the **fake** backend; the Standalone flow
+is invoked in CI via `--backend fake` on Linux, macOS and Windows.
+[HARDWARE_TESTS.md](HARDWARE_TESTS.md) is started and empty — Stop on
+real hardware is **not** claimed.
 
-The next software milestone is 0.3 (trust the chain): loopback
-compensation, `AudioBackend` + fake backend with progress and Stop,
-cross-platform CI, robustness tests. Opening the GitHub repository remains
-a **maintainer decision**.
+The next software milestone is 0.4 (for everyone): gettext + zh-CN,
+self-contained sessions and bundles, user settings, projects/averaging
+(SHOULD), CSV export, the user guide, unsigned desktop bundles.
+Opening the GitHub repository remains a **maintainer decision**.
 
 Maintainer-only actions that this work does not do: public visibility flip,
 a numbered GitHub Release, a license change, or rewriting published

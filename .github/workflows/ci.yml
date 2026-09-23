@@ -80,12 +80,18 @@ jobs:
           done
 
   test:
-    name: Tests (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.12", "3.13"]
+        include:
+          - os: macos-latest
+            python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.12"
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
@@ -96,6 +102,7 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: System libraries (PortAudio + Qt offscreen)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -119,7 +126,14 @@ jobs:
         run: pip install -e ".[dev,gui]"
       - name: Pytest
         run: pytest
+      - name: Standalone flow on the fake backend
+        shell: bash
+        run: |
+          roomscope --backend fake devices
+          roomscope --backend fake measure --out "$RUNNER_TEMP/standalone" \
+            --duration 2 --post-silence 1.5 --level -20
       - name: Example script
+        shell: bash
         run: python examples/synthetic_measurement.py "$RUNNER_TEMP/synthetic"
 
   package:

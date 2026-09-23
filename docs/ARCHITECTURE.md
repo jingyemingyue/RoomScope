@@ -48,15 +48,20 @@ src/roomscope/
     placement.py         vertical geometry from reflections + tape measurements
     resonance.py         potential low-frequency resonance candidates
     compare.py           validity-aware comparison of two AnalysisResults
+    loopback.py          electrical-return validation and regularised compensation
     pipeline.py          Reference + analyze() + analyze_impulse_response()
   io/
     wav.py               soundfile-based read/write, sweep sidecar, load_reference
     session_store.py     save_measurement / load_session / load_measurement / list_sessions / save_comparison
     recent.py            recent session paths under $ROOMSCOPE_HOME
+    jsonutil.py          size-capped JSON object reads
   schemas/               result / session / comparison / project / sidecar JSON Schemas
   audio/                 optional (needs PortAudio); Standalone Mode only
-    devices.py           list_devices, sample-rate checks
-    playrec.py           play_and_record with safety defaults
+    backend.py           AudioBackend protocol, DeviceInfo, get_backend()
+    devices.py           PortAudio enumeration
+    portaudio.py         callback stream with progress and Stop
+    fake.py              synthetic-room backend + make_rir
+    playrec.py           compatibility wrapper around get_backend()
   interpretation/
     interpreter.py       Finding, Severity, interpret(), interpret_comparison()
     profiles.py          RecordingProfile protocol; seven profiles (generic, vocal,

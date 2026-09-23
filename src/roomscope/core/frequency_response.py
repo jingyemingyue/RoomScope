@@ -33,6 +33,8 @@ from roomscope.errors import ConfigurationError
 from roomscope.models.audio import FloatArray
 from roomscope.models.result import ExcitationBand, FrequencyResponseResult
 
+DEFAULT_FR_REFERENCE = "relative dB (0 dB = flat loopback of the reference sweep)"
+
 _EPS = 1e-300
 
 #: A gate must keep at least this much of the impulse response after the
@@ -61,6 +63,7 @@ def frequency_response(
     min_resolution_hz: float = 1.0,
     end_taper_ms: float = 5.0,
     excitation_band: ExcitationBand | None = None,
+    reference: str | None = None,
 ) -> FrequencyResponseResult:
     """Magnitude response (dB, relative) of ``ir``.
 
@@ -115,4 +118,5 @@ def frequency_response(
         bin_spacing_hz=float(sample_rate / nfft),
         gated=window_s is not None,
         excitation_band=excitation_band,
+        reference=DEFAULT_FR_REFERENCE if reference is None else reference,
     )

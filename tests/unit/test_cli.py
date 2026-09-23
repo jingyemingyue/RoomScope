@@ -236,3 +236,36 @@ def test_measure_refuses_loud_level_without_acknowledgement(
     code = main(["measure", "--out", str(tmp_path / "m"), "--level", "-3"])
     assert code == 2
     assert "acknowledge" in capsys.readouterr().err
+
+
+def test_fake_backend_devices_and_measure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["--backend", "fake", "devices"]) == 0
+    listed = capsys.readouterr().out
+    assert "fake" in listed
+    out = tmp_path / "standalone"
+    code = main(
+        [
+            "--backend",
+            "fake",
+            "measure",
+            "--out",
+            str(out),
+            "--duration",
+            "2",
+            "--post-silence",
+            "1.5",
+            "--level",
+            "-20",
+            "--input-channels",
+            "1,2",
+            "--loopback-channel",
+            "2",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 0, captured.err
+    assert (out / "session.json").is_file()
+    assert (out / "recording.wav").is_file()
+    assert "Loopback" in captured.out or "loopback" in captured.out.lower()

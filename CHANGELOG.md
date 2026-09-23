@@ -15,6 +15,13 @@ All notable changes to RoomScope are documented here. The format follows
   does the same. Saves and opens are remembered under `$ROOMSCOPE_HOME`
   (`~/.roomscope` by default). `MeasurementSession.recording_profile`
   records which interpretation was used.
+- v0.3 trust-the-chain (ARCHITECTURE_V1.md milestone 0.3): optional
+  loopback compensation (`core/loopback.py`, `--loopback` /
+  `--loopback-channel`); `AudioBackend` protocol with a fake backend and a
+  PortAudio callback stream that honours progress and Stop; CLI
+  `--backend`; GUI Demo mode, Stop, and a loopback channel; robustness
+  tests and a JSON size cap; CI on Linux, macOS and Windows; hardware
+  matrix started in `docs/HARDWARE_TESTS.md` (no cell is marked PASS).
 - v0.2 reopen-and-compare (ARCHITECTURE_V1.md milestone 0.2): lazy Tier 1
   exports on `import roomscope`; lenient `from_dict` loaders; shipped JSON
   Schemas and `roomscope schema`; `compare()` of two `AnalysisResult`s with
