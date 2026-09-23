@@ -91,3 +91,121 @@ def test_parse_po_round_trip(tmp_path) -> None:
     with mo.open("rb") as handle:
         trans = gettext.GNUTranslations(handle)
     assert trans.gettext("Hello") == "你好"
+
+
+def _copy_catalog(tmp_path) -> tuple[object, object]:
+    import shutil
+    from pathlib import Path
+
+    from roomscope.i18n import locale_dir
+
+    base = Path(tmp_path) / "locale"
+    messages = base / "zh_CN" / "LC_MESSAGES"
+    messages.mkdir(parents=True)
+    shutil.copy(Path(locale_dir()) / "zh_CN" / "LC_MESSAGES" / "roomscope.po", messages)
+    return base, messages
+
+
+def test_loading_a_catalog_never_writes_to_the_package_tree(tmp_path, monkeypatch) -> None:
+    """#14: an installed tree or a frozen bundle may be read-only; no .mo is written."""
+    from roomscope import i18n
+
+    base, messages = _copy_catalog(tmp_path)
+    monkeypatch.setattr(i18n, "_LOCALE_DIR", base)
+    before = sorted(p.name for p in messages.iterdir())
+    try:
+        assert activate("zh_CN") == "zh_CN"
+        assert _("Analyze") == "分析"
+    finally:
+        activate("en")
+    assert sorted(p.name for p in messages.iterdir()) == before == ["roomscope.po"]
+
+
+def test_compiled_mo_is_used_only_while_it_matches_the_po(tmp_path, monkeypatch) -> None:
+    import gettext
+
+    from roomscope import i18n
+
+    base, messages = _copy_catalog(tmp_path)
+    monkeypatch.setattr(i18n, "_LOCALE_DIR", base)
+    written = i18n.compile_catalogs(base)
+    assert written == [messages / "roomscope.mo"]
+    loaded = i18n._load_translation("zh_CN")
+    assert isinstance(loaded, gettext.GNUTranslations)
+    assert loaded.info()[i18n.SOURCE_HASH_HEADER.lower()] == i18n.source_hash(
+        messages / "roomscope.po"
+    )
+    # Edit the .po after compiling: the stale .mo must not win.
+    po = messages / "roomscope.po"
+    po.write_text(
+        po.read_text(encoding="utf-8").replace('msgstr "分析"', 'msgstr "分析（新）"', 1),
+        encoding="utf-8",
+    )
+    reloaded = i18n._load_translation("zh_CN")
+    assert not isinstance(reloaded, gettext.GNUTranslations)
+    assert reloaded.gettext("Analyze") == "分析（新）"
+    # A .mo without its .po (a packager that drops sources) is used as is.
+    po.unlink()
+    assert i18n._load_translation("zh_CN").gettext("Analyze") == "分析"
+    # A .mo compiled before the hash header existed is ignored when a .po exists.
+    po.write_text('msgid "Analyze"\nmsgstr "分析"\n', encoding="utf-8")
+    i18n.write_mo({"Analyze": "旧"}, messages / "roomscope.mo")
+    assert i18n._load_translation("zh_CN").gettext("Analyze") == "分析"
+
+
+def test_msgctxt_entries_round_trip_through_po_and_mo(tmp_path) -> None:
+    import gettext
+
+    from roomscope.i18n import _PoTranslations, write_mo
+
+    po = tmp_path / "roomscope.po"
+    po.write_text(
+        'msgctxt "decay length"\nmsgid "long"\nmsgstr "很长"\n\n'
+        'msgid "long"\nmsgstr "长"\n\n'
+        'msgctxt "noise segment"\n"\\n"\nmsgid "tail"\nmsgstr ""\n"录音末尾"\n',
+        encoding="utf-8",
+    )
+    catalog = parse_po(po)
+    assert catalog == {
+        "decay length\x04long": "很长",
+        "long": "长",
+        "noise segment\n\x04tail": "录音末尾",
+    }
+    in_memory = _PoTranslations(catalog)
+    assert in_memory.pgettext("decay length", "long") == "很长"
+    assert in_memory.gettext("long") == "长"
+    assert in_memory.pgettext("RT60 change", "long") == "long"
+    mo = tmp_path / "roomscope.mo"
+    write_mo(catalog, mo)
+    with mo.open("rb") as handle:
+        compiled = gettext.GNUTranslations(handle)
+    assert compiled.pgettext("decay length", "long") == "很长"
+    assert compiled.gettext("long") == "长"
+
+
+def test_wheel_build_hook_compiles_into_a_temporary_directory(tmp_path) -> None:
+    """The hook force-includes a hashed .mo and never writes into ``src/``."""
+    import gettext
+    import importlib.util
+    from pathlib import Path
+
+    import pytest
+
+    pytest.importorskip("hatchling")
+    from roomscope.i18n import SOURCE_HASH_HEADER, locale_dir, source_hash
+
+    spec = importlib.util.spec_from_file_location("hatch_build", Path("hatch_build.py"))
+    assert spec is not None and spec.loader is not None
+    hook = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hook)
+    src_messages = Path(locale_dir()) / "zh_CN" / "LC_MESSAGES"
+    before = sorted(p.name for p in src_messages.iterdir())
+    include = hook.compiled_catalogs(tmp_path)
+    assert list(include.values()) == ["roomscope/locale/zh_CN/LC_MESSAGES/roomscope.mo"]
+    mo = Path(next(iter(include)))
+    assert mo == tmp_path / "zh_CN" / "LC_MESSAGES" / "roomscope.mo"
+    with mo.open("rb") as handle:
+        compiled = gettext.GNUTranslations(handle)
+    assert compiled.info()[SOURCE_HASH_HEADER.lower()] == source_hash(src_messages / "roomscope.po")
+    assert compiled.gettext("Analyze") == "分析"
+    assert sorted(p.name for p in src_messages.iterdir()) == before
