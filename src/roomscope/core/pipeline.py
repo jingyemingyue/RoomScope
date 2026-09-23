@@ -580,7 +580,13 @@ def analyze(
         else:
             mic_peak = located.peak_index
             if assessment.accepted and assessment.fir is not None:
-                h_full = compensate(h_full, assessment.fir, sample_rate, prepared.excitation_band)
+                h_full = compensate(
+                    h_full,
+                    assessment.fir,
+                    sample_rate,
+                    prepared.excitation_band,
+                    fir_peak_index=assessment.fir_peak_index,
+                )
                 located = _locate_pass(
                     h_full,
                     recording_length=mono.shape[0],
@@ -860,6 +866,11 @@ def _mark_decay_not_computed(decay: DecayResult, reason: str) -> DecayResult:
     )
 
 
+#: An imported impulse response must have its strongest sample at least this
+#: far above the content before it (the "low" direct-sound confidence limit).
+IMPORTED_IR_MIN_MARGIN_DB = 10.0
+
+
 def analyze_impulse_response(
     ir: AudioSignal,
     settings: AnalysisSettings | None = None,
@@ -871,6 +882,16 @@ def analyze_impulse_response(
     Distortion indicators, sweep-position checks and the noise section are
     skipped. ``excitation_band`` is what the caller declares; without it every
     band metric is :attr:`~roomscope.models.result.Validity.NOT_COMPUTED`.
+
+    A file whose strongest sample does not stand at least
+    ``IMPORTED_IR_MIN_MARGIN_DB`` above the content before it (a sweep, a
+    recording, noise, or an IR whose direct sound is weaker than a later
+    arrival) is refused with :class:`AnalysisError` instead of being
+    analysed as if it were an impulse response. The content right before the
+    peak is excluded for max(2 ms, 2 / high_hz) so that the rise of a
+    band-limited direct sound does not count. A file that starts at its peak
+    (no pre-roll) cannot be checked this way; it is analysed with
+    direct-sound confidence "low".
     """
     from roomscope.core.deconvolution import confidence_label, locate_impulse_response
     from roomscope.core.frequency_response import frequency_response
@@ -890,6 +911,16 @@ def analyze_impulse_response(
     if mono.shape[0] < round(0.05 * sample_rate):
         raise InvalidAudioError("impulse response is shorter than 50 ms")
 
+    if excitation_band is not None:
+        low, high = excitation_band
+        if not (low > 0.0 and high > low):
+            raise ConfigurationError(
+                "excitation_band must be a (low_hz, high_hz) pair with high > low > 0"
+            )
+    # A band-limited direct sound rises over about two periods of its upper
+    # band edge before it peaks (a sub-woofer IR low-passed at 80 Hz takes
+    # ~25 ms); that rise must not count as "content before the direct sound".
+    near_ms = 2.0 if excitation_band is None else max(2.0, 2000.0 / float(excitation_band[1]))
     located = locate_impulse_response(
         np.asarray(mono, dtype=np.float64),
         recording_length=int(mono.shape[0]),
@@ -898,7 +929,18 @@ def analyze_impulse_response(
         pre_delay_ms=settings.ir_pre_delay_ms,
         max_length_s=settings.ir_max_length_s,
         sweep_rate_s=None,
+        margin_near_ms=near_ms,
     )
+    margin = located.pre_peak_margin_db
+    if margin is not None and margin < IMPORTED_IR_MIN_MARGIN_DB:
+        raise AnalysisError(
+            f"this file cannot be analysed as an impulse response: its strongest sample is "
+            f"only {margin:.1f} dB above the content before it (at least "
+            f"{IMPORTED_IR_MIN_MARGIN_DB:g} dB is required). It may be a recording (a "
+            "recording of the test sweep is analysed with `roomscope analyze`), or an IR "
+            "whose direct sound is weaker than a later arrival, which RoomScope cannot use "
+            "as time zero. For a band-limited IR, declare its band with --band"
+        )
     declared: ExcitationBand | None
     if excitation_band is None:
         declared = ExcitationBand(
@@ -909,10 +951,6 @@ def analyze_impulse_response(
         )
     else:
         low, high = excitation_band
-        if not (low > 0.0 and high > low):
-            raise ConfigurationError(
-                "excitation_band must be a (low_hz, high_hz) pair with high > low > 0"
-            )
         declared = ExcitationBand(
             low_hz=float(low), high_hz=float(high), source=EXCITATION_SOURCE_DECLARED
         )
