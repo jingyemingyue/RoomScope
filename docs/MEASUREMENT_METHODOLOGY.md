@@ -88,6 +88,27 @@ mismatch between separate playback and recording devices smears high
 frequencies [2]; Standalone Mode uses one full-duplex device, Universal DAW
 Mode inherits whatever clocking the DAW/interface provides.
 
+**Imported impulse responses** (`analyze_impulse_response`,
+`roomscope analyze-ir`). An IR WAV from another tool skips deconvolution,
+the sweep-position checks, the distortion indicators and the noise section;
+no sweep-pass search is made (a one-sample reference has no passes). The
+strongest sample is the direct sound, with the same pre-peak margin as
+above except that the excluded stretch before the peak is
+max(2 ms, 2 / declared upper band edge), so that the rise of a
+band-limited direct sound (a sub-woofer IR low-passed at 80 Hz rises for
+~25 ms) is not counted. A file whose peak stands less than 10 dB
+(`IMPORTED_IR_MIN_MARGIN_DB`) above the content before it — a sweep
+recording, music, noise, or an IR whose direct sound is weaker than a later
+arrival, which cannot serve as time zero — is refused rather than analysed.
+A file that starts at its peak cannot be checked and is analysed with
+confidence "low".
+Band metrics are computed only inside an excitation band the caller
+declares (`--band LO HI`); without one they are `not_computed`. Fed the
+`impulse_response.wav` of a sweep analysis with that analysis's band, the
+imported path reproduces its RT60 (±1 %), band T values (±2 %), reflection
+delay (±0.05 ms) and level (±0.2 dB) and its resonance candidates
+(`tests/integration/test_analyze_ir.py`).
+
 ## 2a. Loopback reference channel
 
 An optional electrical return of the same interface output that drives the
@@ -97,18 +118,44 @@ nothing here estimates or corrects drift.
 **Validation.** The loopback recording is deconvolved with the same inverse
 filter as the microphone. The result must be an electrical pulse: high
 direct-sound confidence, no clipping, 99 % of the energy after the peak
-inside `MAX_ELECTRICAL_SETTLE_MS` (10 ms), and the strongest sample 5–80 ms
-later at least `MIN_LATE_PEAK_DROP_DB` (25 dB) down. A channel that still
-carries room energy is refused with that reason and the analysis continues
-uncompensated (`LoopbackResult.compensation_applied = false`).
+arriving within `MAX_ELECTRICAL_SETTLE_MS` (10 ms), and the strongest sample
+5–80 ms later at least `MIN_LATE_PEAK_DROP_DB` (25 dB) down. The energy is
+summed from the peak to the end of the *valid* record (where the
+deconvolution still fully overlaps the recording) with the noise power
+subtracted from every sample; the noise power is the median of the squared
+samples in the last quarter (at least 100 ms, starting no earlier than
+200 ms after the peak) of that valid record, divided by 0.4549 (the median
+of a χ²₁ variable). Before v0.4.1 the whole record, noise included, was
+integrated, so a clean loopback with a long post-roll could be refused
+(#12); a first fix that looked only at the first 80 ms let a close
+microphone in a live room pass and was replaced before release. What
+remains length-dependent is the random fluctuation of the subtracted noise
+(it grows with the square root of the record length): on synthetic data a
+clean loopback is accepted at a peak-to-noise ratio of 60 dB and more for
+post-rolls from 1.5 to 12 s, and starts to be refused at random around
+54 dB; real interface loopbacks are normally far cleaner. A channel that
+still carries room energy is refused with that reason and the analysis
+continues uncompensated (`LoopbackResult.compensation_applied = false`); on
+synthetic rooms (RT60 0.3–4 s, weak and strong diffuse tails) the verdicts
+are those of 0.4.0. Evidence is synthetic only
+(`tests/unit/test_loopback.py`); no hardware loopback has been recorded yet
+(HARDWARE_TESTS.md).
 
 **Compensation.** A short FIR around the loopback peak is divided out of
 the microphone's deconvolved response by regularised spectral division
 `H_room = H_mic · conj(H_lb) / (|H_lb|² + ε(f))`, with the same in-band /
-out-of-band regularisation shape as `design_spectral_inverse` (Kirkeby-type;
-Müller & Massarani [3] §"reference measurement"). The FIR is time-aligned
-to the start of the array so compensation removes the interface *response*
-and does not shift the acoustic time origin. On a synthetic interface the
+out-of-band regularisation shape as `design_spectral_inverse` (Kirkeby et
+al. [22]; Müller & Massarani [3] §"reference measurement"). The FIR is cut
+from 5 ms before to 15 ms after the loopback peak, and the peak is its time
+origin: the samples before the peak (converter pre-ringing) are placed at
+negative time, and the FFT frame is padded by four FIR lengths on each side
+of the microphone response so the division is linear, not circular.
+Compensation therefore removes the interface *response* without moving the
+acoustic time origin: the microphone's direct sound, the reported sweep
+start in the recording and the reflection delays stay within one sample of
+the uncompensated analysis. (Before v0.4.1 the FIR's first sample was used
+as its origin, which advanced the compensated response by the 5 ms pre-roll,
+circularly; #12.) On a synthetic interface the
 median absolute frequency-response error against the dry room, over the
 normalisation band, is required to stay below `COMPENSATION_TOLERANCE_DB`
 (1.0 dB). `FrequencyResponseResult.reference` then reads
@@ -165,8 +212,9 @@ time-reversed filtering.
 
 **Units.** Seconds; the Schroeder curve in dB relative to its start.
 
-**Limitations.** One source and one microphone position correspond to the
-ISO 3382-2 *survey* level at best when unaveraged. `average_decay` (SHOULD)
+**Limitations.** One source and one microphone position do not reach the
+ISO 3382-2 *survey* class (Table 1 asks for at least two microphone
+positions and two source–microphone combinations). `average_decay` (SHOULD)
 spatially averages VALID T values only; see §3a. Very
 short decays in low bands are limited by the filters (B·T rule). The
 truncation parameters differ from those in other packages (ODEON, ITA
@@ -174,29 +222,48 @@ Toolbox), so small systematic differences to other tools are expected [19].
 
 ### 3a. Spatial averaging of T values (SHOULD)
 
-**Source.** ISO 3382-2:2008, Table 1 (number of source and microphone
-positions for survey / engineering / precision accuracy) and the rule that
-one averages *T values*, not decay curves (ARCHITECTURE.md §5).
+**Source.** ISO 3382-2:2008 [10], 4.3.1, Table 1 "Minimum numbers of
+positions and measurements" (source–microphone combinations, source
+positions and microphone positions for survey / engineering / precision
+accuracy), and the rule that one averages *T values*, not decay curves
+(ARCHITECTURE.md §5).
 
 **Procedure** (`core/averaging.py`). `average_decay(results)` takes the
 arithmetic mean of EDT, T20 and T30 per band over the metrics marked VALID
 only, with the count, the spread (max − min) and the contributing session
 labels. Decay curves (`edc_db`) are never averaged. The output names the
-ISO 3382-2 accuracy class reached by the declared source and microphone
-counts.
+ISO 3382-2 accuracy class reached by the source positions, microphone
+positions and source–microphone combinations; every row of the table must
+be met. `roomscope project average` counts one microphone position per
+position label of the project (repeated takes at a position add sessions,
+not positions; sessions without a position are averaged but not counted),
+takes the source count from `--sources` (default 1) and counts at most one
+combination per labelled session.
 
-**Table 1 thresholds** (transcribed from secondary sources, **not verified
-against a purchased copy of ISO 3382-2:2008**):
+**Table 1** (ISO 3382-2:2008, 4.3.1; read from the standard's own text in
+the publisher's preview pages, retrieved 2026-09-24):
 
-| Class | Min source positions | Min microphone positions | Min combinations |
+| Class | Source–microphone combinations | Source positions | Microphone positions |
 | --- | --- | --- | --- |
-| below_survey | — | — | < 2 |
-| survey | ≥ 1 | ≥ 2 | ≥ 2 |
-| engineering | ≥ 2 | ≥ 3 | ≥ 6 |
-| precision | ≥ 2 | ≥ 6 | ≥ 12 |
+| survey | 2 | ≥ 1 | ≥ 2 |
+| engineering | 6 | ≥ 2 | ≥ 2 |
+| precision | 12 | ≥ 2 | ≥ 3 |
+
+Anything below the survey row is labelled `below_survey`. Two footnotes of
+the table are not implemented: an engineering result used as a correction
+term for other engineering-level measurements needs only one source and
+three microphone positions, and the interrupted-noise method may use a
+rotating microphone boom. The table's fourth row (decays per position) is
+for the interrupted-noise method; RoomScope uses the integrated impulse
+response. Before v0.4.1 the code carried an unsourced transcription that
+asked for ≥ 3 / ≥ 6 microphone positions for engineering / precision and did
+not check the microphone count for engineering, and `project average`
+counted sessions as microphone positions (#15).
 
 RoomScope measurements are one source unless the caller passes
-`n_source_positions`. The class is a label, not a claim of compliance.
+`n_source_positions`. The class is a label, not a claim of compliance: the
+standard's other clause 4 conditions (distances between positions and from
+surfaces, source height and so on) are not checked.
 Multi-position *placement* stays out of 1.0 (MEASUREMENT_METHODOLOGY.md §7a).
 
 ## 4. Frequency response
@@ -270,11 +337,11 @@ room dimensions and several positions; RoomScope does not claim it.
 ## 7a. Placement geometry
 
 **Source.** The image-source construction for a plane reflector is standard
-(Allen & Berkley 1979 [17] is the canonical *forward* method). The identity
+(Allen & Berkley 1979 [20] is the canonical *forward* method). The identity
 used here is elementary algebra from it and was implemented clean-room; no
 code was taken from any image-source library (see `docs/CODE_PROVENANCE.md`).
 The published route to *full* room geometry from echoes — room-shape-from-
-echoes / echo sorting, Dokmanić et al. (2013) [18] and the echo-labelling
+echoes / echo sorting, Dokmanić et al. (2013) [21] and the echo-labelling
 work following it — requires a microphone array or several positions and is
 deliberately **not** implemented (§9).
 
@@ -384,7 +451,7 @@ is offered as a SHOULD (`average_decay`); it never averages decay curves.
 
 No room geometry beyond the vertical axis of §7a: no coordinates, no room
 length or width, and no wall is ever named. The published method for the full
-problem — room shape from echoes / echo sorting, Dokmanić et al. (2013) [18] —
+problem — room shape from echoes / echo sorting, Dokmanić et al. (2013) [21] —
 needs a microphone array or several measurement positions, which RoomScope
 does not require of its users. Two microphone positions with a fixed
 loudspeaker would be *exactly* determined (twelve equations, twelve unknowns),
@@ -419,17 +486,29 @@ narrower than one octave (`CompareSettings.min_common_band_octaves`, default
 1.0).
 
 Decay. A delta exists only when *both* metrics are VALID; otherwise the
-delta is `not_comparable` and carries both reasons. The report quotes the
+delta is `not_comparable` and carries both reasons. A band that exists on
+one side only is listed as `not_comparable` ("band missing from the
+candidate" / "... from the baseline"), whichever side lacks it. The report
+quotes the
 just-noticeable difference for T that ISO 3382-1 gives (about 5 %; clause
 not verified against the standard text) and never calls a change
 "significant" on its own: single-position repeatability is not established
 by one pair.
 
-Frequency response. Both raw magnitude curves are interpolated onto a shared
-logarithmic grid inside the common band and then smoothed with the coarser
-of the two `smoothing_fraction` values. The difference curve is candidate
-minus baseline. Mean absolute difference is reported per IEC 61260-1 octave
-band that overlaps the common range.
+Frequency response. Each raw magnitude curve is first smoothed on its own
+(linear, sub-hertz) frequency grid with the coarser of the two
+`smoothing_fraction` values — or, when neither result was smoothed, over
+one step of the comparison grid (1/24 octave by default) — and only then
+sampled on a shared logarithmic grid (`log_grid_points_per_octave`, 24)
+inside the common band. The order matters: sampling the raw spectrum first
+point-samples its comb-filter ripple (the grid step is ~300 Hz at 10 kHz),
+so two takes of the same room would differ by several dB of sampling noise
+(v0.4.0 did this; #9). The difference curve is candidate minus baseline.
+Mean absolute difference is reported per IEC 61260-1 octave band that
+overlaps the common range. On synthetic rooms that differ only in the
+random diffuse tail, the 4 / 8 / 16 kHz octave MADs are below 1.2 / 1.0 /
+0.6 dB (they were about 3 dB before), and a linear-phase +6.02 dB shelf is
+recovered within 0.3 dB (`tests/unit/test_compare.py`).
 
 Early reflections. Matched by delay within ±0.5 ms
 (`CompareSettings.reflection_match_ms`). Unmatched arrivals are listed as
@@ -452,9 +531,6 @@ loopback compensation.
 
 ## References
 
-17. J. B. Allen and D. A. Berkley, "Image method for efficiently simulating small-room acoustics," J. Acoust. Soc. Am. 65(4), 943-950, 1979. (confirmed, primary text) — forward image-source model; cited as the origin of the construction, not as a method for the inverse problem.
-18. I. Dokmanić, R. Parhizkar, A. Walther, Y. M. Lu and M. Vetterli, "Acoustic echoes reveal room shape," PNAS 110(30), 12186-12191, 2013. (confirmed, primary text) — the canonical published route to full room geometry from echoes; named here because RoomScope declines it, see §9.
-
 1. A. Farina, "Simultaneous Measurement of Impulse Response and Distortion with a Swept-Sine Technique," AES 108th Convention, Paris, 2000, preprint 5093. (confirmed, primary text)
 2. A. Farina, "Advancements in Impulse Response Measurements by Sine Sweeps," AES 122nd Convention, Vienna, 2007, paper 7121. (confirmed, primary text)
 3. S. Müller, P. Massarani, "Transfer-Function Measurement with Sweeps," J. Audio Eng. Soc. 49(6), 443–471, 2001. (confirmed)
@@ -464,7 +540,7 @@ loopback compensation.
 7. G.-B. Stan, J.-J. Embrechts, D. Archambeau, "Comparison of Different Impulse Response Measurement Techniques," J. Audio Eng. Soc. 50(4), 249–262, 2002. (confirmed)
 8. A. Novak, P. Lotton, L. Simon, "Synchronized Swept-Sine: Theory, Application, and Implementation," J. Audio Eng. Soc. 63(10), 786–798, 2015. doi:10.17743/jaes.2015.0071 (confirmed)
 9. ISO 3382-1:2009, Acoustics — Measurement of room acoustic parameters — Part 1: Performance spaces. (confirmed; clause numbers not read from the standard text)
-10. ISO 3382-2:2008 + Cor 1:2009, Part 2: Reverberation time in ordinary rooms. (confirmed)
+10. ISO 3382-2:2008 + Cor 1:2009, Part 2: Reverberation time in ordinary rooms. (confirmed; 4.3.1 Table 1 read from the standard's preview pages, https://cdn.standards.iteh.ai/samples/36201/4a4d0dc848ac4d40bfe46e36c531afb5/ISO-3382-2-2008.pdf, on 2026-09-24; the rest of the text was not read)
 11. ISO 18233:2006, Acoustics — Application of new measurement methods in building and room acoustics. (confirmed)
 12. IEC 61260-1:2014 / ANSI/ASA S1.11-2014/Part 1, Electroacoustics — Octave-band and fractional-octave-band filters — Part 1: Specifications. (confirmed)
 15. M. Karjalainen, P. Antsalo, A. Mäkivirta, T. Peltonen, V. Välimäki, "Estimation of Modal Decay Parameters from Noisy Response Measurements," J. Audio Eng. Soc. 50(11), 867–878, 2002. (confirmed)
@@ -472,6 +548,9 @@ loopback compensation.
 17. C. C. J. M. Hak, R. H. C. Wenmaekers, L. C. J. van Luxemburg, "Measuring Room Impulse Responses: Impact of the Decay Range on Derived Room Acoustic Parameters," Acta Acustica united with Acustica 98(6), 907–915, 2012. doi:10.3813/AAA.918574 (confirmed)
 18. AES17-2020, AES standard method for digital audio engineering — Measurement of digital audio equipment. (confirmed via AES publications; defines 0 dB FS as the RMS of a full-scale sine)
 19. D. Cabrera, J. Xun, M. Guski, "Calculating Reverberation Time from Impulse Responses: A Comparison of Software Implementations," Acoustics Australia 44(2), 369–378, 2016. doi:10.1007/s40857-016-0055-6 (confirmed)
+20. J. B. Allen and D. A. Berkley, "Image method for efficiently simulating small-room acoustics," J. Acoust. Soc. Am. 65(4), 943-950, 1979. (confirmed, primary text) — forward image-source model; cited as the origin of the construction, not as a method for the inverse problem. (Numbered [17] before v0.4.1, which collided with Hak et al.)
+21. I. Dokmanić, R. Parhizkar, A. Walther, Y. M. Lu and M. Vetterli, "Acoustic echoes reveal room shape," PNAS 110(30), 12186-12191, 2013. (confirmed, primary text) — the canonical published route to full room geometry from echoes; named here because RoomScope declines it, see §9. (Numbered [18] before v0.4.1, which collided with AES17.)
+22. O. Kirkeby, P. A. Nelson, H. Hamada and F. Orduña-Bustamante, "Fast deconvolution of multichannel systems using regularization," IEEE Trans. Speech and Audio Processing 6(2), 189–194, 1998. (bibliographic record; the regularised-inversion form `conj(H) / (|H|² + ε(f))` used in §2 and §2a is the one Farina 2007 [2] §3.1 quotes from it; the primary text was not re-read for v0.4.1)
 
 Additional supporting references (A. Mäkivirta et al. 2003; G. Defrance et
 al. 2008; J. Usher 2010; M. Guski & M. Vorländer 2014; C. L. Christensen et
