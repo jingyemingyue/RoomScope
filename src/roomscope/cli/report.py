@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from roomscope.i18n import _
 from roomscope.interpretation import Finding
+from roomscope.interpretation.profiles import noise_segment_text
 from roomscope.models.comparison import ComparisonResult
 from roomscope.models.result import (
     AnalysisResult,
@@ -151,7 +152,7 @@ def format_report(
                 "Background noise ({source}, {duration:.2f} s): {rms:.1f} dBFS RMS, "
                 "peak {peak:.1f} dBFS  [{calibration}]"
             ).format(
-                source=noise.segment_source,
+                source=noise_segment_text(noise.segment_source),
                 duration=noise.segment_duration_s,
                 rms=noise.rms_dbfs,
                 peak=noise.peak_dbfs,
