@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, fields
 from typing import Any
 
-from roomscope.models.loadutil import drop_unknown
+from roomscope.models.loadutil import build_record, record_payload
 
 
 @dataclass(frozen=True)
@@ -26,5 +26,5 @@ class CalibrationRecord:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CalibrationRecord:
-        payload = drop_unknown(data, {f.name for f in fields(cls)}, kind="calibration")
-        return cls(**payload)
+        payload = record_payload(data, {f.name for f in fields(cls)}, kind="calibration")
+        return build_record(cls, payload, kind="calibration")
