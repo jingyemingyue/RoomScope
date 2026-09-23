@@ -7,6 +7,105 @@ All notable changes to RoomScope are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-24
+
+Patch release: closes the review follow-ups #9–#17, each with a synthetic
+test that fails on 0.4.0. No new feature, no dependency change at run time.
+Still no hardware result, still unsigned, still private. 0.4.0 was never
+tagged; because #17 had to be fixed before any bundle is published
+(RELEASE_PLAN.md §4), 0.4.1 is the first version meant for a draft Release.
+
+### Fixed
+- **Bundle gate (#17).** `scripts/check_bundle_contents.py` matches GPL-only
+  Qt QML modules by directory (`qml/QtQuick/VirtualKeyboard`,
+  `qml/QtQuick/Timeline`, `qml/QtCharts`, `qml/QtGraphs`,
+  `qml/QtDataVisualization`, `qml/QtQuick3D`, `qml/Qt/labs/lottieqt`, also
+  inside a macOS `.app`), whose plugin files do not carry the module name
+  (`libqtvkbpinyinplugin.so`); `--strip` removes them and the directories it
+  empties. A frozen tree that contains any file under a `qml/` directory now
+  fails the gate, because RoomScope has no QML UI. A Linux PyInstaller
+  6.22.3 build from `requirements/bundle.lock` was built locally: it has no
+  `qml/` directory and passes `--strip`.
+- **Simplified Chinese (#14).** The catalog now covers all seven profiles
+  (28 more findings), and the words inserted into sentences (decay length,
+  direction of an RT60 change, noise segment) are translated through
+  `pgettext` while findings keep the English word in `params`. The
+  Standalone safety warning and the `--acknowledge-level` refusal were
+  already translated on `main`; they are now marked for extraction. A
+  catalog `.mo` is never written at run time any more (0.4.0 wrote one into
+  the installed package); the wheel ships a `.mo` compiled by the build hook
+  in a temporary directory, used only while its recorded SHA-256 matches the
+  `.po`. Tests run with a pinned English locale. New test: every message
+  extracted from `src/` has a translation with the same placeholders, and
+  `--lang zh_CN analyze --profile drums|room_mic|acoustic_guitar|choir`
+  prints no English finding text.
+- **Loopback time origin (#12).** The interface FIR's time origin is now its
+  peak (samples before it at negative time) and the division is linear
+  (padded frame), so compensation no longer advances the response by the
+  5 ms pre-roll; the sweep start and reflection delays stay within one
+  sample of the uncompensated analysis. The electrical-settling check
+  subtracts the noise floor (estimated at the end of the valid record) from
+  the energy before it finds the 99 % point, so a clean loopback with a long
+  post-roll is no longer refused, while a close microphone in a live room is
+  still refused. `compensate()` now requires `fir_peak_index` (keyword-only):
+  the old implicit origin at the FIR's first sample reproduced the shift.
+  Kirkeby et al. 1998 is in the methodology references.
+- **PortAudio callback (#13).** Progress is reported from the waiting thread,
+  never from the real-time callback; an exception in the callback aborts
+  the stream and fails the take instead of returning zeros; a stream that
+  ends early is an error; Stop no longer waits for the timeout when the
+  device has stalled; buffer under/overflow flags are logged. Hardware
+  inputs (1-based) and recording columns (0-based) are mapped by
+  `plan_input_channels` and validated before anything is played; a loopback
+  on the microphone input is refused up front. Sessions store the 1-based
+  interface channels of a Standalone take and leave them empty in Universal
+  DAW Mode (the CLI stored the 0-based column before).
+- **Comparison (#9).** Frequency responses are smoothed on their own grid
+  before they are sampled on the comparison grid; the per-octave MAD of two
+  takes that differ only in the diffuse tail drops from about 3 dB to below
+  1 dB in the 4–16 kHz octaves. A decay band present on one side only is
+  reported whichever side lacks it.
+- **Imported impulse responses (#10).** The sweep-pass search is skipped
+  when there is no sweep: on a loud file it ran in quadratic time (a 6 s
+  sweep WAV did not finish in five minutes) and on real IRs it could hide
+  the decay and the reflections. A file that is not an impulse response
+  (pre-peak margin below 10 dB; the stretch just before the peak is
+  excluded for max(2 ms, 2 / declared upper band edge), so a declared
+  sub-woofer IR passes) is refused, as is an IR whose direct sound is
+  weaker than a later arrival. `analyze-ir` now has tests.
+- **Session loader (#11).** `result.json` / `impulse_response.wav` are read
+  only from inside the session folder; absolute or escaping paths (and
+  symlinks leading out) are refused. Incomplete comparison and calibration
+  records raise `SessionError` instead of `TypeError`.
+- **ISO 3382-2 classes (#15).** Table 1 is now the standard's (4.3.1:
+  combinations 2 / 6 / 12, source positions ≥ 1 / ≥ 2 / ≥ 2, microphone
+  positions ≥ 2 / ≥ 2 / ≥ 3, read from the standard's preview pages); 0.4.0
+  asked for 3 / 6 microphone positions and did not check them for
+  engineering. Every row is checked, including the number of
+  source–microphone combinations. `roomscope project average` counts
+  distinct position labels, not sessions, so repeated takes at one position
+  are no longer labelled a survey-class spatial average; `--sources 0` is
+  refused.
+- **Source safety check (#16).** `scripts/check_src_safety.py` resolves
+  import aliases (`np.load`), reports `from os import system`, star imports
+  from `os` / `numpy`, the `os.exec*` / `os.spawn*` / `os.fork` families and
+  `asyncio.create_subprocess_*`, and treats `importlib.import_module` /
+  `__import__` like an import. It is a lint, not a sandbox.
+- Methodology reference numbers [17] / [18] were used twice; Allen & Berkley
+  and Dokmanić et al. are now [20] / [21].
+- `mypy --strict` is also clean when the PySide6 6.11 typed stubs are
+  installed.
+
+### Changed
+- The `dev` extra lists `hatchling` (MIT; already the build backend) so the
+  wheel build-hook test runs in CI (DEPENDENCIES.md §2).
+- `SECURITY.md` names the supported versions and how files received from
+  other people are treated; `docs/HARDWARE_TESTS.md` gains two rows
+  (no logged buffer problem in a full take; an unplugged device is reported
+  as a failure) and says what the automated backend tests do not show.
+- Coverage of `core` + `models` (branch coverage, the CI gate's measure) is
+  90.20 % (87.74 % on 0.4.0); the run is recorded in `docs/STATUS.md`.
+
 ## [0.4.0] - 2026-09-24
 
 First pre-release. Everything below was developed against synthetic rooms;
@@ -167,5 +266,6 @@ repository is still private. Review follow-ups are tracked as issues
   inverse filters were changed to unit *in-band* gain. They now compare
   against `reference_pulse()`. Methodology docs matched the implementation.
 
-[Unreleased]: https://github.com/jingyemingyue/RoomScope/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jingyemingyue/RoomScope/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/jingyemingyue/RoomScope/releases/tag/v0.4.1
 [0.4.0]: https://github.com/jingyemingyue/RoomScope/releases/tag/v0.4.0
