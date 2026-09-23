@@ -4,6 +4,26 @@ Snapshot: 2026-09-17, v0.1.0.dev1 (foundation). Everything below was
 verified by actually running it on macOS (Apple silicon, Python 3.12.14).
 Nothing is marked PASS that was not run.
 
+Snapshot 21: 2026-09-24 — **v0.4.0, first pre-release.** Milestones 0.2,
+0.3, 0.4 and the 1.0-rc software were reviewed and merged into `main`
+(PRs #5–#8; review follow-ups are issues #9–#16, listed in
+[RELEASE_PLAN.md](RELEASE_PLAN.md) §6). The release commit adds the
+verbatim LGPL-3.0 / GPL-3.0 / PortAudio texts to the license bundle and
+the `--strip` bundle gate that also catches `Qt6`-prefixed and versioned
+library names; the version-driven release workflow could not be pushed
+from the preparing session (no `workflow` permission) and is delivered to
+the maintainer (RELEASE_PLAN.md §3). **What was run
+for this snapshot:** the new gate and license-bundle tests (9 tests) on
+Linux x86_64 / Python 3.11 in a scratch layout; `ruff check` and
+`ruff format --check` on the changed files; the numpy macOS wheels were
+opened to establish the Accelerate-vs-OpenBLAS layouts. **What was not
+run here:** the full suite and mypy on the release commit (CI runs them;
+the last full local run is the 339/340 count of snapshot 20 on Linux),
+any bundle build (the release workflow builds them), any hardware cell.
+The zh-CN catalog covers three of seven profiles (#14); the earlier
+"findings translated" wording was an overclaim and is corrected in the
+CHANGELOG.
+
 Snapshot 2: 2026-09-22 — recording profiles (vocal, voice-over, acoustic
 guitar, drums, room mic, choir) added on top of the foundation; same
 verification policy.
@@ -33,10 +53,13 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
-Snapshot 20: 2026-09-22 — macOS wheel audit walks `.dylibs/`:
-`importlib.metadata` RECORD on the runner omitted numpy's hidden
-`.dylibs/` folder, so the OS-aware test still failed. `audit_installed`
-now merges on-disk natives next to the package. Hardware cells empty.
+Snapshot 20: 2026-09-22 — macOS wheel audit: the wheel-audit test still
+failed on the macOS runner. The diagnosis recorded at the time ("RECORD
+omitted numpy's hidden `.dylibs/` folder") was wrong; the actual cause,
+found on 2026-09-24, is that numpy's `macosx_14_0_arm64` wheel links Apple
+Accelerate and bundles no shared library at all (DEPENDENCIES.md §6). The
+`_on_disk_natives` merge in `audit_installed` is harmless and stays.
+Hardware cells empty.
 
 Snapshot 19: 2026-09-22 — M7 CLI output + README §6.4:
 remaining CLI messages (sweep next steps, devices table,
@@ -122,15 +145,15 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | Interpretation | Finding model (`message_id` / `params` / `locale`); messages through gettext `_()`; RecordingProfile registry + entry points; seven profiles; `interpret_comparison` |
 | CLI | `roomscope sweep / analyze / analyze-ir / show / compare / schema / devices / measure / gui / session bundle / export / project`; global `--lang`, `--format`, `--backend`, `--copy-recording` |
 | Public API | Lazy Tier 1 exports from `import roomscope` (ARCHITECTURE_V1.md §5.1) |
-| Loopback | Optional electrical return: pulse validation, regularised compensation, path-delay bound; refused room-like or clipped channels leave the analysis uncompensated |
-| Audio backends | `AudioBackend` protocol; PortAudio callback stream (progress, Stop); fake backend for CI and Demo |
-| Averaging | `average_decay`: VALID T values only; ISO 3382-2 class labelled from Table 1 (secondary-source transcription) |
+| Loopback | Optional electrical return: pulse validation, regularised compensation, path-delay bound; refused room-like or clipped channels leave the analysis uncompensated (time-origin caveat: #12) |
+| Audio backends | `AudioBackend` protocol; PortAudio callback stream (progress, Stop; see #13); fake backend for CI and Demo |
+| Averaging | `average_decay`: VALID T values only; ISO 3382-2 class labelled from Table 1 (secondary-source transcription, source to be named: #15) |
 | Export | CSV exporter for decay, FR, noise PSD, reflections, resonances; `roomscope.exporters` entry points |
-| i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG`; findings, GUI chrome, CLI help and text-report labels |
-| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections and resonances, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate, `gui --smoke`; DAW/Standalone/Results chrome through gettext |
+| i18n | stdlib gettext; `zh_CN` catalog for report labels, GUI chrome, CLI help and the generic / vocal / voiceover findings (other profiles and the safety warning: #14); `--lang` / settings / `ROOMSCOPE_LANG` |
+| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections and resonances, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate, `gui --smoke` |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
-| Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags (zip / tar / dmg / Inno script, `scripts/smoke_bundle.py` version + fake measure + offscreen GUI) |
-| Documentation | Hub at `docs/index.md`; themed HTML site from `scripts/build_docs_site.py` (S7) |
+| Bundles | `scripts/build_license_bundle.py` (verbatim LGPL-3.0 / GPL-3.0 / PortAudio texts from `packaging/licenses/`), `scripts/check_bundle_contents.py` (`--strip`, `--require-licenses`, `--installed-essentials`), `packaging/roomscope.spec`, `release.yml` (the version-driven workflow that opens a draft Release is delivered to the maintainer for installation, see RELEASE_PLAN.md §3; the committed workflow is still the earlier tag-only one), `scripts/smoke_bundle.py` |
+| Documentation | Hub at `docs/index.md`; themed HTML site from `scripts/build_docs_site.py` (S7); release plan in `docs/RELEASE_PLAN.md` |
 
 ## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
@@ -141,6 +164,11 @@ ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
 mypy        Success: no issues found in 69 source files (strict)
 ```
+
+The count above is the last full local run (snapshot 20, Linux). The
+2026-09-24 release commit adds five gate / license-bundle tests and one
+macOS-layout branch to the wheel-audit test; CI on the release commit is
+the record for those.
 
 The 2026-09-17 macOS log recorded 256 tests. Later DSP work replaced a
 peak-normalised inverse with unit in-band gain and consolidated some
@@ -210,6 +238,14 @@ as evidence):
   the fake backend zeroes the next callback block; `roomscope --backend
   fake measure` completes a Standalone session; GUI DAW-mode, Demo and
   pick-two compare offscreen.
+* Bundle gates (2026-09-24): the GPL gate rejects `QtCharts.abi3.so`,
+  `libQt6QuickTimeline.so.6`, `Qt6VirtualKeyboard.dll` and a
+  `QtCharts.framework` binary, ignores `.pyi` stubs and the stock
+  Essentials `Qt/lib`, `Qt/plugins`, `Qt/qml` trees in
+  `--installed-essentials` mode, and `--strip` removes the offenders and
+  leaves `libQt6Widgets.so.6` in place; the license bundle ships the
+  verbatim LGPL-3.0, GPL-3.0 and PortAudio texts and reports them as
+  unresolved when PySide6 is installed and the texts are missing.
 * macOS basic run: `roomscope sweep`, `roomscope analyze`,
   `roomscope devices` (12 Core Audio devices listed), the example script,
   and the GUI (offscreen) ran successfully. **Not run:** a real Standalone
@@ -226,10 +262,19 @@ algebra and the refusals, not the acoustics of any real surface.
 * A single session is still at most ISO 3382-2 "survey" accuracy.
   `average_decay` means VALID T values across a project's positions and
   names the Table 1 class; those thresholds are a secondary-source
-  transcription, not a purchased-standard verification. Decay curves are
+  transcription whose source is not yet named (#15). Decay curves are
   never averaged.
 * Direct sound = strongest deconvolved sample; a reflection stronger than the
   direct sound would be mis-identified (confidence margin does not catch it).
+* Loopback compensation advances the compensated response by about
+  `LOOPBACK_FIR_PRE_MS` (5 ms) because the interface FIR keeps its pre-roll
+  (#12); `path_delay_ms` is unaffected.
+* The frequency-response comparison interpolates the raw spectrum before
+  smoothing, so `band_mad_db` above a few kHz mostly reflects sampling of
+  the comb ripple (#9).
+* Progress is reported from inside the PortAudio callback and callback
+  errors are not surfaced (#13); a dropout on real hardware would not be
+  detected by the software.
 * Band filters are Butterworth, not certified IEC 61260 class 1; short
   decays in the 63/125 Hz bands are limited by B·T and are flagged.
 * Lundeby parameters (20 ms initial blocks, 5 intervals/10 dB, 7.5 dB
@@ -243,6 +288,8 @@ algebra and the refusals, not the acoustics of any real surface.
   devices (Universal DAW Mode relies on the DAW/interface clocking).
 * `result.json` with curves is several MB for long IRs (`--no-curves` to
   shrink); the raw IR WAV is the authoritative record.
+* zh-CN: findings of the acoustic_guitar, drums, room_mic and choir
+  profiles and the Standalone safety warning are shown in English (#14).
 * The GUI is functional but plain. Session re-opening, a folder/recent
   list, a two-session comparison, Settings, Demo/Stop, a `project.json`
   folder view and a Placement tab (S5) are in. There is no large session
@@ -254,7 +301,7 @@ VST3/AU/AAX plug-ins, room score, auto-EQ/correction, cloud/accounts, 3D
 room modelling, absorption material calculators, dB SPL, room-mode
 identification, phase display, signed desktop installers. A themed
 documentation site is generated from `docs/` (`scripts/build_docs_site.py`).
-Unsigned bundle scaffolding exists (`release.yml`);
+Unsigned bundles are built by `release.yml` when the version changes;
 a person installing a frozen bundle on macOS/Windows is not claimed.
 
 ## Dependencies
@@ -262,67 +309,54 @@ a person installing a frozen bundle on macOS/Windows is not claimed.
 Runtime: numpy 2.5.3, scipy 1.18.1, soundfile 0.14.0, sounddevice 0.5.6,
 matplotlib 3.11.2; optional GUI extra `gui`: PySide6_Essentials 6.11.2
 (Qt 6.11.2, LGPL; Addons not installed). Dev: pytest, pytest-cov, ruff,
-mypy. Full table with licenses: DEPENDENCIES.md.
+mypy, jsonschema. Full table with licenses: DEPENDENCIES.md.
 
 ## License status
 
 RoomScope: Apache-2.0 (LICENSE verbatim from apache.org, NOTICE present;
 rationale in LICENSE_DECISION.md). All runtime dependencies are permissive
 or LGPL used dynamically; no copyleft obligation reaches RoomScope's source.
-Obligations that apply to a future *binary* distribution (Qt LGPL texts and
+Obligations that apply to a *binary* distribution (Qt LGPL texts and
 notices, libsndfile LGPL, FreeType credit, PortAudio/Qhull/Agg notices,
-Windows ASIO DLL removal) are listed in DEPENDENCIES.md §3–4 and must be
-re-checked before any binary release.
+Windows ASIO DLL removal, GPL-only Qt module removal) are listed in
+DEPENDENCIES.md §3–§4 and are enforced by `build_license_bundle.py` and
+`check_bundle_contents.py --strip --require-licenses` in the release
+workflow. They must be re-checked whenever a dependency version changes.
 
 ## Third-party provenance
 
 No third-party source files vendored (CODE_PROVENANCE.md). Twenty-one
 external repositories were audited (THIRD_PARTY_REVIEW.md); all were used as
 conceptual references only. GPL projects (DRC, Aliki) and proprietary REW
-were not copied.
+were not copied. `packaging/licenses/` holds verbatim license *texts*
+(LGPL-3.0, GPL-3.0, PortAudio), not code.
 
 ## Known licensing risks
 
-* Frozen desktop builds must add Qt/PySide6 license texts (the wheels ship
-  none) and keep Qt as replaceable shared libraries.
+* Frozen desktop builds are unsigned until the maintainer holds signing
+  identities; the license bundle now carries the Qt / PySide6 texts and
+  Qt stays a set of replaceable shared libraries.
+* PySide6_Essentials 6.9+ wheels ship GPL-only Qt libraries
+  (`libQt6QuickTimeline.so.6`, the virtual-keyboard QML plugins) that
+  RoomScope never imports; the release workflow strips them from every
+  bundle and the gate fails if one survives.
 * Windows sounddevice wheels contain ASIO DLLs built with the proprietary
-  Steinberg SDK — strip them.
-* matplotlib's historical `ttconv` converter is gone in 3.8+ (DEPENDENCIES.md
-  §6). Linux x86_64 wheels of numpy/scipy/soundfile/sounddevice/
-  matplotlib/Pillow were opened on 2026-09-22; the Windows sounddevice
-  0.5.6 wheel lists `*-asio.dll` (still stripped by the bundle gate).
-  Windows win_amd64 wheels of numpy/scipy/soundfile/matplotlib/Pillow
-  were opened the same day (OpenBLAS + msvcp140 / libsndfile; no
-  `ttconv`; Pillow codecs live inside the `.pyd` files).
-  The license-bundle script fails if a required package ships no license.
+  Steinberg SDK — stripped by the same step.
+* numpy's macOS wheels differ by deployment target (Accelerate on
+  `macosx_14_0`, OpenBLAS + libgfortran/libquadmath on `macosx_11_0`); the
+  license bundle for a macOS build must be generated on the build machine
+  (DEPENDENCIES.md §6).
 * Two in-force patents adjacent to the field (US 9,959,883; US 10,816,391)
   are noted in MEASUREMENT_METHODOLOGY.md §10 so the design does not drift
   into them. Not a legal opinion.
 
-## Next recommended milestone (v1.0-rc)
+## Next recommended milestone
 
-0.4 exit criteria of [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) §10 that
-can be proven without a signed installer are implemented on this
-revision: gettext + zh-CN, self-contained sessions and bug-report
-bundles, user settings, projects/averaging, CSV export, the user guide,
-and the unsigned-bundle pipeline (license bundle with no unresolved
-required package, GPL/ASIO gate, `release.yml` on `v*` tags). A person
-installing a frozen bundle on macOS/Windows is **not** claimed here —
-those artifacts are produced by the release workflow when the maintainer
-pushes a tag. [HARDWARE_TESTS.md](HARDWARE_TESTS.md) is still empty.
-
-API and schema versions stay unfrozen: writers remain strict and readers
-lenient, but 1.0 will bump the package version and lock the Tier 1 list
-and schema integers only after the campaign and the hardware matrix have
-dated rows.
-
-The remaining MUST items are still 1.0-rc: API/schema freeze, the
-validation campaign *executed* (M11 protocol is written), the hardware
-matrix executed at least once per platform (M10), signed bundles or an
-explicit maintainer decision (M9 remainder), SECURITY / CONTRIBUTING /
-STATUS updated for the freeze, repository public (M13, maintainer),
-pre-release on PyPI (the workflow job exists; publishing is maintainer).
+See [RELEASE_PLAN.md](RELEASE_PLAN.md): v0.4.x patches for issues
+#9–#16, then v0.5.0 once the hardware matrix has its first dated PASS
+rows, then 1.0.0rc1 when every MUST item of ARCHITECTURE_V1.md §3.1 is
+closed. API and schema versions stay unfrozen until then.
 
 Maintainer-only actions that this work does not do: public visibility flip,
-a numbered GitHub Release, a license change, or rewriting published
-history.
+publishing a GitHub Release (which creates the tag), a license change, or
+rewriting published history.

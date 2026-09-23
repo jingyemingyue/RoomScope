@@ -18,6 +18,8 @@ The generator uses only the standard library. Open `site/index.html`.
 
 ## For developers
 
+- [Release plan](RELEASE_PLAN.md)
+- [Release plan (中文摘要)](RELEASE_PLAN.zh-CN.md)
 - [Architecture (v0.1)](ARCHITECTURE.md)
 - [Architecture v1.0](ARCHITECTURE_V1.md)
 - [Architecture v1.0 (中文摘要)](ARCHITECTURE_V1.zh-CN.md)
