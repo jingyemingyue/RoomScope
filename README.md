@@ -22,11 +22,13 @@ unit, its algorithm source and a validity flag; when the data is not good
 enough, RoomScope says *"Insufficient decay range"* instead of inventing a
 figure. There is deliberately no "room score".
 
-> Status: **v0.1 foundation, pre-alpha.** The DSP core, CLI and a minimal GUI
-> exist and are covered by synthetic tests. There is no packaged binary and no
-> numbered release yet. Developers can clone, install in editable mode and run
-> the suite; see [CONTRIBUTING.md](CONTRIBUTING.md). Snapshot of what works:
-> [docs/STATUS.md](docs/STATUS.md).
+> Status: **1.0-rc software in progress** ([ARCHITECTURE_V1.md](docs/ARCHITECTURE_V1.md)).
+> The DSP core, CLI, GUI, compare, loopback, zh-CN catalog, session bundles
+> and the unsigned-bundle workflow exist and are covered by synthetic tests.
+> There is no numbered GitHub Release and no PyPI publish yet. Hardware-matrix
+> cells and the validation campaign are empty. Developers can clone, install
+> in editable mode and run the suite; see [CONTRIBUTING.md](CONTRIBUTING.md).
+> Snapshot of what works: [docs/STATUS.md](docs/STATUS.md).
 
 ## Two workflows, one analysis core
 
@@ -58,7 +60,10 @@ Both modes call exactly the same analysis pipeline
 
 ## Install (development)
 
-Requires Python 3.12 or newer.
+Requires Python 3.12 or newer. **Supported for 1.0:** macOS 13+ (arm64,
+x86_64), Windows 10/11 x64, Linux x86_64 with glibc of the CI runner or
+newer, Python 3.12–3.14 for the wheel. Anything else may work and is not
+tested.
 
 ```bash
 git clone https://github.com/jingyemingyue/RoomScope.git
@@ -180,8 +185,9 @@ for r in result.reflections.reflections:
 
 | Document | Content |
 | --- | --- |
+| [docs/index.md](docs/index.md) | Documentation hub |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Package layout, data flow, extension points |
-| [docs/ARCHITECTURE_V1.md](docs/ARCHITECTURE_V1.md) | v1.0 design (proposal): the release open to everyone -- API and schema freeze, comparison, loopback channel, packaging, i18n, validation gates |
+| [docs/ARCHITECTURE_V1.md](docs/ARCHITECTURE_V1.md) | v1.0 design being executed: API tiers, comparison, loopback, packaging, i18n, validation gates |
 | [docs/ARCHITECTURE_V1.zh-CN.md](docs/ARCHITECTURE_V1.zh-CN.md) | Chinese digest of the v1.0 design |
 | [docs/MEASUREMENT_METHODOLOGY.md](docs/MEASUREMENT_METHODOLOGY.md) | Algorithms, units, validity rules, references |
 | [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) | Every runtime/dev dependency with license and purpose |
@@ -215,8 +221,8 @@ ruff check . && ruff format --check .
 mypy
 ```
 
-CI (pytest on Python 3.12 and 3.13, ruff, mypy, sdist/wheel) runs on every
-push and pull request.
+CI (pytest on Ubuntu 3.12–3.14 plus macOS/Windows 3.12, ruff, mypy,
+sdist/wheel) runs on every push and pull request.
 
 ## License
 

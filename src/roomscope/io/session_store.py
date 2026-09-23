@@ -18,7 +18,10 @@ import shutil
 import zipfile
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from roomscope.models.comparison import ComparisonResult
 
 from roomscope.errors import SessionError
 from roomscope.io.wav import read_wav, write_wav
@@ -27,6 +30,7 @@ from roomscope.models.session import MeasurementSession
 
 SESSION_FILE = "session.json"
 RESULT_FILE = "result.json"
+COMPARISON_FILE = "comparison.json"
 IR_FILE = "impulse_response.wav"
 RECORDING_FILE = "recording.wav"
 SWEEP_SIDECAR_NAME = "sweep.roomscope-sweep.json"
@@ -203,7 +207,7 @@ def load_session(path: str | Path) -> MeasurementSession:
 
 def load_result(path: str | Path) -> AnalysisResult:
     """Load an :class:`AnalysisResult` from ``result.json``."""
-    return AnalysisResult.from_dict(_read_json(Path(path)))
+    return AnalysisResult.from_dict(_read_json(Path(path), kind="result"))
 
 
 @dataclass(frozen=True)
@@ -290,10 +294,10 @@ def _session_file(path: str | Path) -> Path:
     return p
 
 
-def _read_json(path: Path) -> dict[str, Any]:
+def _read_json(path: Path, *, kind: str = "session") -> dict[str, Any]:
     from roomscope.io.jsonutil import read_json_object
 
-    return read_json_object(path, kind="session")
+    return read_json_object(path, kind=kind)
 
 
 def _resolve_member(directory: Path, stored: str | None, default_name: str) -> Path:
@@ -313,10 +317,22 @@ def save_comparison(path: str | Path, comparison: object) -> Path:
         raise SessionError("save_comparison expects a ComparisonResult")
     target = Path(path)
     if target.suffix.lower() != ".json":
-        target = target / "comparison.json"
+        target = target / COMPARISON_FILE
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
         target.write_text(json.dumps(comparison.to_dict(), indent=1), encoding="utf-8")
     except (OSError, TypeError, ValueError) as exc:
         raise SessionError(f"cannot write {target}: {exc}") from exc
     return target
+
+
+def load_comparison(path: str | Path) -> ComparisonResult:
+    """Read ``comparison.json``. Findings are not stored; re-derive them on load."""
+    from roomscope.models.comparison import ComparisonResult
+
+    target = Path(path)
+    if target.is_dir():
+        target = target / COMPARISON_FILE
+    if not target.is_file():
+        raise SessionError(f"comparison file not found: {target}")
+    return ComparisonResult.from_dict(_read_json(target, kind="comparison"))

@@ -41,6 +41,9 @@ pip install -e ".[dev,gui]"
 pytest                    # unit + integration + offscreen GUI smoke tests
 ruff check . && ruff format --check .
 mypy
+python scripts/build_docs_site.py --out site   # themed docs (S7)
+python scripts/smoke_bundle.py --no-gui --out /tmp/smoke-session   # fake measure
+# add --no-gui only for a CLI-only install; bundles run gui --smoke offscreen
 ```
 
 On Linux, Standalone Mode and the GUI tests also need PortAudio and a few Qt
@@ -51,7 +54,7 @@ sudo apt-get install -y libportaudio2 libegl1 libgl1 libxkbcommon0 libxcb-cursor
 ```
 
 All three of pytest / ruff / mypy must pass before a pull request is opened.
-GitHub Actions repeats them on Python 3.12 and 3.13. Tests that need audio
+GitHub Actions repeats them on Python 3.12, 3.13 and 3.14. Tests that need audio
 hardware are not part of the suite; synthetic signals are used instead.
 
 The `gui` extra installs **PySide6_Essentials** (LGPL-3.0), not the PySide6

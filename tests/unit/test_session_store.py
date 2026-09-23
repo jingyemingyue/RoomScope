@@ -6,15 +6,19 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from roomscope.core.compare import compare
 from roomscope.core.pipeline import Reference, analyze, synthetic_recording
 from roomscope.errors import SessionError
 from roomscope.io.session_store import (
+    COMPARISON_FILE,
     IR_FILE,
     RESULT_FILE,
     SESSION_FILE,
     list_sessions,
+    load_comparison,
     load_measurement,
     load_session,
+    save_comparison,
     save_measurement,
 )
 from roomscope.io.wav import read_wav
@@ -118,3 +122,21 @@ def test_list_sessions_skips_broken_and_orders_newest(
     assert names == ["Newer", "Older"]
     assert "Newer" in listings[0].label
     assert "RT60" in listings[0].label
+
+
+def test_save_and_load_comparison_does_not_store_findings(
+    tmp_path: Path, short_sweep: SweepSettings
+) -> None:
+    ir = make_rir(short_sweep.sample_rate, rt60_s=0.3)
+    rec = synthetic_recording(short_sweep, ir, noise_rms=1e-5)
+    result = analyze(rec, Reference.from_settings(short_sweep))
+    comparison = compare(result, result)
+    written = save_comparison(tmp_path / "out", comparison)
+    assert written == tmp_path / "out" / COMPARISON_FILE
+    payload = json.loads(written.read_text(encoding="utf-8"))
+    assert "findings" not in payload
+    loaded = load_comparison(tmp_path / "out")
+    assert loaded.comparable is comparison.comparable
+    assert loaded.schema_version == comparison.schema_version
+    again = load_comparison(written)
+    assert again.common_band == comparison.common_band

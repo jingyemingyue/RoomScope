@@ -56,6 +56,27 @@ def test_numbers_stay_ascii() -> None:
     activate("en")
 
 
+def test_daw_chrome_is_in_the_chinese_catalog() -> None:
+    activate("zh_CN")
+    assert _("Analyze") == "分析"
+    assert _("Step 1 - Generate Test Signal").startswith("步骤")
+    activate("en")
+
+
+def test_cli_help_and_report_labels_are_in_the_chinese_catalog() -> None:
+    activate("zh_CN")
+    assert _("write the ESS test signal WAV (+ JSON sidecar)").startswith("写出")
+    assert _(
+        "Reverberation (extrapolated to 60 dB; 'insuff.' = insufficient decay range)"
+    ).startswith("混响")
+    assert _("Comparable: {value}").startswith("可对比")
+    assert _("show this help message and exit") == "显示此帮助信息并退出"
+    assert _(
+        "Next: import the WAV into your DAW, play it through the monitors, record the measurement microphone,"
+    ).startswith("下一步")
+    activate("en")
+
+
 def test_parse_po_round_trip(tmp_path) -> None:
     import gettext
 

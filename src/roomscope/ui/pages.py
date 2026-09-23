@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from roomscope.audio.backend import DeviceInfo
 from roomscope.audio.playrec import (
     DEFAULT_STANDALONE_LEVEL_DBFS,
     SAFE_MAX_LEVEL_DBFS,
@@ -111,14 +112,14 @@ class HomePage(QWidget):
 
 
 def _metadata_form(state: MeasurementState) -> tuple[QGroupBox, QLineEdit, QLineEdit, QLineEdit]:
-    box = QGroupBox("Measurement metadata (optional)")
+    box = QGroupBox(_("Measurement metadata (optional)"))
     form = QFormLayout(box)
     room = QLineEdit(state.session.room_name)
     position = QLineEdit(state.session.measurement_position)
     mic = QLineEdit(state.session.microphone_name)
-    form.addRow("Room", room)
-    form.addRow("Position", position)
-    form.addRow("Microphone", mic)
+    form.addRow(_("Room"), room)
+    form.addRow(_("Position"), position)
+    form.addRow(_("Microphone"), mic)
     return box, room, position, mic
 
 
@@ -128,6 +129,64 @@ def _profile_combo(state: MeasurementState) -> QComboBox:
         combo.addItem(name, name)
     combo.setCurrentText(state.profile)
     return combo
+
+
+class PlacementInputs(QGroupBox):
+    """Optional tape measurements that raise the placement tier (S5)."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setTitle(_("Tape measurements (optional)"))
+        form = QFormLayout(self)
+        self.distance = QDoubleSpinBox()
+        self.distance.setRange(0.0, 15.0)
+        self.distance.setDecimals(2)
+        self.distance.setSingleStep(0.01)
+        self.distance.setSuffix(" m")
+        self.distance.setSpecialValueText(_("not measured"))
+        self.distance.setValue(0.0)
+        self.distance.setToolTip(_("Straight line from the loudspeaker to the microphone capsule."))
+        self.mic_height = QDoubleSpinBox()
+        self.mic_height.setRange(0.0, 5.0)
+        self.mic_height.setDecimals(2)
+        self.mic_height.setSingleStep(0.01)
+        self.mic_height.setSuffix(" m")
+        self.mic_height.setSpecialValueText(_("not measured"))
+        self.mic_height.setValue(0.0)
+        self.mic_height.setEnabled(False)
+        self.mic_height.setToolTip(
+            _("Capsule above the first solid horizontal surface below it. Needs the distance.")
+        )
+        self.temperature = QDoubleSpinBox()
+        self.temperature.setRange(-20.0, 50.0)
+        self.temperature.setDecimals(1)
+        self.temperature.setValue(20.0)
+        self.temperature.setSuffix(" C")
+        self.temperature.setEnabled(False)
+        self.temperature_measured = QCheckBox(_("air temperature measured"))
+        self.temperature_measured.toggled.connect(self.temperature.setEnabled)
+        self.distance.valueChanged.connect(self._sync_height)
+        form.addRow(_("Loudspeaker distance"), self.distance)
+        form.addRow(_("Microphone height"), self.mic_height)
+        form.addRow(self.temperature_measured, self.temperature)
+
+    def _sync_height(self, value: float) -> None:
+        allowed = value >= 0.20
+        self.mic_height.setEnabled(allowed)
+        if not allowed:
+            self.mic_height.setValue(0.0)
+
+    def analysis_kwargs(self) -> dict[str, float | None]:
+        distance = self.distance.value()
+        height = self.mic_height.value()
+        distance_m = distance if distance >= 0.20 else None
+        mic_height_m = height if distance_m is not None and height >= 0.02 else None
+        temperature_c = self.temperature.value() if self.temperature_measured.isChecked() else None
+        return {
+            "placement_distance_m": distance_m,
+            "placement_mic_height_m": mic_height_m,
+            "placement_temperature_c": temperature_c,
+        }
 
 
 class DawModePage(QWidget):
@@ -141,7 +200,7 @@ class DawModePage(QWidget):
         layout = QVBoxLayout(self)
 
         # Step 1
-        step1 = QGroupBox("Step 1 - Generate Test Signal")
+        step1 = QGroupBox(_("Step 1 - Generate Test Signal"))
         form1 = QFormLayout(step1)
         self.sample_rate = QComboBox()
         for sr in SUPPORTED_SAMPLE_RATES:
@@ -157,59 +216,64 @@ class DawModePage(QWidget):
         self.level.setRange(-40.0, 0.0)
         self.level.setValue(state.sweep_settings.level_dbfs)
         self.level.setSuffix(" dBFS")
-        form1.addRow("Sample rate", self.sample_rate)
-        form1.addRow("Sweep duration", self.duration)
-        form1.addRow("Peak level", self.level)
-        self.save_sweep_button = QPushButton("Save Test Signal WAV...")
+        form1.addRow(_("Sample rate"), self.sample_rate)
+        form1.addRow(_("Sweep duration"), self.duration)
+        form1.addRow(_("Peak level"), self.level)
+        self.save_sweep_button = QPushButton(_("Save Test Signal WAV..."))
         self.save_sweep_button.clicked.connect(self._choose_sweep_target)
-        self.sweep_label = QLabel("No test signal written yet.")
+        self.sweep_label = QLabel(_("No test signal written yet."))
         self.sweep_label.setWordWrap(True)
         form1.addRow(self.save_sweep_button)
         form1.addRow(self.sweep_label)
         layout.addWidget(step1)
 
         # Step 2
-        step2 = QGroupBox("Step 2 - Record Through Your DAW")
+        step2 = QGroupBox(_("Step 2 - Record Through Your DAW"))
         v2 = QVBoxLayout(step2)
-        instructions = QLabel(DAW_INSTRUCTIONS)
+        instructions = QLabel(_(DAW_INSTRUCTIONS))
         instructions.setWordWrap(True)
         v2.addWidget(instructions)
         layout.addWidget(step2)
 
         # Step 3
-        step3 = QGroupBox("Step 3 - Import Recording")
+        step3 = QGroupBox(_("Step 3 - Import Recording"))
         form3 = QFormLayout(step3)
-        self.recording_button = QPushButton("Choose Recording WAV...")
+        self.recording_button = QPushButton(_("Choose Recording WAV..."))
         self.recording_button.clicked.connect(self._choose_recording)
-        self.recording_label = QLabel("No recording selected.")
+        self.recording_label = QLabel(_("No recording selected."))
         self.recording_label.setWordWrap(True)
-        self.reference_button = QPushButton("Choose Reference Sweep...")
+        self.reference_button = QPushButton(_("Choose Reference Sweep..."))
         self.reference_button.clicked.connect(self._choose_reference)
-        self.reference_label = QLabel("Reference: the test signal from Step 1 (or choose a file).")
+        self.reference_label = QLabel(
+            _("Reference: the test signal from Step 1 (or choose a file).")
+        )
         self.reference_label.setWordWrap(True)
         self.channel = QComboBox()
-        self.channel.addItem("Auto (highest level)", None)
+        self.channel.addItem(_("Auto (highest level)"), None)
         self.loopback_channel = QComboBox()
-        self.loopback_channel.addItem("None", None)
+        self.loopback_channel.addItem(_("None"), None)
         form3.addRow(self.recording_button, self.recording_label)
         form3.addRow(self.reference_button, self.reference_label)
-        form3.addRow("Microphone channel", self.channel)
-        form3.addRow("Loopback channel", self.loopback_channel)
+        form3.addRow(_("Microphone channel"), self.channel)
+        form3.addRow(_("Loopback channel"), self.loopback_channel)
         layout.addWidget(step3)
 
         # Step 4
-        step4 = QGroupBox("Step 4 - Analyze")
+        step4 = QGroupBox(_("Step 4 - Analyze"))
         v4 = QVBoxLayout(step4)
         meta, self.room, self.position, self.mic = _metadata_form(state)
         v4.addWidget(meta)
+        self.placement = PlacementInputs()
+        v4.addWidget(self.placement)
         profile_form = QFormLayout()
         self.profile = _profile_combo(state)
-        profile_form.addRow("Recording profile", self.profile)
+        profile_form.addRow(_("Recording profile"), self.profile)
         v4.addLayout(profile_form)
         row = QHBoxLayout()
-        self.analyze_button = QPushButton("Analyze")
+        self.analyze_button = QPushButton(_("Analyze"))
+        self.analyze_button.setShortcut("Ctrl+Return")
         self.analyze_button.clicked.connect(self.start_analysis)
-        self.back_button = QPushButton("Back")
+        self.back_button = QPushButton(_("Back"))
         self.back_button.clicked.connect(self.back.emit)
         row.addWidget(self.back_button)
         row.addStretch(1)
@@ -234,8 +298,8 @@ class DawModePage(QWidget):
         )
 
     def _choose_sweep_target(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Save test signal", "roomscope_sweep.wav", "WAV files (*.wav)"
+        path, _filter = QFileDialog.getSaveFileName(
+            self, _("Save test signal"), "roomscope_sweep.wav", _("WAV files (*.wav)")
         )
         if path:
             self.generate_sweep_to(Path(path))
@@ -245,20 +309,25 @@ class DawModePage(QWidget):
             settings = self.current_sweep_settings()
             wav_path, sidecar = write_sweep_file(settings, path)
         except RoomScopeError as exc:
-            QMessageBox.critical(self, "Cannot write test signal", str(exc))
+            QMessageBox.critical(self, _("Cannot write test signal"), str(exc))
             return
         self.state.sweep_settings = settings
         self.state.sweep_path = wav_path
         self.state.reference = Reference.from_settings(settings)
         self.sweep_label.setText(
-            f"Written: {wav_path.name} (+ {sidecar.name}). Keep both files together."
+            _("Written: {wav} (+ {sidecar}). Keep both files together.").format(
+                wav=wav_path.name, sidecar=sidecar.name
+            )
         )
-        self.reference_label.setText(f"Reference: {wav_path.name}")
+        self.reference_label.setText(_("Reference: {name}").format(name=wav_path.name))
 
     # --- step 3 -----------------------------------------------------------------
     def _choose_recording(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Choose recording", "", "Audio files (*.wav *.flac *.aif *.aiff)"
+        path, _filter = QFileDialog.getOpenFileName(
+            self,
+            _("Choose recording"),
+            "",
+            _("Audio files (*.wav *.flac *.aif *.aiff)"),
         )
         if path:
             self.set_recording(Path(path))
@@ -267,24 +336,33 @@ class DawModePage(QWidget):
         try:
             recording = read_wav(path)
         except RoomScopeError as exc:
-            QMessageBox.critical(self, "Cannot read recording", str(exc))
+            QMessageBox.critical(self, _("Cannot read recording"), str(exc))
             return
         self.state.recording = recording
         self.state.recording_path = path
         self.channel.clear()
-        self.channel.addItem("Auto (highest level)", None)
+        self.channel.addItem(_("Auto (highest level)"), None)
         self.loopback_channel.clear()
-        self.loopback_channel.addItem("None", None)
+        self.loopback_channel.addItem(_("None"), None)
         for index in range(recording.n_channels):
-            self.channel.addItem(f"Channel {index + 1}", index)
-            self.loopback_channel.addItem(f"Channel {index + 1}", index)
+            label = _("Channel {n}").format(n=index + 1)
+            self.channel.addItem(label, index)
+            self.loopback_channel.addItem(label, index)
         self.recording_label.setText(
-            f"{path.name}: {recording.duration_s:.1f} s, {recording.sample_rate} Hz, {recording.n_channels} channel(s)"
+            _("{name}: {seconds:.1f} s, {rate} Hz, {channels} channel(s)").format(
+                name=path.name,
+                seconds=recording.duration_s,
+                rate=recording.sample_rate,
+                channels=recording.n_channels,
+            )
         )
 
     def _choose_reference(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Choose reference sweep", "", "Sweep files (*.wav *.json);;All files (*)"
+        path, _filter = QFileDialog.getOpenFileName(
+            self,
+            _("Choose reference sweep"),
+            "",
+            _("Sweep files (*.wav *.json);;All files (*)"),
         )
         if path:
             self.set_reference(Path(path))
@@ -293,31 +371,37 @@ class DawModePage(QWidget):
         try:
             self.state.reference = load_reference(path)
         except RoomScopeError as exc:
-            QMessageBox.critical(self, "Cannot read reference sweep", str(exc))
+            QMessageBox.critical(self, _("Cannot read reference sweep"), str(exc))
             return
         self.state.sweep_path = path
         if self.state.reference.settings is not None:
             self.state.sweep_settings = self.state.reference.settings
-        self.reference_label.setText(f"Reference: {path.name}")
+        self.reference_label.setText(_("Reference: {name}").format(name=path.name))
 
     # --- step 4 -----------------------------------------------------------------
     def start_analysis(self, *, blocking: bool = False) -> None:
         if self.state.recording is None:
             QMessageBox.warning(
-                self, "No recording", "Choose the recorded WAV file first (Step 3)."
+                self, _("No recording"), _("Choose the recorded WAV file first (Step 3).")
             )
             return
         if self.state.reference is None:
             QMessageBox.warning(
-                self, "No reference", "Generate the test signal (Step 1) or choose the sweep file."
+                self,
+                _("No reference"),
+                _("Generate the test signal (Step 1) or choose the sweep file."),
             )
             return
         channel = self.channel.currentData()
         loopback = self.loopback_channel.currentData()
         self.state.profile = str(self.profile.currentData())
+        place = self.placement.analysis_kwargs()
         self.state.analysis_settings = AnalysisSettings(
             channel=None if channel is None else int(channel),
             loopback_channel=None if loopback is None else int(loopback),
+            placement_distance_m=place["placement_distance_m"],
+            placement_mic_height_m=place["placement_mic_height_m"],
+            placement_temperature_c=place["placement_temperature_c"],
         )
         self.state.session = MeasurementSession(
             mode="universal_daw",
@@ -330,7 +414,7 @@ class DawModePage(QWidget):
             recording_path=str(self.state.recording_path) if self.state.recording_path else None,
             recording_profile=self.state.profile,
         )
-        self._set_busy(True, "Analyzing...")
+        self._set_busy(True, _("Analyzing..."))
         self._worker = AnalysisWorker(
             self.state.recording, self.state.reference, self.state.analysis_settings
         )
@@ -349,12 +433,12 @@ class DawModePage(QWidget):
     def _on_success(self, result: AnalysisResult) -> None:
         self.state.result = result
         self.state.findings = interpret(result, self.state.profile)
-        self._set_busy(False, "Done.")
+        self._set_busy(False, _("Done."))
         self.analysis_finished.emit()
 
     def _on_failure(self, message: str) -> None:
-        self._set_busy(False, f"Analysis failed: {message}")
-        QMessageBox.critical(self, "Analysis failed", message)
+        self._set_busy(False, _("Analysis failed: {message}").format(message=message))
+        QMessageBox.critical(self, _("Analysis failed"), message)
 
 
 class StandalonePage(QWidget):
@@ -365,28 +449,29 @@ class StandalonePage(QWidget):
         super().__init__(parent)
         self.state = state
         self.demo_mode = False
+        self._devices: list[DeviceInfo] = []
         self._measure_worker: MeasureWorker | None = None
         self._analysis_worker: AnalysisWorker | None = None
         layout = QVBoxLayout(self)
 
         self.demo_banner = QLabel(
-            "Demo mode: the fake backend synthesises a room. Nothing is sent to a loudspeaker."
+            _("Demo mode: the fake backend synthesises a room. Nothing is sent to a loudspeaker.")
         )
         self.demo_banner.setWordWrap(True)
         self.demo_banner.setStyleSheet("font-weight: bold;")
         self.demo_banner.hide()
         layout.addWidget(self.demo_banner)
 
-        safety = QLabel(SAFETY_MESSAGE)
+        safety = QLabel(_(SAFETY_MESSAGE))
         safety.setWordWrap(True)
         safety.setStyleSheet("font-weight: bold;")
         layout.addWidget(safety)
 
-        devices = QGroupBox("Audio devices")
+        devices = QGroupBox(_("Audio devices"))
         form = QFormLayout(devices)
         self.input_device = QComboBox()
         self.output_device = QComboBox()
-        self.refresh_button = QPushButton("Refresh devices")
+        self.refresh_button = QPushButton(_("Refresh devices"))
         self.refresh_button.clicked.connect(self.refresh_devices)
         self.sample_rate = QComboBox()
         for sr in SUPPORTED_SAMPLE_RATES:
@@ -398,21 +483,25 @@ class StandalonePage(QWidget):
         self.input_channel.setRange(1, 64)
         self.loopback_channel = QSpinBox()
         self.loopback_channel.setRange(0, 64)
-        self.loopback_channel.setSpecialValueText("unused")
+        self.loopback_channel.setSpecialValueText(_("unused"))
         self.output_channel = QSpinBox()
         self.output_channel.setRange(1, 64)
-        self.device_rate = QLabel("Device rate: unknown")
-        form.addRow("Input device", self.input_device)
-        form.addRow("Output device", self.output_device)
+        self.device_rate = QLabel(_("Device rate: unknown"))
+        self.device_rate.setWordWrap(True)
+        self.input_device.currentIndexChanged.connect(self._update_device_rate)
+        self.output_device.currentIndexChanged.connect(self._update_device_rate)
+        self.sample_rate.currentIndexChanged.connect(self._update_device_rate)
+        form.addRow(_("Input device"), self.input_device)
+        form.addRow(_("Output device"), self.output_device)
         form.addRow(self.refresh_button)
-        form.addRow("Sample rate", self.sample_rate)
+        form.addRow(_("Sample rate"), self.sample_rate)
         form.addRow(self.device_rate)
-        form.addRow("Input channel (mic)", self.input_channel)
-        form.addRow("Loopback channel (1-based)", self.loopback_channel)
-        form.addRow("Output channel (speaker)", self.output_channel)
+        form.addRow(_("Input channel (mic)"), self.input_channel)
+        form.addRow(_("Loopback channel (1-based)"), self.loopback_channel)
+        form.addRow(_("Output channel (speaker)"), self.output_channel)
         layout.addWidget(devices)
 
-        sweep = QGroupBox("Test signal")
+        sweep = QGroupBox(_("Test signal"))
         form2 = QFormLayout(sweep)
         self.duration = QDoubleSpinBox()
         self.duration.setRange(1.0, 60.0)
@@ -423,24 +512,30 @@ class StandalonePage(QWidget):
         self.level.setValue(DEFAULT_STANDALONE_LEVEL_DBFS)
         self.level.setSuffix(" dBFS")
         self.acknowledge = QCheckBox(
-            f"I have set the monitor level low (required above {SAFE_MAX_LEVEL_DBFS:g} dBFS)"
+            _("I have set the monitor level low (required above {level:g} dBFS)").format(
+                level=SAFE_MAX_LEVEL_DBFS
+            )
         )
-        form2.addRow("Sweep duration", self.duration)
-        form2.addRow("Playback level", self.level)
+        form2.addRow(_("Sweep duration"), self.duration)
+        form2.addRow(_("Playback level"), self.level)
         form2.addRow(self.acknowledge)
         self.profile = _profile_combo(state)
-        form2.addRow("Recording profile", self.profile)
+        form2.addRow(_("Recording profile"), self.profile)
         layout.addWidget(sweep)
 
         meta, self.room, self.position, self.mic = _metadata_form(state)
         layout.addWidget(meta)
+        self.placement = PlacementInputs()
+        layout.addWidget(self.placement)
 
         row = QHBoxLayout()
-        self.back_button = QPushButton("Back")
+        self.back_button = QPushButton(_("Back"))
         self.back_button.clicked.connect(self.back.emit)
-        self.run_button = QPushButton("Run Measurement")
+        self.run_button = QPushButton(_("Run Measurement"))
+        self.run_button.setShortcut("Ctrl+Return")
         self.run_button.clicked.connect(self.start_measurement)
-        self.stop_button = QPushButton("Stop")
+        self.stop_button = QPushButton(_("Stop"))
+        self.stop_button.setShortcut("Esc")
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_measurement)
         row.addWidget(self.back_button)
@@ -464,32 +559,81 @@ class StandalonePage(QWidget):
         self.demo_banner.setVisible(self.demo_mode)
         self.input_device.clear()
         self.output_device.clear()
-        self.input_device.addItem("System default", None)
-        self.output_device.addItem("System default", None)
+        self.input_device.addItem(_("System default"), None)
+        self.output_device.addItem(_("System default"), None)
         try:
             backend = get_backend("fake" if self.demo_mode else None)
             devices = backend.list_devices()
         except RoomScopeError as exc:
+            self._devices = []
+            self._update_device_rate()
             self.status.setText(f"Audio backend unavailable: {exc}")
             self.run_button.setEnabled(False)
             return
-        default_rate = None
+        self._devices = list(devices)
         for d in devices:
             label = f"[{d.index}] {d.name} ({d.host_api})"
             if d.is_input:
                 self.input_device.addItem(label + f" - {d.max_input_channels} in", d.index)
             if d.is_output:
                 self.output_device.addItem(label + f" - {d.max_output_channels} out", d.index)
-            if d.is_default_input or d.is_default_output:
-                default_rate = d.default_sample_rate
-        self.device_rate.setText(
-            f"Device rate: {default_rate:.0f} Hz" if default_rate else "Device rate: unknown"
-        )
+        self._update_device_rate()
         self.run_button.setEnabled(True)
         if self.demo_mode:
-            self.status.setText("Demo mode: fake backend, no loudspeaker.")
+            self.status.setText(_("Demo mode: fake backend, no loudspeaker."))
         else:
-            self.status.setText(f"{len(devices)} audio device(s) found.")
+            self.status.setText(_("{n} audio device(s) found.").format(n=len(devices)))
+
+    def _device_for(self, combo: QComboBox, *, kind: str) -> DeviceInfo | None:
+        index = combo.currentData()
+        for device in self._devices:
+            if index is None:
+                if kind == "input" and device.is_default_input:
+                    return device
+                if kind == "output" and device.is_default_output:
+                    return device
+            elif device.index == index:
+                return device
+        return None
+
+    def _update_device_rate(self) -> None:
+        requested = self.sample_rate.currentData()
+        requested_hz = int(requested) if requested is not None else 0
+        inp = self._device_for(self.input_device, kind="input")
+        out = self._device_for(self.output_device, kind="output")
+        parts: list[str] = []
+        if inp is not None:
+            parts.append(f"in {inp.default_sample_rate:.0f} Hz")
+        if out is not None and (
+            inp is None
+            or out.index != inp.index
+            or abs(out.default_sample_rate - inp.default_sample_rate) > 0.5
+        ):
+            parts.append(f"out {out.default_sample_rate:.0f} Hz")
+        device_txt = ", ".join(parts) if parts else _("unknown")
+        text = _("Device rate: {device}  (requested {requested} Hz)").format(
+            device=device_txt, requested=requested_hz
+        )
+        mismatch = False
+        for device in (inp, out):
+            if (
+                device is not None
+                and requested_hz
+                and abs(device.default_sample_rate - requested_hz) > 1.0
+            ):
+                mismatch = True
+        if mismatch:
+            text += _(" — rates differ; the interface may resample")
+        self.device_rate.setText(text)
+
+    def _check_selected_rates(self, sample_rate: int) -> None:
+        from roomscope.audio.backend import get_backend
+
+        backend = get_backend("fake" if self.demo_mode else None)
+        for kind, combo in (("input", self.input_device), ("output", self.output_device)):
+            device = self._device_for(combo, kind=kind)
+            if device is not None:
+                backend.check_sample_rate(device.index, sample_rate, kind=kind)
 
     def current_sweep_settings(self) -> SweepSettings:
         return SweepSettings(
@@ -502,15 +646,22 @@ class StandalonePage(QWidget):
         try:
             settings = self.current_sweep_settings()
         except RoomScopeError as exc:
-            QMessageBox.critical(self, "Invalid settings", str(exc))
+            QMessageBox.critical(self, _("Invalid settings"), str(exc))
             return
         if settings.level_dbfs > SAFE_MAX_LEVEL_DBFS and not self.acknowledge.isChecked():
             QMessageBox.warning(
                 self,
-                "Level too high",
-                f"Levels above {SAFE_MAX_LEVEL_DBFS:g} dBFS need the acknowledgement checkbox. "
-                "Set the monitor level low first.",
+                _("Level too high"),
+                _(
+                    "Levels above {level:g} dBFS need the acknowledgement checkbox. "
+                    "Set the monitor level low first."
+                ).format(level=SAFE_MAX_LEVEL_DBFS),
             )
+            return
+        try:
+            self._check_selected_rates(settings.sample_rate)
+        except RoomScopeError as exc:
+            QMessageBox.critical(self, _("Sample rate not supported"), str(exc))
             return
         self.state.mode = "standalone"
         self.state.sweep_settings = settings
@@ -522,11 +673,16 @@ class StandalonePage(QWidget):
             if hardware_loopback not in channels:
                 channels.append(hardware_loopback)
             analysis_loopback = channels.index(hardware_loopback)
+        place = self.placement.analysis_kwargs()
         self.state.analysis_settings = AnalysisSettings(
-            channel=0, loopback_channel=analysis_loopback
+            channel=0,
+            loopback_channel=analysis_loopback,
+            placement_distance_m=place["placement_distance_m"],
+            placement_mic_height_m=place["placement_mic_height_m"],
+            placement_temperature_c=place["placement_temperature_c"],
         )
         self.state.profile = str(self.profile.currentData())
-        self._set_busy(True, "Playing the sweep and recording...")
+        self._set_busy(True, _("Playing the sweep and recording..."))
         self._measure_worker = MeasureWorker(
             measurement_signal(settings),
             settings.sample_rate,
@@ -551,7 +707,7 @@ class StandalonePage(QWidget):
         self.progress.setValue(int(fraction * 100.0))
 
     def _on_stopped(self) -> None:
-        self._set_busy(False, "Stopped.")
+        self._set_busy(False, _("Stopped."))
 
     def _on_recorded(self, recording: AudioSignal) -> None:
         self.state.recording = recording
@@ -573,7 +729,7 @@ class StandalonePage(QWidget):
             recording_profile=self.state.profile,
         )
         assert self.state.reference is not None
-        self.status.setText("Recorded. Analyzing...")
+        self.status.setText(_("Recorded. Analyzing..."))
         self._analysis_worker = AnalysisWorker(
             recording, self.state.reference, self.state.analysis_settings
         )
@@ -593,9 +749,9 @@ class StandalonePage(QWidget):
     def _on_success(self, result: AnalysisResult) -> None:
         self.state.result = result
         self.state.findings = interpret(result, self.state.profile)
-        self._set_busy(False, "Done.")
+        self._set_busy(False, _("Done."))
         self.analysis_finished.emit()
 
     def _on_failure(self, message: str) -> None:
-        self._set_busy(False, f"Measurement failed: {message}")
-        QMessageBox.critical(self, "Measurement failed", message)
+        self._set_busy(False, _("Measurement failed: {message}").format(message=message))
+        QMessageBox.critical(self, _("Measurement failed"), message)

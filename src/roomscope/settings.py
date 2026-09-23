@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from roomscope.errors import SessionError
+from roomscope.io.jsonutil import read_json_object
 from roomscope.io.recent import roomscope_home
 from roomscope.models.loadutil import drop_unknown, read_schema_version
 
@@ -63,12 +64,9 @@ def load_settings() -> UserSettings:
     if not path.is_file():
         return UserSettings()
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        payload = read_json_object(path, kind="settings")
+    except SessionError as exc:
         log.info("ignoring unreadable settings file %s: %s", path, exc)
-        return UserSettings()
-    if not isinstance(payload, dict):
-        log.info("ignoring settings file %s: not a JSON object", path)
         return UserSettings()
     try:
         return UserSettings.from_dict(payload)

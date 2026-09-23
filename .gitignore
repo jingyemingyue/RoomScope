@@ -82,6 +82,9 @@ scratch/
 # --- gettext (compiled at packaging time; do not commit) ---
 *.mo
 
+# --- Generated documentation site (S7) ---
+site/
+
 # --- Packaging outputs ---
 *.dmg
 *.app/

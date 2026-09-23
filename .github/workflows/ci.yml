@@ -20,8 +20,8 @@ jobs:
     name: Lint and type-check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
           cache: pip
@@ -32,37 +32,22 @@ jobs:
         run: ruff check . && ruff format --check .
       - name: Mypy
         run: mypy
-      - name: No-network imports under src/
+      - name: Documentation links
+        run: python scripts/check_doc_links.py
+      - name: Themed documentation site
         run: |
-          python - <<'PY'
-          import ast, pathlib, sys
-          banned = {"socket", "urllib", "http", "requests", "ssl"}
-          root = pathlib.Path("src")
-          bad = []
-          for path in root.rglob("*.py"):
-              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-              for node in ast.walk(tree):
-                  if isinstance(node, ast.Import):
-                      names = [a.name.split(".")[0] for a in node.names]
-                  elif isinstance(node, ast.ImportFrom) and node.module:
-                      names = [node.module.split(".")[0]]
-                  else:
-                      continue
-                  hits = [n for n in names if n in banned]
-                  if hits:
-                      bad.append(f"{path}: {hits}")
-          if bad:
-              print("\n".join(bad))
-              sys.exit(1)
-          print("no banned network imports")
-          PY
+          python scripts/build_docs_site.py --out /tmp/roomscope-site
+          test -f /tmp/roomscope-site/index.html
+          test -f /tmp/roomscope-site/assets/theme.css
+      - name: No-network imports and no shell-outs under src/
+        run: python scripts/check_src_safety.py
 
   schemas:
     name: JSON Schemas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
           cache: pip
@@ -86,7 +71,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
         include:
           - os: macos-latest
             python-version: "3.12"
@@ -95,8 +80,8 @@ jobs:
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -125,7 +110,13 @@ jobs:
       - name: Install
         run: pip install -e ".[dev,gui]"
       - name: Pytest
-        run: pytest
+        shell: bash
+        run: |
+          extra=()
+          if [ "${{ runner.os }}" = "Linux" ] && [ "${{ matrix.python-version }}" = "3.12" ]; then
+            extra=(--cov=roomscope.core --cov=roomscope.models --cov-fail-under=85 --cov-report=term)
+          fi
+          pytest "${extra[@]}"
       - name: Standalone flow on the fake backend
         shell: bash
         run: |
@@ -140,8 +131,8 @@ jobs:
     name: sdist and wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
           cache: pip
@@ -151,15 +142,15 @@ jobs:
           pip install build
           python -m build
           pip install dist/*.whl
-          python -c "import roomscope; print(roomscope.__version__)"
+          python -c "import roomscope; roomscope.analyze; print(roomscope.__version__)"
           roomscope --help
 
   bundle-gates:
     name: License bundle and GPL-module gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
           cache: pip

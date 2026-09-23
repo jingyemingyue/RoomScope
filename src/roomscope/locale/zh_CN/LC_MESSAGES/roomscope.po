@@ -128,6 +128,9 @@ msgstr "音频后端"
 msgid "Default output folder"
 msgstr "默认输出文件夹"
 
+msgid "&Measure"
+msgstr "测量(&M)"
+
 msgid "&File"
 msgstr "文件(&F)"
 
@@ -298,3 +301,887 @@ msgstr "可能的低频共振约在 {listed}：这些频率在响应中突出，
 
 msgid "Potential low-frequency resonances around {listed}: these frequencies stand out in the response and ring longer than their surroundings, which colours voice and dialogue. Move the microphone or treat the affected corner, then measure again."
 msgstr "可能的低频共振约在 {listed}：这些频率在响应中突出并且比周围更长地响起，会给人声和对白染色。移动话筒或处理该角落，然后重测。"
+
+msgid "Tape measurements (optional)"
+msgstr "卷尺测量（可选）"
+
+msgid "not measured"
+msgstr "未测量"
+
+msgid "Straight line from the loudspeaker to the microphone capsule."
+msgstr "扬声器到话筒振膜的直线距离。"
+
+msgid "Capsule above the first solid horizontal surface below it. Needs the distance."
+msgstr "振膜到其下方第一块水平固体表面的高度。需要先填距离。"
+
+msgid "air temperature measured"
+msgstr "已测量气温"
+
+msgid "Loudspeaker distance"
+msgstr "扬声器距离"
+
+msgid "Microphone height"
+msgstr "话筒高度"
+
+msgid "Overview"
+msgstr "总览"
+
+msgid "Impulse Response"
+msgstr "脉冲响应"
+
+msgid "Frequency Response"
+msgstr "频率响应"
+
+msgid "Decay"
+msgstr "衰减"
+
+msgid "Noise"
+msgstr "噪声"
+
+msgid "Early Reflections"
+msgstr "早期反射"
+
+msgid "Placement"
+msgstr "摆位"
+
+msgid "Figure"
+msgstr "量"
+
+msgid "Value"
+msgstr "数值"
+
+msgid "Validity"
+msgstr "有效性"
+
+msgid "Note"
+msgstr "说明"
+
+msgid "Delay (ms)"
+msgstr "延迟（ms）"
+
+msgid "Level (dB)"
+msgstr "电平（dB）"
+
+msgid "Excess path (m)"
+msgstr "多余路径（m）"
+
+msgid "Surface"
+msgstr "表面"
+
+msgid "Plane?"
+msgstr "平面？"
+
+msgid "No placement result. Add a loudspeaker distance to raise the tier."
+msgstr "没有摆位结果。补上扬声器距离可提高档位。"
+
+msgid "Placement tier {tier}. No coordinates, room length, room width or named wall are derived. Speed of sound {speed:.1f} m/s at {temp:.0f} C{assumed}."
+msgstr "摆位档位 {tier}。不推导坐标、房间长宽或具名墙面。声速 {speed:.1f} m/s，气温 {temp:.0f} C{assumed}。"
+
+msgid " (assumed)"
+msgstr "（假定）"
+
+msgid "Loudspeaker height"
+msgstr "扬声器高度"
+
+msgid "Plane above the devices"
+msgstr "设备上方平面"
+
+msgid "Horizontal separation"
+msgstr "水平间距"
+
+msgid "not determined"
+msgstr "未确定"
+
+msgid "yes"
+msgstr "是"
+
+msgid "no"
+msgstr "否"
+
+msgid "untested"
+msgstr "未检验"
+
+msgid "&Third-party licenses..."
+msgstr "第三方许可证(&T)..."
+
+msgid "Third-party licenses"
+msgstr "第三方许可证"
+
+msgid "No THIRD_PARTY_LICENSES directory was found next to this executable. See docs/DEPENDENCIES.md in the source tree."
+msgstr "可执行文件旁没有 THIRD_PARTY_LICENSES 目录。源码树中见 docs/DEPENDENCIES.md。"
+
+msgid "construct the window offscreen and exit (bundle smoke; no loudspeaker)"
+msgstr "离屏构建窗口后退出（打包冒烟测试；不对扬声器发声）"
+
+msgid "Compare two sessions. Select two rows, or pick each path."
+msgstr "对比两个会话。选中两行，或分别填写路径。"
+
+msgid "Baseline session"
+msgstr "基线会话"
+
+msgid "Candidate session"
+msgstr "候选会话"
+
+msgid "Baseline..."
+msgstr "基线…"
+
+msgid "Candidate..."
+msgstr "候选…"
+
+msgid "Input gain unchanged"
+msgstr "输入增益未变"
+
+msgid "Required for a VALID noise delta. Leave unchecked if the preamp gain may have changed."
+msgstr "噪声差值要为 VALID 必须勾选。若前置增益可能变过，请不要勾选。"
+
+msgid "Compare"
+msgstr "对比"
+
+msgid "Save comparison.json..."
+msgstr "保存 comparison.json…"
+
+msgid "Back"
+msgstr "返回"
+
+msgid "Metric"
+msgstr "指标"
+
+msgid "Baseline"
+msgstr "基线"
+
+msgid "Candidate"
+msgstr "候选"
+
+msgid "Delta"
+msgstr "差值"
+
+msgid "Validity"
+msgstr "有效性"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Baseline (ms / dB)"
+msgstr "基线（ms / dB）"
+
+msgid "Candidate (ms / dB)"
+msgstr "候选（ms / dB）"
+
+msgid "Δ level (dB)"
+msgstr "电平差（dB）"
+
+msgid "Baseline (Hz)"
+msgstr "基线（Hz）"
+
+msgid "Candidate (Hz)"
+msgstr "候选（Hz）"
+
+msgid "Decay distinguishable"
+msgstr "衰减可区分"
+
+msgid "Choose two sessions first."
+msgstr "请先选择两个会话。"
+
+msgid "Cannot compare"
+msgstr "无法对比"
+
+msgid "Frequency-response difference (candidate − baseline)"
+msgstr "频率响应差值（候选 − 基线）"
+
+msgid "Mean absolute difference per octave: {bits}"
+msgstr "每个倍频程的平均绝对差：{bits}"
+
+msgid "No difference curve"
+msgstr "没有差值曲线"
+
+msgid "Save comparison"
+msgstr "保存对比"
+
+msgid "Run a comparison first."
+msgstr "请先运行一次对比。"
+
+msgid "Save comparison.json"
+msgstr "保存 comparison.json"
+
+msgid "JSON files (*.json)"
+msgstr "JSON 文件 (*.json)"
+
+msgid "Cannot save"
+msgstr "无法保存"
+
+msgid "Wrote {path}"
+msgstr "已写入 {path}"
+
+msgid "Open session"
+msgstr "打开会话"
+
+msgid "Session files (session.json);;JSON files (*.json);;All files (*)"
+msgstr "会话文件 (session.json);;JSON 文件 (*.json);;所有文件 (*)"
+
+msgid "Measurement metadata (optional)"
+msgstr "测量元数据（可选）"
+
+msgid "Room"
+msgstr "房间"
+
+msgid "Position"
+msgstr "位置"
+
+msgid "Microphone"
+msgstr "话筒"
+
+msgid "Step 1 - Generate Test Signal"
+msgstr "步骤 1 — 生成测试信号"
+
+msgid "Sample rate"
+msgstr "采样率"
+
+msgid "Sweep duration"
+msgstr "扫描时长"
+
+msgid "Peak level"
+msgstr "峰值电平"
+
+msgid "Save Test Signal WAV..."
+msgstr "保存测试信号 WAV…"
+
+msgid "No test signal written yet."
+msgstr "尚未写出测试信号。"
+
+msgid "Step 2 - Record Through Your DAW"
+msgstr "步骤 2 — 在 DAW 中录音"
+
+msgid "1. Import the test-signal WAV on a new track of your DAW project.\n2. Route that track to the monitors (or the loudspeaker you want to test).\n3. Arm a second track with the measurement microphone and record while the test signal plays.\n4. Export / bounce the recorded track as a WAV file at the project sample rate.\n   Do not trim it - RoomScope finds the sweep automatically.\nStart with a low monitor level; the sweep should be clearly audible but not loud."
+msgstr "1. 把测试信号 WAV 导入 DAW 项目的新轨道。\n2. 将该轨道路由到监听（或要测的扬声器）。\n3. 用测量话筒武装第二条轨道，在测试信号播放时录音。\n4. 按工程采样率导出/bounce 为 WAV。\n   不要裁切——RoomScope 会自动找到扫描。\n先把监听开低；扫描应清楚可闻，但不要很大声。"
+
+msgid "Step 3 - Import Recording"
+msgstr "步骤 3 — 导入录音"
+
+msgid "Choose Recording WAV..."
+msgstr "选择录音 WAV…"
+
+msgid "No recording selected."
+msgstr "尚未选择录音。"
+
+msgid "Choose Reference Sweep..."
+msgstr "选择参考扫描…"
+
+msgid "Reference: the test signal from Step 1 (or choose a file)."
+msgstr "参考：步骤 1 的测试信号（或另选文件）。"
+
+msgid "Auto (highest level)"
+msgstr "自动（电平最高）"
+
+msgid "None"
+msgstr "无"
+
+msgid "Microphone channel"
+msgstr "话筒声道"
+
+msgid "Loopback channel"
+msgstr "loopback 声道"
+
+msgid "Step 4 - Analyze"
+msgstr "步骤 4 — 分析"
+
+msgid "Recording profile"
+msgstr "录音配置"
+
+msgid "Analyze"
+msgstr "分析"
+
+msgid "Save test signal"
+msgstr "保存测试信号"
+
+msgid "WAV files (*.wav)"
+msgstr "WAV 文件 (*.wav)"
+
+msgid "Cannot write test signal"
+msgstr "无法写出测试信号"
+
+msgid "Written: {wav} (+ {sidecar}). Keep both files together."
+msgstr "已写出：{wav}（+ {sidecar}）。请把两个文件放在一起。"
+
+msgid "Reference: {name}"
+msgstr "参考：{name}"
+
+msgid "Choose recording"
+msgstr "选择录音"
+
+msgid "Audio files (*.wav *.flac *.aif *.aiff)"
+msgstr "音频文件 (*.wav *.flac *.aif *.aiff)"
+
+msgid "Cannot read recording"
+msgstr "无法读取录音"
+
+msgid "Channel {n}"
+msgstr "声道 {n}"
+
+msgid "{name}: {seconds:.1f} s, {rate} Hz, {channels} channel(s)"
+msgstr "{name}：{seconds:.1f} s，{rate} Hz，{channels} 声道"
+
+msgid "Choose reference sweep"
+msgstr "选择参考扫描"
+
+msgid "Sweep files (*.wav *.json);;All files (*)"
+msgstr "扫描文件 (*.wav *.json);;所有文件 (*)"
+
+msgid "Cannot read reference sweep"
+msgstr "无法读取参考扫描"
+
+msgid "No recording"
+msgstr "没有录音"
+
+msgid "Choose the recorded WAV file first (Step 3)."
+msgstr "请先选择录好的 WAV（步骤 3）。"
+
+msgid "No reference"
+msgstr "没有参考"
+
+msgid "Generate the test signal (Step 1) or choose the sweep file."
+msgstr "请先生成测试信号（步骤 1）或选择扫描文件。"
+
+msgid "Analyzing..."
+msgstr "正在分析…"
+
+msgid "Done."
+msgstr "完成。"
+
+msgid "Analysis failed: {message}"
+msgstr "分析失败：{message}"
+
+msgid "Analysis failed"
+msgstr "分析失败"
+
+msgid "Demo mode: the fake backend synthesises a room. Nothing is sent to a loudspeaker."
+msgstr "演示模式：假后端合成一个房间。不会对扬声器发声。"
+
+msgid "Start with your monitor/interface output at a low level. RoomScope will play a sine sweep at a conservative digital level; raise the level gradually between measurements only if the recording is too quiet."
+msgstr "先把监听/接口输出开低。RoomScope 会以保守的数字电平播放正弦扫描；只有录音太轻时才在两次测量之间逐步提高电平。"
+
+msgid "Audio devices"
+msgstr "音频设备"
+
+msgid "Refresh devices"
+msgstr "刷新设备"
+
+msgid "unused"
+msgstr "未使用"
+
+msgid "Device rate: unknown"
+msgstr "设备采样率：未知"
+
+msgid "Input device"
+msgstr "输入设备"
+
+msgid "Output device"
+msgstr "输出设备"
+
+msgid "Input channel (mic)"
+msgstr "输入声道（话筒）"
+
+msgid "Loopback channel (1-based)"
+msgstr "loopback 声道（从 1 起）"
+
+msgid "Output channel (speaker)"
+msgstr "输出声道（扬声器）"
+
+msgid "Test signal"
+msgstr "测试信号"
+
+msgid "I have set the monitor level low (required above {level:g} dBFS)"
+msgstr "我已把监听开低（高于 {level:g} dBFS 必须勾选）"
+
+msgid "Playback level"
+msgstr "回放电平"
+
+msgid "Run Measurement"
+msgstr "开始测量"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "System default"
+msgstr "系统默认"
+
+msgid "Demo mode: fake backend, no loudspeaker."
+msgstr "演示模式：假后端，不对扬声器发声。"
+
+msgid "{n} audio device(s) found."
+msgstr "找到 {n} 个音频设备。"
+
+msgid "unknown"
+msgstr "未知"
+
+msgid "Device rate: {device}  (requested {requested} Hz)"
+msgstr "设备采样率：{device}  （请求 {requested} Hz）"
+
+msgid " — rates differ; the interface may resample"
+msgstr " — 采样率不一致；接口可能会重采样"
+
+msgid "Invalid settings"
+msgstr "设置无效"
+
+msgid "Level too high"
+msgstr "电平过高"
+
+msgid "Levels above {level:g} dBFS need the acknowledgement checkbox. Set the monitor level low first."
+msgstr "高于 {level:g} dBFS 需要勾选确认。请先把监听开低。"
+
+msgid "Sample rate not supported"
+msgstr "不支持该采样率"
+
+msgid "Playing the sweep and recording..."
+msgstr "正在播放扫描并录音…"
+
+msgid "Stopped."
+msgstr "已停止。"
+
+msgid "Recorded. Analyzing..."
+msgstr "已录音。正在分析…"
+
+msgid "Measurement failed: {message}"
+msgstr "测量失败：{message}"
+
+msgid "Measurement failed"
+msgstr "测量失败"
+
+msgid "Band"
+msgstr "频带"
+
+msgid "RT60 estimate"
+msgstr "RT60 估计"
+
+msgid "Reverberation (extrapolated to 60 dB). 'insufficient range' means the decay is not clean enough for that metric."
+msgstr "混响（外推到 60 dB）。“insufficient range”表示衰减对该指标不够干净。"
+
+msgid "Save Session..."
+msgstr "保存会话…"
+
+msgid "Choose a folder for the session"
+msgstr "选择会话文件夹"
+
+msgid "Cannot save session"
+msgstr "无法保存会话"
+
+msgid "Session saved to {path}"
+msgstr "会话已保存到 {path}"
+
+msgid "Cannot open session"
+msgstr "无法打开会话"
+
+msgid "Choose a folder of sessions"
+msgstr "选择会话所在文件夹"
+
+# CLI help and text-report labels (ARCHITECTURE_V1.md §5.6)
+
+msgid "sample rate (Hz)"
+msgstr "采样率（Hz）"
+
+msgid "sweep duration in seconds (default 10)"
+msgstr "扫描时长（秒，默认 10）"
+
+msgid "sweep start frequency (default 20)"
+msgstr "扫描起始频率（默认 20）"
+
+msgid "sweep end frequency (default 20000)"
+msgstr "扫描结束频率（默认 20000）"
+
+msgid "fade-in in seconds (default 0.05)"
+msgstr "淡入时长（秒，默认 0.05）"
+
+msgid "fade-out in seconds (default 0.01)"
+msgstr "淡出时长（秒，默认 0.01）"
+
+msgid "peak level in dBFS (default {level:g})"
+msgstr "峰值电平（dBFS，默认 {level:g}）"
+
+msgid "silence before the sweep (s)"
+msgstr "扫描前静音（秒）"
+
+msgid "silence after the sweep (s)"
+msgstr "扫描后静音（秒）"
+
+msgid "recording channel to analyse (0-based)"
+msgstr "要分析的录音声道（从 0 起）"
+
+msgid "fractional-octave smoothing 1/N (0 = off)"
+msgstr "分数倍频程平滑 1/N（0 = 关闭）"
+
+msgid "room name (metadata)"
+msgstr "房间名称（元数据）"
+
+msgid "measurement position (metadata)"
+msgstr "测量位置（元数据）"
+
+msgid "microphone name (metadata)"
+msgstr "话筒名称（元数据）"
+
+msgid "free-text notes (metadata)"
+msgstr "备注（元数据）"
+
+msgid "omit curves from result.json"
+msgstr "不把曲线写入 result.json"
+
+msgid "print the result as JSON instead of a report"
+msgstr "以 JSON 打印结果而不是报告"
+
+msgid "straight line from the loudspeaker to the microphone capsule (m), measured with a tape. Without it no geometry can be derived from the reflections"
+msgstr "扬声器到话筒振膜的直线距离（米），用卷尺测量。没有它就无法从反射推导几何"
+
+msgid "microphone capsule above the first solid horizontal surface below it (m) -- the desk top at a desk, otherwise the floor. Needs --speaker-distance"
+msgstr "话筒振膜到其下方第一块水平固体表面的高度（米）——桌上是桌面，否则是地板。需要 --speaker-distance"
+
+msgid "air temperature (C); 20 C is assumed, and reported as assumed, without it"
+msgstr "气温（C）；未提供时假定 20 C，并报告为假定"
+
+msgid "recording profile that shapes the interpretation (default: user settings)"
+msgstr "影响解读的录音配置（默认：用户设置）"
+
+msgid "separate loopback WAV from the same take (same sample rate)"
+msgstr "同一次录音的单独 loopback WAV（相同采样率）"
+
+msgid "0-based loopback channel of the recording (or of --loopback if it is multi-channel)"
+msgstr "录音（或多声道 --loopback）的 loopback 声道（从 0 起）"
+
+msgid "debug logging"
+msgstr "调试日志"
+
+msgid "write the ESS test signal WAV (+ JSON sidecar)"
+msgstr "写出 ESS 测试信号 WAV（及 JSON 附属文件）"
+
+msgid "output WAV path"
+msgstr "输出 WAV 路径"
+
+msgid "analyse a recording made with the sweep"
+msgstr "分析用该扫描录下的录音"
+
+msgid "recorded WAV (any length, untrimmed)"
+msgstr "录好的 WAV（任意长度，不要裁切）"
+
+msgid "sweep WAV or its .roomscope-sweep.json sidecar"
+msgstr "扫描 WAV 或其 .roomscope-sweep.json 附属文件"
+
+msgid "directory for session.json, result.json, IR WAV"
+msgstr "session.json、result.json、IR WAV 的目录"
+
+msgid "list audio devices (Standalone Mode)"
+msgstr "列出音频设备（独立模式）"
+
+msgid "Standalone Mode: play the sweep and record the microphone"
+msgstr "独立模式：播放扫描并录制话筒"
+
+msgid "session directory (created)"
+msgstr "会话目录（会创建）"
+
+msgid "input device index (see 'devices')"
+msgstr "输入设备序号（见 devices）"
+
+msgid "output device index"
+msgstr "输出设备序号"
+
+msgid "input channel, 1-based (default 1)"
+msgstr "输入声道，从 1 起（默认 1）"
+
+msgid "1-based input channels, comma-separated (e.g. 1,2); overrides --input-channel"
+msgstr "从 1 起的输入声道，逗号分隔（如 1,2）；覆盖 --input-channel"
+
+msgid "output channel, 1-based (default 1)"
+msgstr "输出声道，从 1 起（默认 1）"
+
+msgid "1-based loopback input channel (recorded with the microphone)"
+msgstr "从 1 起的 loopback 输入声道（与话筒一同录制）"
+
+msgid "required for levels above -12 dBFS; confirms the monitor level was set low first"
+msgstr "高于 -12 dBFS 必须使用；确认已先把监听开低"
+
+msgid "print a saved session or comparison.json report, or list sessions"
+msgstr "打印已保存会话或 comparison.json 报告，或列出会话"
+
+msgid "session directory, session.json, comparison.json, or folder to list"
+msgstr "会话目录、session.json、comparison.json，或要列出的文件夹"
+
+msgid "list session.json files under path instead of opening one session"
+msgstr "列出路径下的 session.json，而不是打开单个会话"
+
+msgid "override the recording profile stored in the session"
+msgstr "覆盖会话中存储的录音配置"
+
+msgid "omit curves from JSON output"
+msgstr "JSON 输出中省略曲线"
+
+msgid "compare two saved sessions"
+msgstr "对比两个已保存的会话"
+
+msgid "baseline session directory or session.json"
+msgstr "基线会话目录或 session.json"
+
+msgid "candidate session directory or session.json"
+msgstr "候选会话目录或 session.json"
+
+msgid "write comparison.json here (file or directory)"
+msgstr "把 comparison.json 写到这里（文件或目录）"
+
+msgid "declare that the input gain was unchanged (required for a VALID noise delta)"
+msgstr "声明输入增益未变（噪声差值要为 VALID 必须声明）"
+
+msgid "recording profile for comparison findings (default: the candidate session's)"
+msgstr "对比解读所用的录音配置（默认：候选会话的配置）"
+
+msgid "print comparison.json instead of a report"
+msgstr "打印 comparison.json 而不是报告"
+
+msgid "print a shipped JSON Schema"
+msgstr "打印随附的 JSON Schema"
+
+msgid "which schema to print"
+msgstr "要打印的 schema"
+
+msgid "analyse an impulse-response WAV from another tool"
+msgstr "分析其他工具给出的脉冲响应 WAV"
+
+msgid "impulse-response WAV"
+msgstr "脉冲响应 WAV"
+
+msgid "declared excitation band in Hz (required for band metrics)"
+msgstr "声明的激励频带（Hz；频带指标需要）"
+
+msgid "insuff."
+msgstr "不足"
+
+msgid "n/a"
+msgstr "无"
+
+msgid " (add {input})"
+msgstr "（需补 {input}）"
+
+msgid " +/-{uncertainty:.2f} from the stated inputs only"
+msgstr " +/-{uncertainty:.2f} 仅来自所给输入"
+
+msgid "Placement (tier {tier}; no coordinates are derived -- see the JSON):"
+msgstr "摆位（档位 {tier}；不推导坐标——见 JSON）："
+
+msgid "speed of sound"
+msgstr "声速"
+
+msgid "at {temp:.0f} C"
+msgstr "气温 {temp:.0f} C"
+
+msgid "loudspeaker height"
+msgstr "扬声器高度"
+
+msgid "plane above the devices"
+msgstr "设备上方平面"
+
+msgid "horizontal separation"
+msgstr "水平间距"
+
+msgid "  attributed arrivals:"
+msgstr "  已归属到达："
+
+msgid "excess path {path:.2f} m"
+msgstr "多余路径 {path:.2f} m"
+
+msgid "  note: {note}"
+msgstr "  说明：{note}"
+
+msgid "Impulse response: {seconds:.2f} s analysed, {decay:.2f} s of decay recorded, direct-sound confidence {confidence} (pre-peak margin {margin})"
+msgstr "脉冲响应：分析 {seconds:.2f} s，记录衰减 {decay:.2f} s，直达声置信度 {confidence}（峰前裕量 {margin}）"
+
+msgid "Sweep found at {start:.2f} s in the recording."
+msgstr "在录音中 {start:.2f} s 处找到扫描。"
+
+msgid "Loopback: compensated; electrical path delay {delay}; distance upper bound {bound}."
+msgstr "Loopback：已补偿；电通路延迟 {delay}；距离上界 {bound}。"
+
+msgid "Loopback: offered but not applied ({reason})"
+msgstr "Loopback：已提供但未应用（{reason}）"
+
+msgid "Loopback: offered but not applied."
+msgstr "Loopback：已提供但未应用。"
+
+msgid "Reverberation (extrapolated to 60 dB; 'insuff.' = insufficient decay range)"
+msgstr "混响（外推到 60 dB；“不足”表示衰减动态不够）"
+
+msgid "band"
+msgstr "频带"
+
+msgid "EDT"
+msgstr "EDT"
+
+msgid "T20"
+msgstr "T20"
+
+msgid "T30"
+msgstr "T30"
+
+msgid "RT60 est."
+msgstr "RT60 估计"
+
+msgid "range dB"
+msgstr "范围 dB"
+
+msgid "note"
+msgstr "说明"
+
+msgid "Background noise ({source}, {duration:.2f} s): {rms:.1f} dBFS RMS, peak {peak:.1f} dBFS  [{calibration}]"
+msgstr "本底噪声（{source}，{duration:.2f} s）：{rms:.1f} dBFS RMS，峰值 {peak:.1f} dBFS  [{calibration}]"
+
+msgid "  Potential mains hum at multiples of {base:.0f} Hz: {harmonics}"
+msgstr "  可能的市电哼声，基频 {base:.0f} Hz 的倍频：{harmonics}"
+
+msgid "  No mains hum detected (50/60 Hz harmonics)."
+msgstr "  未检测到市电哼声（50/60 Hz 谐波）。"
+
+msgid "Background noise: no quiet segment available."
+msgstr "本底噪声：没有可用的安静段。"
+
+msgid "Early reflections ({lo:.0f}-{hi:.0f} ms, above {threshold:.0f} dB):"
+msgstr "早期反射（{lo:.0f}-{hi:.0f} ms，高于 {threshold:.0f} dB）："
+
+msgid "  none above threshold"
+msgstr "  没有超过阈值的"
+
+msgid "Potential low-frequency resonances (< {max_hz:.0f} Hz):"
+msgstr "可能的低频共振（< {max_hz:.0f} Hz）："
+
+msgid "decay distinguishable from filter"
+msgstr "衰减可与滤波器区分"
+
+msgid "not distinguishable from filter ringing"
+msgstr "无法与滤波器振铃区分"
+
+msgid "20 dB decay {decay} (filter {ring})  {flag}"
+msgstr "20 dB 衰减 {decay}（滤波器 {ring}）  {flag}"
+
+msgid "  none"
+msgstr "  无"
+
+msgid "Common excitation band: {low:g}–{high:g} Hz"
+msgstr "共同激励频带：{low:g}–{high:g} Hz"
+
+msgid "Comparable: {value}"
+msgstr "可对比：{value}"
+
+msgid "Decay deltas (VALID only when both sides are VALID):"
+msgstr "衰减差值（仅当两侧都为 VALID 时为有效）："
+
+msgid "metric"
+msgstr "指标"
+
+msgid "base"
+msgstr "基线"
+
+msgid "cand"
+msgstr "候选"
+
+msgid "delta"
+msgstr "差值"
+
+msgid "validity"
+msgstr "有效性"
+
+msgid "Frequency-response mean |Δ| per octave (dB):"
+msgstr "频率响应每倍频程平均 |Δ|（dB）："
+
+msgid "Early reflections:"
+msgstr "早期反射："
+
+msgid "matched"
+msgstr "匹配"
+
+msgid "appeared"
+msgstr "出现"
+
+msgid "disappeared"
+msgstr "消失"
+
+msgid "Noise:"
+msgstr "噪声："
+
+msgid "Placement:"
+msgstr "摆位："
+
+# CLI user-facing output (ARCHITECTURE_V1.md §5.6 / M7)
+
+msgid "show this help message and exit"
+msgstr "显示此帮助信息并退出"
+
+msgid "show program's version number and exit"
+msgstr "显示程序版本号并退出"
+
+msgid "Wrote {wav} ({seconds:.1f} s at {rate} Hz, sweep {start:g}-{end:g} Hz, {duration:g} s, {level:g} dBFS)"
+msgstr "已写出 {wav}（{seconds:.1f} s，{rate} Hz，扫描 {start:g}-{end:g} Hz，{duration:g} s，{level:g} dBFS）"
+
+msgid "Wrote {sidecar} (keep it next to the WAV)"
+msgstr "已写出 {sidecar}（请与 WAV 放在一起）"
+
+msgid "Next: import the WAV into your DAW, play it through the monitors, record the measurement microphone,"
+msgstr "下一步：把 WAV 导入 DAW，经监听播放，用测量话筒录音，"
+
+msgid "export the recording as WAV and run: roomscope analyze --recording <file> --sweep {wav}"
+msgstr "导出为 WAV 后运行：roomscope analyze --recording <file> --sweep {wav}"
+
+msgid "warning: --json is deprecated; use --format json (--json will be removed in a future minor release)"
+msgstr "警告：--json 已弃用；请用 --format json（--json 将在后续次要版本中移除）"
+
+msgid "Saved session to {path}"
+msgstr "会话已保存到 {path}"
+
+msgid "idx"
+msgstr "序号"
+
+msgid "in"
+msgstr "入"
+
+msgid "out"
+msgstr "出"
+
+msgid "rate"
+msgstr "采样率"
+
+msgid "name"
+msgstr "名称"
+
+msgid "host API"
+msgstr "主机 API"
+
+msgid "Level {level:g} dBFS is above {max_level:g} dBFS. Set the monitor level low first and pass --acknowledge-level to confirm."
+msgstr "电平 {level:g} dBFS 高于 {max_level:g} dBFS。请先把监听开低，并加上 --acknowledge-level 确认。"
+
+msgid "Playing sweep on output channel {output}, recording input channel(s) {channels} via {backend} ..."
+msgstr "正在输出声道 {output} 播放扫描，经 {backend} 录制输入声道 {channels} …"
+
+msgid "Recorded {seconds:.1f} s to {path}"
+msgstr "已录制 {seconds:.1f} s 到 {path}"
+
+msgid "Session: {path}"
+msgstr "会话：{path}"
+
+msgid "Wrote comparison to {path}"
+msgstr "已将对比写入 {path}"
+
+msgid "{n} position(s) in {path}"
+msgstr "{path} 中有 {n} 个位置"
+
+msgid "(unlisted)"
+msgstr "（未列出）"
+
+msgid "ISO 3382-2 class: {klass} ({sources} source × {mics} mic)"
+msgstr "ISO 3382-2 等级：{klass}（{sources} 个声源 × {mics} 个话筒）"
+
+msgid "RT60"
+msgstr "RT60"
+
+msgid "The GUI needs PySide6 Essentials: pip install 'roomscope[gui]' ({error})"
+msgstr "桌面界面需要 PySide6 Essentials：pip install 'roomscope[gui]'（{error}）"
+
+msgid "stopped: {message}"
+msgstr "已停止：{message}"
+
+msgid "error: {message}"
+msgstr "错误：{message}"
+
+msgid "interrupted"
+msgstr "已中断"
+

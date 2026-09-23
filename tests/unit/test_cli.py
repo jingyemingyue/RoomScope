@@ -206,12 +206,21 @@ def test_compare_and_schema_commands(tmp_path: Path, capsys: pytest.CaptureFixtu
         == 0
     )
     capsys.readouterr()
-    out = tmp_path / "cmp.json"
+    out = tmp_path / "comparison.json"
     assert main(["compare", str(a), str(b), "--out", str(out), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert "comparable" in payload
     assert all("validity" in item for item in payload["decay"])
+    assert "findings" in payload
     assert out.is_file()
+    assert main(["show", str(out)]) == 0
+    shown = capsys.readouterr().out
+    assert "RoomScope comparison" in shown
+    assert main(["show", str(out), "--json"]) == 0
+    reloaded = json.loads(capsys.readouterr().out)
+    assert reloaded["comparable"] == payload["comparable"]
+    assert "findings" in reloaded
+    assert "findings" not in json.loads(out.read_text(encoding="utf-8"))
     assert main(["schema", "comparison"]) == 0
     schema = capsys.readouterr().out
     assert '"title": "RoomScope comparison.json"' in schema
@@ -311,6 +320,44 @@ def test_lang_zh_cn_translates_report(tmp_path: Path, capsys: pytest.CaptureFixt
     )
     out = capsys.readouterr().out
     assert "RoomScope 分析" in out
+    assert "混响" in out
+    assert "脉冲响应" in out
+    from roomscope.i18n import activate
+
+    activate("en")
+
+
+def test_lang_zh_cn_translates_cli_help(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--lang", "zh_CN", "--help"])
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "不依赖 DAW" in out
+    assert "调试日志" in out
+    assert "分析用该扫描录下的录音" in out
+    with pytest.raises(SystemExit) as exc:
+        main(["--lang", "zh_CN", "analyze", "--help"])
+    assert exc.value.code == 0
+    analyze = capsys.readouterr().out
+    assert "分析用该扫描录下的录音" in analyze
+    assert "不要裁切" in analyze
+    assert "附属文件" in analyze
+    assert "显示此帮助信息并退出" in out
+    from roomscope.i18n import activate
+
+    activate("en")
+
+
+def test_lang_zh_cn_translates_cli_output(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sweep = tmp_path / "sweep.wav"
+    assert main(["--lang", "zh_CN", "sweep", "--out", str(sweep), "--duration", "2"]) == 0
+    swept = capsys.readouterr().out
+    assert "下一步" in swept or "导入" in swept
+    assert main(["--lang", "zh_CN", "--backend", "fake", "devices"]) == 0
+    listed = capsys.readouterr().out
+    assert "主机" in listed
     from roomscope.i18n import activate
 
     activate("en")

@@ -12,6 +12,7 @@ import logging
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 from roomscope import __version__
 from roomscope.cli.report import format_comparison_report, format_report
@@ -29,40 +30,55 @@ from roomscope.models.configuration import (
 log = logging.getLogger("roomscope.cli")
 
 
+def _command(sub: object, name: str, text: str) -> argparse.ArgumentParser:
+    """Subcommand with the same gettext string as help (parent list) and description."""
+    parser = sub.add_parser(  # type: ignore[attr-defined]
+        name, help=text, description=text, add_help=False
+    )
+    parser.add_argument("-h", "--help", action="help", help=_("show this help message and exit"))
+    return cast(argparse.ArgumentParser, parser)
+
+
 def _add_sweep_arguments(parser: argparse.ArgumentParser, *, default_level: float) -> None:
     parser.add_argument(
         "--sample-rate",
         type=int,
         default=DEFAULT_SAMPLE_RATE,
         choices=SUPPORTED_SAMPLE_RATES,
-        help="sample rate (Hz)",
+        help=_("sample rate (Hz)"),
     )
     parser.add_argument(
-        "--duration", type=float, default=10.0, help="sweep duration in seconds (default 10)"
+        "--duration",
+        type=float,
+        default=10.0,
+        help=_("sweep duration in seconds (default 10)"),
     )
     parser.add_argument(
-        "--start-hz", type=float, default=20.0, help="sweep start frequency (default 20)"
+        "--start-hz", type=float, default=20.0, help=_("sweep start frequency (default 20)")
     )
     parser.add_argument(
-        "--end-hz", type=float, default=20000.0, help="sweep end frequency (default 20000)"
+        "--end-hz",
+        type=float,
+        default=20000.0,
+        help=_("sweep end frequency (default 20000)"),
     )
     parser.add_argument(
-        "--fade-in", type=float, default=0.05, help="fade-in in seconds (default 0.05)"
+        "--fade-in", type=float, default=0.05, help=_("fade-in in seconds (default 0.05)")
     )
     parser.add_argument(
-        "--fade-out", type=float, default=0.01, help="fade-out in seconds (default 0.01)"
+        "--fade-out", type=float, default=0.01, help=_("fade-out in seconds (default 0.01)")
     )
     parser.add_argument(
         "--level",
         type=float,
         default=default_level,
-        help=f"peak level in dBFS (default {default_level:g})",
+        help=_("peak level in dBFS (default {level:g})").format(level=default_level),
     )
     parser.add_argument(
-        "--pre-silence", type=float, default=1.0, help="silence before the sweep (s)"
+        "--pre-silence", type=float, default=1.0, help=_("silence before the sweep (s)")
     )
     parser.add_argument(
-        "--post-silence", type=float, default=3.0, help="silence after the sweep (s)"
+        "--post-silence", type=float, default=3.0, help=_("silence after the sweep (s)")
     )
 
 
@@ -82,25 +98,28 @@ def _sweep_settings(args: argparse.Namespace) -> SweepSettings:
 
 def _add_analysis_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--channel", type=int, default=None, help="recording channel to analyse (0-based)"
+        "--channel", type=int, default=None, help=_("recording channel to analyse (0-based)")
     )
     parser.add_argument(
-        "--smoothing", type=int, default=6, help="fractional-octave smoothing 1/N (0 = off)"
+        "--smoothing",
+        type=int,
+        default=6,
+        help=_("fractional-octave smoothing 1/N (0 = off)"),
     )
-    parser.add_argument("--room", default="", help="room name (metadata)")
-    parser.add_argument("--position", default="", help="measurement position (metadata)")
-    parser.add_argument("--mic", default="", help="microphone name (metadata)")
-    parser.add_argument("--notes", default="", help="free-text notes (metadata)")
-    parser.add_argument("--no-curves", action="store_true", help="omit curves from result.json")
+    parser.add_argument("--room", default="", help=_("room name (metadata)"))
+    parser.add_argument("--position", default="", help=_("measurement position (metadata)"))
+    parser.add_argument("--mic", default="", help=_("microphone name (metadata)"))
+    parser.add_argument("--notes", default="", help=_("free-text notes (metadata)"))
+    parser.add_argument("--no-curves", action="store_true", help=_("omit curves from result.json"))
     parser.add_argument(
-        "--json", action="store_true", help="print the result as JSON instead of a report"
+        "--json", action="store_true", help=_("print the result as JSON instead of a report")
     )
     parser.add_argument(
         "--speaker-distance",
         type=float,
         default=None,
         metavar="M",
-        help=(
+        help=_(
             "straight line from the loudspeaker to the microphone capsule (m), measured "
             "with a tape. Without it no geometry can be derived from the reflections"
         ),
@@ -110,7 +129,7 @@ def _add_analysis_arguments(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=None,
         metavar="M",
-        help=(
+        help=_(
             "microphone capsule above the first solid horizontal surface below it (m) -- "
             "the desk top at a desk, otherwise the floor. Needs --speaker-distance"
         ),
@@ -120,13 +139,13 @@ def _add_analysis_arguments(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=None,
         metavar="C",
-        help="air temperature (C); 20 C is assumed, and reported as assumed, without it",
+        help=_("air temperature (C); 20 C is assumed, and reported as assumed, without it"),
     )
     parser.add_argument(
         "--profile",
         default=None,
         choices=available_profiles(),
-        help="recording profile that shapes the interpretation (default: user settings)",
+        help=_("recording profile that shapes the interpretation (default: user settings)"),
     )
 
 
@@ -135,13 +154,15 @@ def _add_loopback_file_arguments(parser: argparse.ArgumentParser) -> None:
         "--loopback",
         type=Path,
         default=None,
-        help="separate loopback WAV from the same take (same sample rate)",
+        help=_("separate loopback WAV from the same take (same sample rate)"),
     )
     parser.add_argument(
         "--loopback-channel",
         type=int,
         default=None,
-        help="0-based loopback channel of the recording (or of --loopback if it is multi-channel)",
+        help=_(
+            "0-based loopback channel of the recording (or of --loopback if it is multi-channel)"
+        ),
     )
 
 
@@ -162,10 +183,17 @@ def _analysis_settings(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="roomscope",
-        description="RoomScope: an open-source, DAW-independent recording environment analyzer.",
+        description=_("RoomScope: an open-source, DAW-independent recording environment analyzer."),
+        add_help=False,
     )
-    parser.add_argument("--version", action="version", version=f"roomscope {__version__}")
-    parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
+    parser.add_argument("-h", "--help", action="help", help=_("show this help message and exit"))
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"roomscope {__version__}",
+        help=_("show program's version number and exit"),
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help=_("debug logging"))
     parser.add_argument(
         "--backend",
         default=None,
@@ -190,130 +218,143 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_sweep = sub.add_parser("sweep", help="write the ESS test signal WAV (+ JSON sidecar)")
-    p_sweep.add_argument("--out", required=True, type=Path, help="output WAV path")
+    p_sweep = _command(sub, "sweep", _("write the ESS test signal WAV (+ JSON sidecar)"))
+    p_sweep.add_argument("--out", required=True, type=Path, help=_("output WAV path"))
     _add_sweep_arguments(p_sweep, default_level=-12.0)
 
-    p_an = sub.add_parser("analyze", help="analyse a recording made with the sweep")
+    p_an = _command(sub, "analyze", _("analyse a recording made with the sweep"))
     p_an.add_argument(
-        "--recording", required=True, type=Path, help="recorded WAV (any length, untrimmed)"
+        "--recording", required=True, type=Path, help=_("recorded WAV (any length, untrimmed)")
     )
     p_an.add_argument(
-        "--sweep", required=True, type=Path, help="sweep WAV or its .roomscope-sweep.json sidecar"
+        "--sweep",
+        required=True,
+        type=Path,
+        help=_("sweep WAV or its .roomscope-sweep.json sidecar"),
     )
     p_an.add_argument(
-        "--out", type=Path, default=None, help="directory for session.json, result.json, IR WAV"
+        "--out",
+        type=Path,
+        default=None,
+        help=_("directory for session.json, result.json, IR WAV"),
     )
     _add_analysis_arguments(p_an)
     _add_loopback_file_arguments(p_an)
 
-    sub.add_parser("devices", help="list audio devices (Standalone Mode)")
+    _command(sub, "devices", _("list audio devices (Standalone Mode)"))
 
-    p_me = sub.add_parser(
-        "measure", help="Standalone Mode: play the sweep and record the microphone"
-    )
-    p_me.add_argument("--out", required=True, type=Path, help="session directory (created)")
+    p_me = _command(sub, "measure", _("Standalone Mode: play the sweep and record the microphone"))
+    p_me.add_argument("--out", required=True, type=Path, help=_("session directory (created)"))
     p_me.add_argument(
-        "--input-device", type=int, default=None, help="input device index (see 'devices')"
+        "--input-device", type=int, default=None, help=_("input device index (see 'devices')")
     )
-    p_me.add_argument("--output-device", type=int, default=None, help="output device index")
+    p_me.add_argument("--output-device", type=int, default=None, help=_("output device index"))
     p_me.add_argument(
-        "--input-channel", type=int, default=1, help="input channel, 1-based (default 1)"
+        "--input-channel", type=int, default=1, help=_("input channel, 1-based (default 1)")
     )
     p_me.add_argument(
         "--input-channels",
         default=None,
-        help="1-based input channels, comma-separated (e.g. 1,2); overrides --input-channel",
+        help=_("1-based input channels, comma-separated (e.g. 1,2); overrides --input-channel"),
     )
     p_me.add_argument(
-        "--output-channel", type=int, default=1, help="output channel, 1-based (default 1)"
+        "--output-channel", type=int, default=1, help=_("output channel, 1-based (default 1)")
     )
     p_me.add_argument(
         "--loopback-channel",
         type=int,
         default=None,
         dest="measure_loopback_channel",
-        help="1-based loopback input channel (recorded with the microphone)",
+        help=_("1-based loopback input channel (recorded with the microphone)"),
     )
     p_me.add_argument(
         "--acknowledge-level",
         action="store_true",
-        help="required for levels above -12 dBFS; confirms the monitor level was set low first",
+        help=_("required for levels above -12 dBFS; confirms the monitor level was set low first"),
     )
     _add_sweep_arguments(p_me, default_level=-20.0)
     _add_analysis_arguments(p_me)
 
-    p_show = sub.add_parser(
-        "show", help="print a saved session report, or list sessions in a folder"
+    p_show = _command(
+        sub, "show", _("print a saved session or comparison.json report, or list sessions")
     )
     p_show.add_argument(
-        "path", type=Path, help="session directory, session.json, or folder to list"
+        "path",
+        type=Path,
+        help=_("session directory, session.json, comparison.json, or folder to list"),
     )
     p_show.add_argument(
         "--list",
         action="store_true",
-        help="list session.json files under path instead of opening one session",
+        help=_("list session.json files under path instead of opening one session"),
     )
     p_show.add_argument(
         "--profile",
         default=None,
         choices=available_profiles(),
-        help="override the recording profile stored in the session",
+        help=_("override the recording profile stored in the session"),
     )
     p_show.add_argument(
-        "--json", action="store_true", help="print the result as JSON instead of a report"
+        "--json", action="store_true", help=_("print the result as JSON instead of a report")
     )
-    p_show.add_argument("--no-curves", action="store_true", help="omit curves from JSON output")
+    p_show.add_argument("--no-curves", action="store_true", help=_("omit curves from JSON output"))
 
-    p_cmp = sub.add_parser("compare", help="compare two saved sessions")
-    p_cmp.add_argument("baseline", type=Path, help="baseline session directory or session.json")
-    p_cmp.add_argument("candidate", type=Path, help="candidate session directory or session.json")
+    p_cmp = _command(sub, "compare", _("compare two saved sessions"))
+    p_cmp.add_argument("baseline", type=Path, help=_("baseline session directory or session.json"))
+    p_cmp.add_argument(
+        "candidate", type=Path, help=_("candidate session directory or session.json")
+    )
     p_cmp.add_argument(
         "--out",
         type=Path,
         default=None,
-        help="write comparison.json here (file or directory)",
+        help=_("write comparison.json here (file or directory)"),
     )
     p_cmp.add_argument(
         "--same-input-gain",
         action="store_true",
-        help="declare that the input gain was unchanged (required for a VALID noise delta)",
+        help=_("declare that the input gain was unchanged (required for a VALID noise delta)"),
     )
     p_cmp.add_argument(
         "--profile",
         default=None,
         choices=available_profiles(),
-        help="recording profile for comparison findings (default: the candidate session's)",
+        help=_("recording profile for comparison findings (default: the candidate session's)"),
     )
     p_cmp.add_argument(
-        "--json", action="store_true", help="print comparison.json instead of a report"
+        "--json", action="store_true", help=_("print comparison.json instead of a report")
     )
 
-    p_schema = sub.add_parser("schema", help="print a shipped JSON Schema")
+    p_schema = _command(sub, "schema", _("print a shipped JSON Schema"))
     p_schema.add_argument(
         "name",
         choices=["result", "session", "comparison", "project", "sidecar"],
-        help="which schema to print",
+        help=_("which schema to print"),
     )
 
-    p_ir = sub.add_parser("analyze-ir", help="analyse an impulse-response WAV from another tool")
-    p_ir.add_argument("--ir", required=True, type=Path, help="impulse-response WAV")
+    p_ir = _command(sub, "analyze-ir", _("analyse an impulse-response WAV from another tool"))
+    p_ir.add_argument("--ir", required=True, type=Path, help=_("impulse-response WAV"))
     p_ir.add_argument(
         "--band",
         nargs=2,
         type=float,
         metavar=("LO", "HI"),
         default=None,
-        help="declared excitation band in Hz (required for band metrics)",
+        help=_("declared excitation band in Hz (required for band metrics)"),
     )
-    p_ir.add_argument("--out", type=Path, default=None, help="session directory")
+    p_ir.add_argument("--out", type=Path, default=None, help=_("session directory"))
     _add_analysis_arguments(p_ir)
 
-    sub.add_parser("gui", help=_("start the desktop GUI (needs the 'gui' extra)"))
+    p_gui = _command(sub, "gui", _("start the desktop GUI (needs the 'gui' extra)"))
+    p_gui.add_argument(
+        "--smoke",
+        action="store_true",
+        help=_("construct the window offscreen and exit (bundle smoke; no loudspeaker)"),
+    )
 
-    p_sess = sub.add_parser("session", help=_("session folder tools"))
+    p_sess = _command(sub, "session", _("session folder tools"))
     sess_sub = p_sess.add_subparsers(dest="session_command", required=True)
-    p_bundle = sess_sub.add_parser("bundle", help=_("zip a session for a bug report"))
+    p_bundle = _command(sess_sub, "bundle", _("zip a session for a bug report"))
     p_bundle.add_argument("session", type=Path, help=_("session directory or session.json"))
     p_bundle.add_argument(
         "--no-audio",
@@ -322,7 +363,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_bundle.add_argument("--out", type=Path, default=None, help=_("zip path (file or directory)"))
 
-    p_ex = sub.add_parser("export", help=_("export curves through an exporter"))
+    p_ex = _command(sub, "export", _("export curves through an exporter"))
     p_ex.add_argument("session", type=Path, help=_("session directory or session.json"))
     p_ex.add_argument(
         "--format",
@@ -332,21 +373,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_ex.add_argument("--out", type=Path, default=None, help=_("output directory"))
 
-    p_proj = sub.add_parser("project", help=_("project folders (one room, several positions)"))
+    p_proj = _command(sub, "project", _("project folders (one room, several positions)"))
     proj_sub = p_proj.add_subparsers(dest="project_command", required=True)
-    p_init = proj_sub.add_parser("init", help=_("create a project.json"))
+    p_init = _command(proj_sub, "init", _("create a project.json"))
     p_init.add_argument("--out", required=True, type=Path, help=_("project directory"))
     p_init.add_argument("--name", default="", help=_("room name"))
     p_init.add_argument("--notes", default="", help=_("free-text notes"))
-    p_add = proj_sub.add_parser("add", help=_("add a session to a position"))
+    p_add = _command(proj_sub, "add", _("add a session to a position"))
     p_add.add_argument("project", type=Path, help=_("project directory"))
     p_add.add_argument("session", type=Path, help=_("session directory"))
     p_add.add_argument("--position", required=True, help=_("position label"))
-    p_avg = proj_sub.add_parser("average", help=_("spatial average of VALID T values"))
+    p_avg = _command(proj_sub, "average", _("spatial average of VALID T values"))
     p_avg.add_argument("project", type=Path, help=_("project directory"))
     p_avg.add_argument("--sources", type=int, default=1, help=_("number of source positions"))
     p_avg.add_argument("--json", action="store_true", help=_("print JSON instead of a table"))
-    p_show_proj = proj_sub.add_parser("show", help=_("list positions and sessions"))
+    p_show_proj = _command(proj_sub, "show", _("list positions and sessions"))
     p_show_proj.add_argument("project", type=Path, help=_("project directory"))
     return parser
 
@@ -357,16 +398,30 @@ def cmd_sweep(args: argparse.Namespace) -> int:
     settings = _sweep_settings(args)
     wav_path, sidecar = write_sweep_file(settings, args.out)
     print(
-        f"Wrote {wav_path} ({settings.total_samples / settings.sample_rate:.1f} s at {settings.sample_rate} Hz, "
-        f"sweep {settings.start_hz:g}-{settings.end_hz:g} Hz, {settings.duration_s:g} s, {settings.level_dbfs:g} dBFS)"
+        _(
+            "Wrote {wav} ({seconds:.1f} s at {rate} Hz, "
+            "sweep {start:g}-{end:g} Hz, {duration:g} s, {level:g} dBFS)"
+        ).format(
+            wav=wav_path,
+            seconds=settings.total_samples / settings.sample_rate,
+            rate=settings.sample_rate,
+            start=settings.start_hz,
+            end=settings.end_hz,
+            duration=settings.duration_s,
+            level=settings.level_dbfs,
+        )
     )
-    print(f"Wrote {sidecar} (keep it next to the WAV)")
+    print(_("Wrote {sidecar} (keep it next to the WAV)").format(sidecar=sidecar))
     print(
-        "Next: import the WAV into your DAW, play it through the monitors, record the measurement microphone,"
+        _(
+            "Next: import the WAV into your DAW, play it through the monitors, "
+            "record the measurement microphone,"
+        )
     )
     print(
-        "export the recording as WAV and run: roomscope analyze --recording <file> --sweep "
-        + str(wav_path)
+        _(
+            "export the recording as WAV and run: roomscope analyze --recording <file> --sweep {wav}"
+        ).format(wav=wav_path)
     )
     return 0
 
@@ -387,8 +442,10 @@ def _use_json(args: argparse.Namespace) -> bool:
         return True
     if getattr(args, "json", False):
         print(
-            "warning: --json is deprecated; use --format json "
-            "(--json will be removed in a future minor release)",
+            _(
+                "warning: --json is deprecated; use --format json "
+                "(--json will be removed in a future minor release)"
+            ),
             file=sys.stderr,
         )
         return True
@@ -471,7 +528,7 @@ def _run_analysis(
     else:
         print(format_report(result, findings, profile))
         if out_dir is not None:
-            print(f"\nSaved session to {out_dir}")
+            print("\n" + _("Saved session to {path}").format(path=out_dir))
     return 0
 
 
@@ -483,7 +540,9 @@ def cmd_devices(args: argparse.Namespace) -> int:
     from roomscope.audio.backend import get_backend
 
     devices = get_backend(args.backend).list_devices()
-    print(f"{'idx':>3}  {'in':>3} {'out':>3}  {'rate':>7}  name  [host API]")
+    print(
+        f"{_('idx'):>3}  {_('in'):>3} {_('out'):>3}  {_('rate'):>7}  {_('name')}  [{_('host API')}]"
+    )
     for d in devices:
         flags = ("*in" if d.is_default_input else "") + ("*out" if d.is_default_output else "")
         print(
@@ -501,13 +560,15 @@ def cmd_measure(args: argparse.Namespace) -> int:
     settings = _sweep_settings(args)
     if settings.level_dbfs > SAFE_MAX_LEVEL_DBFS and not args.acknowledge_level:
         print(
-            f"Level {settings.level_dbfs:g} dBFS is above {SAFE_MAX_LEVEL_DBFS:g} dBFS. "
-            "Set the monitor level low first and pass --acknowledge-level to confirm.",
+            _(
+                "Level {level:g} dBFS is above {max_level:g} dBFS. "
+                "Set the monitor level low first and pass --acknowledge-level to confirm."
+            ).format(level=settings.level_dbfs, max_level=SAFE_MAX_LEVEL_DBFS),
             file=sys.stderr,
         )
         return 2
     backend = get_backend(args.backend)
-    print(SAFETY_MESSAGE)
+    print(_(SAFETY_MESSAGE))
     if args.input_device is not None:
         backend.check_sample_rate(args.input_device, settings.sample_rate, kind="input")
     if args.output_device is not None:
@@ -531,10 +592,16 @@ def cmd_measure(args: argparse.Namespace) -> int:
         args.channel = 0
     out_dir: Path = args.out
     out_dir.mkdir(parents=True, exist_ok=True)
-    sweep_path, _ = write_sweep_file(settings, out_dir / "sweep.wav")
+    sweep_path, _sidecar = write_sweep_file(settings, out_dir / "sweep.wav")
     print(
-        f"Playing sweep on output channel {args.output_channel}, recording input "
-        f"channel(s) {','.join(str(c) for c in channels)} via {backend.name} ..."
+        _(
+            "Playing sweep on output channel {output}, recording input "
+            "channel(s) {channels} via {backend} ..."
+        ).format(
+            output=args.output_channel,
+            channels=",".join(str(c) for c in channels),
+            backend=backend.name,
+        )
     )
     fractions: list[float] = []
 
@@ -556,7 +623,11 @@ def cmd_measure(args: argparse.Namespace) -> int:
     recording_path = write_wav(
         out_dir / "recording.wav", recording.samples, settings.sample_rate, subtype="FLOAT"
     )
-    print(f"Recorded {recording.duration_s:.1f} s to {recording_path}")
+    print(
+        _("Recorded {seconds:.1f} s to {path}").format(
+            seconds=recording.duration_s, path=recording_path
+        )
+    )
     return _run_analysis(
         recording_path,
         sweep_path,
@@ -567,17 +638,38 @@ def cmd_measure(args: argparse.Namespace) -> int:
     )
 
 
+def _is_comparison_path(path: Path) -> bool:
+    """True when ``path`` is ``comparison.json`` or a folder that holds only that file."""
+    if path.is_file():
+        return path.name == "comparison.json"
+    if path.is_dir():
+        return (path / "comparison.json").is_file() and not (path / "session.json").is_file()
+    return False
+
+
 def cmd_show(args: argparse.Namespace) -> int:
-    from roomscope.interpretation import interpret
-    from roomscope.io.session_store import list_sessions, load_measurement
+    from roomscope.interpretation import interpret, interpret_comparison
+    from roomscope.io.session_store import list_sessions, load_comparison, load_measurement
 
     if args.list:
         listings = list_sessions(args.path)
         if not listings:
-            print(f"No session.json files under {args.path}")
+            print(_("No session.json files under {root}").format(root=args.path))
             return 0
         for item in listings:
             print(f"{item.path}\t{item.label}")
+        return 0
+
+    if _is_comparison_path(args.path):
+        comparison = load_comparison(args.path)
+        profile = _resolve_profile(args, "generic")
+        findings = interpret_comparison(comparison, profile)
+        if _use_json(args):
+            payload = comparison.to_dict()
+            payload["findings"] = [f.to_dict() for f in findings]
+            print(json.dumps(payload, indent=1))
+        else:
+            print(format_comparison_report(comparison, findings, profile))
         return 0
 
     loaded = load_measurement(args.path)
@@ -590,7 +682,7 @@ def cmd_show(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=1))
     else:
         print(format_report(loaded.result, findings, profile))
-        print(f"\nSession: {loaded.directory}")
+        print("\n" + _("Session: {path}").format(path=loaded.directory))
     return 0
 
 
@@ -621,7 +713,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
     else:
         print(format_comparison_report(comparison, findings, profile))
         if args.out is not None:
-            print(f"\nWrote comparison to {args.out}")
+            print("\n" + _("Wrote comparison to {path}").format(path=args.out))
     return 0
 
 
@@ -672,7 +764,7 @@ def cmd_analyze_ir(args: argparse.Namespace) -> int:
     else:
         print(format_report(result, findings, profile))
         if args.out is not None:
-            print(f"\nSaved session to {args.out}")
+            print("\n" + _("Saved session to {path}").format(path=args.out))
     return 0
 
 
@@ -681,7 +773,7 @@ def cmd_session(args: argparse.Namespace) -> int:
 
     if args.session_command == "bundle":
         path = bundle_session(args.session, args.out, include_audio=not args.no_audio)
-        print(f"Wrote {path}")
+        print(_("Wrote {path}").format(path=path))
         return 0
     raise RoomScopeError(f"unknown session command {args.session_command}")
 
@@ -714,11 +806,11 @@ def cmd_project(args: argparse.Namespace) -> int:
     if command == "init":
         project = Project(name=args.name or args.out.name, notes=args.notes)
         path = save_project(args.out, project)
-        print(f"Wrote {path}")
+        print(_("Wrote {path}").format(path=path))
         return 0
     if command == "add":
         project = add_session(args.project, args.session, position=args.position)
-        print(f"{len(project.positions)} position(s) in {args.project}")
+        print(_("{n} position(s) in {path}").format(n=len(project.positions), path=args.project))
         return 0
     if command == "show":
         if not is_project(args.project):
@@ -726,7 +818,7 @@ def cmd_project(args: argparse.Namespace) -> int:
         project = load_project(args.project)
         print(f"{project.name or args.project}")
         for label, path in list_project_sessions(args.project):
-            tag = label or "(unlisted)"
+            tag = label or _("(unlisted)")
             print(f"  {tag}\t{path}")
         return 0
     if command == "average":
@@ -746,10 +838,15 @@ def cmd_project(args: argparse.Namespace) -> int:
             print(json.dumps(averaged.to_dict(), indent=1))
         else:
             print(
-                f"ISO 3382-2 class: {averaged.iso_3382_2_class} "
-                f"({averaged.n_source_positions} source × {averaged.n_microphone_positions} mic)"
+                _("ISO 3382-2 class: {klass} ({sources} source × {mics} mic)").format(
+                    klass=averaged.iso_3382_2_class,
+                    sources=averaged.n_source_positions,
+                    mics=averaged.n_microphone_positions,
+                )
             )
-            print(f"{'band':>10}  {'EDT':>8}  {'T20':>8}  {'T30':>8}  {'RT60':>8}  n")
+            print(
+                f"{_('band'):>10}  {_('EDT'):>8}  {_('T20'):>8}  {_('T30'):>8}  {_('RT60'):>8}  n"
+            )
             for band in averaged.bands:
                 edt = f"{band.edt.seconds:.2f}" if band.edt.seconds is not None else "-"
                 t20 = f"{band.t20.seconds:.2f}" if band.t20.seconds is not None else "-"
@@ -762,16 +859,18 @@ def cmd_project(args: argparse.Namespace) -> int:
     raise RoomScopeError(f"unknown project command {command}")
 
 
-def cmd_gui(_: argparse.Namespace) -> int:
+def cmd_gui(args: argparse.Namespace) -> int:
     try:
         from roomscope.ui.app import run_app
     except ImportError as exc:
         print(
-            f"The GUI needs PySide6 Essentials: pip install 'roomscope[gui]' ({exc})",
+            _("The GUI needs PySide6 Essentials: pip install 'roomscope[gui]' ({error})").format(
+                error=exc
+            ),
             file=sys.stderr,
         )
         return 2
-    return int(run_app())
+    return int(run_app(smoke=bool(getattr(args, "smoke", False))))
 
 
 COMMANDS = {
@@ -799,13 +898,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return COMMANDS[args.command](args)
     except MeasurementCancelledError as exc:
-        print(f"stopped: {exc}", file=sys.stderr)
+        print(_("stopped: {message}").format(message=exc), file=sys.stderr)
         return 130
     except RoomScopeError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(_("error: {message}").format(message=exc), file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("interrupted", file=sys.stderr)
+        print(_("interrupted"), file=sys.stderr)
         return 130
 
 

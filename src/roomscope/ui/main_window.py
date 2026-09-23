@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QStackedWidget
 
 from roomscope import __version__
@@ -63,15 +65,19 @@ class MainWindow(QMainWindow):
 
         file_menu = self.menuBar().addMenu(_("&File"))
         new_action = QAction(_("&New Measurement"), self)
+        new_action.setShortcut("Ctrl+N")
         new_action.triggered.connect(self.show_home)
         open_action = QAction(_("&Open Session..."), self)
         open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self.choose_session)
         compare_action = QAction(_("&Compare Sessions..."), self)
+        compare_action.setShortcut("Ctrl+Shift+C")
         compare_action.triggered.connect(self.show_compare)
         settings_action = QAction(_("&Settings..."), self)
+        settings_action.setShortcut("Ctrl+,")
         settings_action.triggered.connect(self.show_settings)
         quit_action = QAction(_("&Quit"), self)
+        quit_action.setShortcut("Ctrl+Q")
         quit_action.triggered.connect(self.close)
         file_menu.addAction(new_action)
         file_menu.addAction(open_action)
@@ -80,10 +86,28 @@ class MainWindow(QMainWindow):
         file_menu.addAction(settings_action)
         file_menu.addSeparator()
         file_menu.addAction(quit_action)
+
+        measure_menu = self.menuBar().addMenu(_("&Measure"))
+        daw_action = QAction(_("Universal DAW Mode"), self)
+        daw_action.setShortcut("Ctrl+1")
+        daw_action.triggered.connect(lambda: self.show_mode("universal_daw"))
+        standalone_action = QAction(_("Standalone Mode"), self)
+        standalone_action.setShortcut("Ctrl+2")
+        standalone_action.triggered.connect(lambda: self.show_mode("standalone"))
+        demo_action = QAction(_("Demo (no interface)"), self)
+        demo_action.setShortcut("Ctrl+3")
+        demo_action.triggered.connect(lambda: self.show_mode("demo"))
+        measure_menu.addAction(daw_action)
+        measure_menu.addAction(standalone_action)
+        measure_menu.addAction(demo_action)
+
         help_menu = self.menuBar().addMenu(_("&Help"))
         about_action = QAction(_("&About RoomScope"), self)
         about_action.triggered.connect(self._about)
+        licenses_action = QAction(_("&Third-party licenses..."), self)
+        licenses_action.triggered.connect(self._open_licenses)
         help_menu.addAction(about_action)
+        help_menu.addAction(licenses_action)
         self.show_home()
 
     def show_home(self) -> None:
@@ -92,11 +116,11 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(self.home)
 
     def choose_session(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
+        path, _filter = QFileDialog.getOpenFileName(
             self,
-            "Open session",
+            _("Open session"),
             "",
-            "Session files (session.json);;JSON files (*.json);;All files (*)",
+            _("Session files (session.json);;JSON files (*.json);;All files (*)"),
         )
         if path:
             self.open_session_path(path)
@@ -105,7 +129,7 @@ class MainWindow(QMainWindow):
         try:
             loaded = load_measurement(path)
         except RoomScopeError as exc:
-            QMessageBox.critical(self, "Cannot open session", str(exc))
+            QMessageBox.critical(self, _("Cannot open session"), str(exc))
             return
         self.state.session = loaded.session
         self.state.result = loaded.result
@@ -154,3 +178,43 @@ class MainWindow(QMainWindow):
 
     def _about(self) -> None:
         QMessageBox.about(self, _("About RoomScope"), ABOUT_TEXT)
+
+    def _open_licenses(self) -> None:
+        target = license_notice_path()
+        if target is None:
+            QMessageBox.information(
+                self,
+                _("Third-party licenses"),
+                _(
+                    "No THIRD_PARTY_LICENSES directory was found next to this "
+                    "executable. See docs/DEPENDENCIES.md in the source tree."
+                ),
+            )
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
+
+
+def license_notice_path() -> Path | None:
+    """Directory or file the About/Help menus should open for third-party texts."""
+    candidates: list[Path] = []
+    if getattr(sys, "frozen", False):
+        exe = Path(sys.executable).resolve().parent
+        candidates.extend(
+            [
+                exe / "THIRD_PARTY_LICENSES",
+                exe.parent / "Resources" / "THIRD_PARTY_LICENSES",
+            ]
+        )
+    source_root: Path | None = None
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "docs" / "DEPENDENCIES.md").is_file():
+            source_root = parent
+            break
+    if source_root is not None:
+        candidates.append(source_root / "THIRD_PARTY_LICENSES")
+    for path in candidates:
+        if path.is_dir():
+            return path
+    if source_root is not None:
+        return source_root / "docs" / "DEPENDENCIES.md"
+    return None

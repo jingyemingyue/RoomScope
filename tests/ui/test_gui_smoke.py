@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 
@@ -132,6 +133,23 @@ def test_reopen_saved_session(
     window.close()
 
 
+def test_main_window_actions_have_shortcuts(app: QApplication) -> None:
+    from PySide6.QtGui import QAction
+
+    window = MainWindow()
+    shortcuts = {
+        action.shortcut().toString()
+        for action in window.findChildren(QAction)
+        if not action.shortcut().isEmpty()
+    }
+    for needed in ("Ctrl+N", "Ctrl+O", "Ctrl+Shift+C", "Ctrl+,", "Ctrl+1", "Ctrl+2", "Ctrl+3"):
+        assert needed in shortcuts, shortcuts
+    assert window.daw.analyze_button.shortcut().toString() == "Ctrl+Return"
+    assert window.standalone.stop_button.shortcut().toString() == "Esc"
+    assert window.results.save_button.shortcut().toString() == "Ctrl+S"
+    window.close()
+
+
 def test_standalone_page_builds(app: QApplication) -> None:
     window = MainWindow()
     window.show_mode("standalone")
@@ -173,6 +191,62 @@ def test_settings_dialog_saves(
     from roomscope.i18n import activate
 
     activate("en")
+    window.close()
+
+
+def test_placement_tab_uses_tape_measurements(
+    app: QApplication, tmp_path: Path, short_sweep: SweepSettings
+) -> None:
+    from roomscope.core.placement import DEFAULT_TEMPERATURE_C, speed_of_sound_m_s
+
+    source_height, mic_height, horizontal, ceiling = 1.20, 0.40, 1.44, 3.20
+    speed = speed_of_sound_m_s(DEFAULT_TEMPERATURE_C)
+    distance = math.hypot(source_height - mic_height, horizontal)
+
+    def plane(near: float, far: float) -> tuple[float, float]:
+        path = math.hypot(near + far, horizontal)
+        return (path - distance) / speed, 0.7 * distance / path
+
+    window = MainWindow()
+    window.show()
+    window.show_mode("universal_daw")
+    page = window.daw
+    page.sample_rate.setCurrentIndex(page.sample_rate.findData(short_sweep.sample_rate))
+    page.duration.setValue(short_sweep.duration_s)
+    page.generate_sweep_to(tmp_path / "sweep.wav")
+    page.placement.distance.setValue(distance)
+    page.placement.mic_height.setValue(mic_height)
+    page.placement.temperature_measured.setChecked(True)
+    page.placement.temperature.setValue(DEFAULT_TEMPERATURE_C)
+    ir = make_rir(
+        short_sweep.sample_rate,
+        rt60_s=0.35,
+        reflections=[
+            plane(source_height, mic_height),
+            plane(ceiling - source_height, ceiling - mic_height),
+        ],
+        diffuse_level=0.004,
+        length_s=0.6,
+    )
+    recording = synthetic_recording(window.state.sweep_settings, ir, noise_rms=1e-4)
+    rec_path = write_wav(
+        tmp_path / "recording.wav", recording.samples, recording.sample_rate, subtype="FLOAT"
+    )
+    page.set_recording(rec_path)
+    page.start_analysis(blocking=True)
+    app.processEvents()
+    assert window.state.result is not None
+    placement = window.state.result.placement
+    assert placement is not None
+    assert placement.tier == 2
+    assert window.results.tabs.tabText(window.results.tabs.count() - 1) == "Placement"
+    summary = window.results.place_tab.summary.text()
+    assert "tier 2" in summary.lower()
+    assert window.results.place_tab.table.rowCount() == 3
+    height_item = window.results.place_tab.table.item(0, 1)
+    assert height_item is not None
+    assert "m" in height_item.text()
+    assert window.state.analysis_settings.placement_distance_m == pytest.approx(distance, abs=0.01)
     window.close()
 
 
@@ -219,6 +293,52 @@ def test_compare_two_saved_sessions(
     app.processEvents()
     assert "RoomScope comparison" in window.compare.text.toPlainText()
     assert window.compare.table.rowCount() > 0
+    assert window.compare.reflections.columnCount() == 4
+    assert window.compare.resonances.columnCount() == 4
+    assert window.compare.resonances.horizontalHeaderItem(3).text()
     assert window.compare._comparison is not None
+    assert window.compare.resonances.rowCount() == len(window.compare._comparison.resonances)
     assert all(item.validity is not None for item in window.compare._comparison.decay)
     window.close()
+
+
+def test_standalone_shows_requested_and_device_rate(app: QApplication) -> None:
+    window = MainWindow()
+    window.show_mode("demo")
+    app.processEvents()
+    page = window.standalone
+    assert "48000" in page.device_rate.text()
+    page.sample_rate.setCurrentIndex(page.sample_rate.findData(44100))
+    app.processEvents()
+    label = page.device_rate.text()
+    assert "44100" in label
+    assert "48000" in label
+    assert "requested" in label
+    page._check_selected_rates(48000)
+    window.close()
+
+
+def test_help_licenses_and_core_diagnostics_heading(app: QApplication) -> None:
+    from roomscope.ui.main_window import license_notice_path
+
+    notice = license_notice_path()
+    assert notice is not None
+    assert notice.name in {"DEPENDENCIES.md", "THIRD_PARTY_LICENSES"}
+    window = MainWindow()
+    texts = [
+        action.text()
+        for menu in (action.menu() for action in window.menuBar().actions() if action.menu())
+        for action in menu.actions()
+    ]
+    assert any("license" in text.lower() or "许可" in text for text in texts)
+    heading = window.results.diagnostics_heading.text()
+    assert "English" in heading or "英文" in heading
+    window.close()
+
+
+def test_gui_smoke_flag_constructs_and_exits(app: QApplication) -> None:
+    from roomscope.cli.main import main
+    from roomscope.ui.app import run_app
+
+    assert run_app(smoke=True) == 0
+    assert main(["gui", "--smoke"]) == 0

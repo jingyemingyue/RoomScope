@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=RoomScope
+Comment=DAW-independent recording environment analyzer
+Exec=roomscope
+Icon=roomscope
+Terminal=false
+Categories=AudioVideo;Audio;
+StartupWMClass=roomscope

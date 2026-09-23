@@ -113,13 +113,13 @@ Added for v1.0:
 
 | # | Item | Section |
 | --- | --- | --- |
-| S1 | `roomscope analyze-ir`: analyse an impulse response WAV from another tool | §5.3.3 |
+| S1 | `roomscope analyze-ir`: analyse an impulse response WAV from another tool *(landed in 0.3)* | §5.3.3 |
 | S2 | Spatial averaging of T values over several sessions of one room (ISO 3382-2 style, with the accuracy class named) *(landed in 0.4)* | §5.3.4 |
 | S3 | Project folders (one room, several positions) with a project view in the GUI *(landed in 0.4)* | §5.9 |
 | S4 | CSV exporter for every curve; exporter entry points *(landed in 0.4)* | §5.7 |
-| S5 | Placement tab in the GUI (the text report already has the section) | §5.8 |
-| S6 | Python 3.14 in the CI matrix | §7.1 |
-| S7 | Documentation site generated from `docs/` | §6.5 |
+| S5 | Placement tab in the GUI (the text report already has the section) *(landed in 1.0-rc)* | §5.8 |
+| S6 | Python 3.14 in the CI matrix *(landed in 1.0-rc)* | §7.1 |
+| S7 | Documentation site generated from `docs/` *(landed in 1.0-rc: hub at docs/index.md; `scripts/build_docs_site.py`)* | §6.5 |
 
 ### 3.3 Not in 1.0 (by design, or deferred with a stated reason)
 
@@ -510,7 +510,7 @@ class AudioBackend(Protocol):
 | Command | Purpose | Status |
 | --- | --- | --- |
 | `sweep`, `analyze`, `devices`, `measure`, `gui` | as today | landed |
-| `show <session>` / `show --list <folder>` | print a stored session / list sessions | in PR #2 |
+| `show <session>` / `show --list <folder>` / `show comparison.json` | print a stored session or comparison; list sessions | landed |
 | `analyze-ir --ir <wav> [--band lo hi]` | analyse an impulse response from another tool | S1 |
 | `compare <baseline> <candidate> [--out] [--same-input-gain]` | comparison | M4 |
 | `session bundle <session> [--no-audio]` | zip for bug reports | M8 |
@@ -541,9 +541,10 @@ an automated check).
   loopback was used, the interface response on the Frequency Response tab.
   Core diagnostics appear verbatim under a translated heading (§5.6).
 * **Compare:** pick two sessions in the browser; side-by-side tables with
-  deltas and their validity, the difference curve, the matched reflections;
-  the "input gain unchanged" declaration is an explicit checkbox because it
-  decides whether the noise delta may be shown.
+  deltas and their validity, the difference curve, the matched reflections
+  and resonances; the "input gain unchanged" declaration is an explicit
+  checkbox because it decides whether the noise delta may be shown.
+  `roomscope show comparison.json` re-derives findings (they are not stored).
 * **Settings dialog:** language, default profile, audio backend, default
   output folder, copy-recording default.
 * **Session browser / project view:** the browser from PR #2, extended to
@@ -624,9 +625,12 @@ is asked on every measurement, as the brief's safety rules require.
   third-party attributions for the Essentials modules, the FreeType credit,
   the PortAudio license (not in the wheel), the Qhull and Agg notices. The
   About dialog links to that directory. The UNKNOWN / NEEDS REVIEW items of
-  DEPENDENCIES.md §6 (matplotlib's `ttconv`, the Linux and Windows wheel
-  contents) must be resolved before the first bundle ships; the license
-  bundle script lists any package whose license file it could not find and
+  DEPENDENCIES.md §6 (matplotlib's `ttconv` is resolved; Linux x86_64
+  and Windows win_amd64 wheels of numpy/scipy/soundfile/sounddevice/
+  matplotlib/Pillow were opened on 2026-09-22; the Windows sounddevice
+  wheel still ships ASIO DLLs)
+  must stay current when those versions change; the license bundle
+  script lists any package whose license file it could not find and
   fails the job.
 * **Reproducible inputs:** bundles are built from a lock file
   (`requirements/bundle.lock`, generated with `pip-compile` or `uv` from
@@ -642,8 +646,9 @@ is asked on every measurement, as the brief's safety rules require.
   1.0 is not called 1.0 without at least the macOS notarization or an
   explicit maintainer decision to ship unsigned.
 * **Smoke test:** every bundle is launched on its own runner
-  (`roomscope --version`, `roomscope analyze` on the synthetic example, the
-  GUI offscreen) before it is attached to a release.
+  (`roomscope --version`, `roomscope --backend fake measure` on the
+  synthetic room, `roomscope gui --smoke` offscreen) before it is attached
+  to a release. Nothing is sent to a loudspeaker.
 
 ### 6.3 Release workflow
 
@@ -677,7 +682,8 @@ by users, Standalone Mode and the loopback cable, reading each result tab
 (what a validity flag means, why there is no score), comparing two
 positions, troubleshooting (clipping, wrong reference, multiple passes,
 device rates), and how to send a bug-report bundle. A generated site (S7)
-is optional; GitHub renders the Markdown either way.
+is built by `scripts/build_docs_site.py` (stdlib Markdown subset, dark-mode
+CSS); GitHub still renders the Markdown.
 
 ## 7. Quality gates (M10, M11)
 

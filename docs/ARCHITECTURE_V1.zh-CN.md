@@ -54,7 +54,7 @@ v1.0 新增四条：
 
 `analyze-ir` 脉冲响应导入；同一房间多次会话的 T 值空间平均（按 ISO 3382-2 标注精度等级）；
 项目文件夹（一个房间、多个位置）；CSV 导出器与导出器 entry point；GUI 的 Placement 标签页；
-CI 加入 Python 3.14；由 `docs/` 生成的文档站。
+CI 加入 Python 3.14；由 `docs/` 生成的文档站（`scripts/build_docs_site.py`）。
 
 ### 3.3 v1.0 不做（设计上拒绝，或带理由推迟）
 
@@ -101,7 +101,7 @@ NumPy 进、dataclass 出，无 I/O、无 Qt。其他新增：
 
 ### 5.4 会话对比（M4）
 
-`compare(baseline, candidate)` 纯函数，只在**双方都 VALID** 时给出差值，否则 `NOT_COMPARABLE` 并附两边的原因。频响在公共激励频带内插值到同一对数网格后相减；早期反射按 ±0.5 ms 配对；噪声差值只有在双方都有已验证的安静段且用户明确声明"输入增益未变"时才有效；报告引用 ISO 3382-1 给出的 T 的可觉察差（约 5 %，条款待核对），但从不自行宣称"显著"。解释层新增 `interpret_comparison`，复用各 Profile 自己的阈值。结果存为 `comparison.json`。
+`compare(baseline, candidate)` 纯函数，只在**双方都 VALID** 时给出差值，否则 `NOT_COMPARABLE` 并附两边的原因。频响在公共激励频带内插值到同一对数网格后相减；早期反射按 ±0.5 ms 配对；低频共振按 1/6 倍频程配对；噪声差值只有在双方都有已验证的安静段且用户明确声明"输入增益未变"时才有效；报告引用 ISO 3382-1 给出的 T 的可觉察差（约 5 %，条款待核对），但从不自行宣称"显著"。解释层新增 `interpret_comparison`，复用各 Profile 自己的阈值。结果存为 `comparison.json`（不写入 findings）；`roomscope show comparison.json` 重新生成解读。GUI 对比页列出配对反射与共振。
 
 ### 5.5 音频后端（M6）
 

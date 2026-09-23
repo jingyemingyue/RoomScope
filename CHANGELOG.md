@@ -7,6 +7,51 @@ All notable changes to RoomScope are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- 1.0-rc software that does not need hardware or a public flip: GUI
+  Placement tab and tape-measure fields (S5); Python 3.14 in the CI
+  matrix (S6); the M11 validation protocol with pre-chosen tolerances
+  (`docs/VALIDATION.md`); `requirements/bundle.lock`; CycloneDX SBOM and
+  SHA256SUMS on `v*` tags; PyPI trusted-publishing job (GitHub
+  environment `pypi`, maintainer approval); `CODEOWNERS`; docs link
+  check; 85 % coverage gate on `core` and `models`; `docs/index.md`
+  hub; fixtures README; keyboard shortcuts for every main action;
+  plots use linestyle as well as colour; GitHub Actions pinned by SHA;
+  themed documentation site (`scripts/build_docs_site.py`, S7);
+  matplotlib / Qt chrome follows the system dark mode; Standalone
+  shows the device rate next to the requested rate and calls
+  `check_sample_rate` before a measurement; Compare lists matched
+  reflections, loopback deltas and per-octave MAD;   Help opens the
+  license bundle or `docs/DEPENDENCIES.md`. JSON reads cap nesting
+  depth as well as size; settings, recents and sweep sidecars use the
+  same reader. `scripts/check_src_safety.py` bans network imports,
+  pickle, eval and shell-outs under `src/`. Unsigned-bundle packaging
+  adds Inno Setup, a Linux desktop/AppRun, a macOS dmg script, zip/tar
+  archives, and `scripts/smoke_bundle.py` (fake-backend measure).
+  Linux x86_64 wheels of numpy/scipy/soundfile/sounddevice/
+  matplotlib/Pillow were opened (`scripts/audit_wheel_contents.py`);
+  the Windows sounddevice wheel was listed and still ships ASIO
+  DLLs that the bundle gate strips. DAW, Standalone and Results
+  chrome is translated through gettext (zh-CN catalog).
+  CLI `--help` and the labels of the text report go through
+  gettext (ARCHITECTURE_V1.md §5.6). Windows win_amd64 wheels of
+  numpy/scipy/soundfile/matplotlib/Pillow were opened (OpenBLAS +
+  MSVC runtime / libsndfile; matplotlib has no `ttconv`; Pillow
+  ships codecs inside the extension modules).   The installed-wheel
+  audit test follows the per-OS layout (Linux quadmath, Windows
+  ASIO present, macOS `.dylibs/`) instead of the Linux list only.
+  Remaining CLI messages (sweep next steps, devices table, measure
+  progress, error prefixes, argparse `-h` / `--version`) go through
+  gettext. README states the §6.4 platform set. The wheel audit
+  merges on-disk natives so macOS ``.dylibs/`` is visible when RECORD
+  omits that hidden folder.
+  `load_comparison` and `roomscope show comparison.json` re-derive
+  findings (they are never stored); the Compare GUI lists matched
+  resonances; the user guide names every Results tab and the
+  wrong-reference / multiple-pass failures; robustness tests cover
+  comparison.json, more WAV/sidecar cases, and a microphone used as
+  loopback; bundle smoke runs `roomscope gui --smoke` offscreen.
+  The campaign has not been run; hardware cells stay empty; the
+  repository stays private. The API and schemas are **not** frozen.
 - v0.4 for everyone (ARCHITECTURE_V1.md milestone 0.4): gettext with a
   Simplified Chinese catalog; `--lang` / `settings.language` /
   `ROOMSCOPE_LANG`; user settings under `$ROOMSCOPE_HOME/settings.json`;

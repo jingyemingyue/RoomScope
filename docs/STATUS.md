@@ -33,6 +33,72 @@ sessions and bundles, user settings, projects/averaging (SHOULD), CSV
 export, user guide, unsigned-bundle pipeline (`release.yml`, license
 bundle, GPL-module gate). Hardware cells are not marked PASS.
 
+Snapshot 20: 2026-09-22 — macOS wheel audit walks `.dylibs/`:
+`importlib.metadata` RECORD on the runner omitted numpy's hidden
+`.dylibs/` folder, so the OS-aware test still failed. `audit_installed`
+now merges on-disk natives next to the package. Hardware cells empty.
+
+Snapshot 19: 2026-09-22 — M7 CLI output + README §6.4:
+remaining CLI messages (sweep next steps, devices table,
+measure/progress, error prefixes, argparse -h/--version) go
+through gettext. README names the 1.0 platform set and that
+anything else may work and is not tested. Hardware cells empty.
+
+Snapshot 18: 2026-09-22 — wheel-audit test is OS-aware:
+macOS/Windows CI failed because the Linux OpenBLAS+quadmath /
+empty-ASIO checks ran against installed wheels. The test now
+follows DEPENDENCIES.md §6 per platform; `.dylibs/` counts as
+a bundled-lib folder. Hardware cells empty.
+
+Snapshot 17: 2026-09-22 — 1.0-rc M7 CLI help / text-report labels:
+`--lang zh_CN` translates CLI `--help` and every text-report
+heading (ARCHITECTURE_V1.md §5.6). Windows win_amd64 wheels of
+numpy/scipy/soundfile/matplotlib/Pillow opened (OpenBLAS +
+msvcp140 / libsndfile; no ttconv; Pillow codecs are inside the
+`.pyd` files). API/schema not frozen. Hardware cells empty.
+
+Snapshot 16: 2026-09-22 — 1.0-rc M7 chrome / M9 wheel audit:
+Linux x86_64 wheels of numpy/scipy/soundfile/sounddevice/
+matplotlib/Pillow opened (`scripts/audit_wheel_contents.py`);
+Windows sounddevice 0.5.6 wheel listed (ASIO DLLs still a
+gate). DAW/Standalone/Results chrome goes through gettext.
+API/schema not frozen. Hardware cells empty.
+
+Snapshot 15: 2026-09-22 — 1.0-rc compare / robustness / guide:
+`load_comparison` (findings re-derived on `roomscope show
+comparison.json`); Compare GUI lists matched resonances; user
+guide names every Results tab plus wrong-reference and
+multiple-pass troubleshooting; robustness covers comparison.json,
+more WAV/sidecar cases, and a microphone used as loopback;
+`roomscope gui --smoke` is the §6.2 offscreen bundle smoke.
+API/schema not frozen. Hardware cells empty.
+
+Snapshot 14: 2026-09-22 — 1.0-rc §8 / M9 packaging remainder:
+JSON depth cap, shared untrusted-file reader, src safety script,
+unsigned zip/tar/dmg/Inno scaffolding and bundle smoke (fake
+measure). API/schema not frozen. Hardware cells empty.
+
+Snapshot 13: 2026-09-22 — 1.0-rc S7 / §5.8 remainder: themed docs
+site from `docs/`, dark-mode plot and Qt chrome, device rate next to
+the requested rate with `check_sample_rate` before Standalone
+measure, compare reflections / loopback / MAD, Help → licenses.
+API/schema not frozen. Hardware cells empty.
+
+Snapshot 12: 2026-09-22 — 1.0-rc GUI/supply-chain: keyboard shortcuts
+for File and Measure actions, linestyle-coded plots, Actions pinned
+by SHA. API/schema not frozen. Hardware cells empty.
+
+Snapshot 11: 2026-09-22 — 1.0-rc quality gates: docs link check, 85 %
+coverage on `core`/`models`, `docs/index.md` hub, fixtures README.
+API/schema not frozen. Hardware cells empty.
+
+Snapshot 10: 2026-09-22 — 1.0-rc software on top of 0.4: Placement tab
+(S5), Python 3.14 in CI (S6), M11 validation protocol with pre-chosen
+tolerances, bundle.lock, SBOM/checksums and a trusted-publishing job
+that still needs the maintainer `pypi` environment. Re-verified on
+Linux x86_64 (Ubuntu, Python 3.12.3): 308 passed. Hardware cells are
+not marked PASS. The repository is not public.
+
 Snapshot 9: 2026-09-22 — 0.4 follow-up after the first local suite: `--json`
 prints JSON again (deprecation on stderr, not `warnings.warn`); license
 discovery follows files under `.dist-info/licenses/`; macOS
@@ -52,7 +118,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | Early reflections | ETC peak candidates (delay ms, level dB re direct) with local-trend prominence |
 | Placement geometry | Excess path per candidate; with a tape-measured loudspeaker distance the exact product of perpendicular distances and its two-sided bracket; with a microphone height the vertical axis (loudspeaker height, plane above the devices, horizontal separation). No coordinates, no room length or width, no wall named |
 | Low-frequency resonances | Candidate peaks (< 300 Hz) with narrow-band decay vs. filter ringing comparison |
-| Models & storage | Validated settings; result model with JSON export and `from_dict` load; MeasurementSession; self-contained session directory (session.json, result.json, IR WAV, optional recording.wav, always-copied sweep sidecar); `load_measurement` / `list_sessions` / `bundle_session`; recent list and `settings.json` under `$ROOMSCOPE_HOME`; shipped JSON Schemas; `comparison.json`; `project.json` |
+| Models & storage | Validated settings; result model with JSON export and `from_dict` load; MeasurementSession; self-contained session directory (session.json, result.json, IR WAV, optional recording.wav, always-copied sweep sidecar); `load_measurement` / `load_comparison` / `list_sessions` / `bundle_session`; recent list and `settings.json` under `$ROOMSCOPE_HOME`; shipped JSON Schemas; `comparison.json` (findings not stored); `project.json` |
 | Interpretation | Finding model (`message_id` / `params` / `locale`); messages through gettext `_()`; RecordingProfile registry + entry points; seven profiles; `interpret_comparison` |
 | CLI | `roomscope sweep / analyze / analyze-ir / show / compare / schema / devices / measure / gui / session bundle / export / project`; global `--lang`, `--format`, `--backend`, `--copy-recording` |
 | Public API | Lazy Tier 1 exports from `import roomscope` (ARCHITECTURE_V1.md §5.1) |
@@ -60,19 +126,20 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | Audio backends | `AudioBackend` protocol; PortAudio callback stream (progress, Stop); fake backend for CI and Demo |
 | Averaging | `average_decay`: VALID T values only; ISO 3382-2 class labelled from Table 1 (secondary-source transcription) |
 | Export | CSV exporter for decay, FR, noise PSD, reflections, resonances; `roomscope.exporters` entry points |
-| i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG` |
-| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results, session save/open, Compare, Demo, Stop, Settings, project-folder browser |
+| i18n | stdlib gettext; `zh_CN` catalog; `--lang` / settings / `ROOMSCOPE_LANG`; findings, GUI chrome, CLI help and text-report labels |
+| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections and resonances, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate, `gui --smoke`; DAW/Standalone/Results chrome through gettext |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
-| Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags |
+| Bundles | `scripts/build_license_bundle.py`, `scripts/check_bundle_contents.py`, `packaging/roomscope.spec`, unsigned `release.yml` on `v*` tags (zip / tar / dmg / Inno script, `scripts/smoke_bundle.py` version + fake measure + offscreen GUI) |
+| Documentation | Hub at `docs/index.md`; themed HTML site from `scripts/build_docs_site.py` (S7) |
 
 ## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      301 passed  (tests/unit 244, tests/integration 42, tests/ui 7 offscreen, tests/robustness 8)
+pytest      339 passed  (tests/unit 265, tests/integration 42, tests/ui 12 offscreen, tests/robustness 20)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
-mypy        Success: no issues found in 68 source files (strict)
+mypy        Success: no issues found in 69 source files (strict)
 ```
 
 The 2026-09-17 macOS log recorded 256 tests. Later DSP work replaced a
@@ -83,7 +150,18 @@ of 1.0 were updated on 2026-09-22 and pass on Linux. Session-reopen tests
 GUI re-open) plus the 0.2 compare / schema / Tier 1 lock tests brought
 the suite to 259. 0.3 added loopback, the backend protocol and robustness
 tests (283). 0.4 adds i18n, settings, bundles, averaging, CSV, license
-gates and the macOS microphone plist (301). GUI tests also check that
+gates and the macOS microphone plist (301). 1.0-rc adds the Placement
+tab, the validation-protocol test and the bundle-lock test (304), then
+the docs-link and fixtures tests (308), then shortcuts, plot
+linestyles and Action SHA pins (311), then the themed docs site,
+dark-mode plot chrome, device-rate display and compare tables (316),
+then JSON depth, src-safety and unsigned-bundle packaging (322),
+then comparison load/show, resonance table, richer robustness and
+`gui --smoke` (334), then the Linux wheel audit and DAW/Standalone
+gettext chrome (336), then CLI help / text-report labels and the
+Windows wheel listing (338), then remaining CLI output
+gettext and the README platform statement (339).
+GUI tests also check that
 matplotlib's QtAgg backend loads against PySide6_Essentials (no Addons).
 
 What the tests prove with synthetic signals (no real-room recording is used
@@ -166,16 +244,17 @@ algebra and the refusals, not the acoustics of any real surface.
 * `result.json` with curves is several MB for long IRs (`--no-curves` to
   shrink); the raw IR WAV is the authoritative record.
 * The GUI is functional but plain. Session re-opening, a folder/recent
-  list, a two-session comparison, Settings, Demo/Stop and a `project.json`
-  folder view are in. There is no Placement tab yet (S5) and no large
-  session database.
+  list, a two-session comparison, Settings, Demo/Stop, a `project.json`
+  folder view and a Placement tab (S5) are in. There is no large session
+  database.
 
 ## Not implemented (by design for v0.1 or deferred)
 
 VST3/AU/AAX plug-ins, room score, auto-EQ/correction, cloud/accounts, 3D
 room modelling, absorption material calculators, dB SPL, room-mode
-identification, phase display, a generated documentation site, signed
-desktop installers. Unsigned bundle scaffolding exists (`release.yml`);
+identification, phase display, signed desktop installers. A themed
+documentation site is generated from `docs/` (`scripts/build_docs_site.py`).
+Unsigned bundle scaffolding exists (`release.yml`);
 a person installing a frozen bundle on macOS/Windows is not claimed.
 
 ## Dependencies
@@ -208,8 +287,14 @@ were not copied.
   none) and keep Qt as replaceable shared libraries.
 * Windows sounddevice wheels contain ASIO DLLs built with the proprietary
   Steinberg SDK — strip them.
-* matplotlib's bundled `ttconv` license and the Linux/Windows wheel contents
-  of several packages are still UNKNOWN / NEEDS REVIEW.
+* matplotlib's historical `ttconv` converter is gone in 3.8+ (DEPENDENCIES.md
+  §6). Linux x86_64 wheels of numpy/scipy/soundfile/sounddevice/
+  matplotlib/Pillow were opened on 2026-09-22; the Windows sounddevice
+  0.5.6 wheel lists `*-asio.dll` (still stripped by the bundle gate).
+  Windows win_amd64 wheels of numpy/scipy/soundfile/matplotlib/Pillow
+  were opened the same day (OpenBLAS + msvcp140 / libsndfile; no
+  `ttconv`; Pillow codecs live inside the `.pyd` files).
+  The license-bundle script fails if a required package ships no license.
 * Two in-force patents adjacent to the field (US 9,959,883; US 10,816,391)
   are noted in MEASUREMENT_METHODOLOGY.md §10 so the design does not drift
   into them. Not a legal opinion.
@@ -226,11 +311,17 @@ installing a frozen bundle on macOS/Windows is **not** claimed here —
 those artifacts are produced by the release workflow when the maintainer
 pushes a tag. [HARDWARE_TESTS.md](HARDWARE_TESTS.md) is still empty.
 
-The remaining MUST items are 1.0-rc: API/schema freeze, the validation
-campaign (M11), the hardware matrix executed at least once per platform
-(M10), signed bundles or an explicit maintainer decision (M9 remainder),
-SECURITY / CONTRIBUTING / STATUS updated for the freeze, repository
-public (M13, maintainer), pre-release on PyPI (maintainer).
+API and schema versions stay unfrozen: writers remain strict and readers
+lenient, but 1.0 will bump the package version and lock the Tier 1 list
+and schema integers only after the campaign and the hardware matrix have
+dated rows.
+
+The remaining MUST items are still 1.0-rc: API/schema freeze, the
+validation campaign *executed* (M11 protocol is written), the hardware
+matrix executed at least once per platform (M10), signed bundles or an
+explicit maintainer decision (M9 remainder), SECURITY / CONTRIBUTING /
+STATUS updated for the freeze, repository public (M13, maintainer),
+pre-release on PyPI (the workflow job exists; publishing is maintainer).
 
 Maintainer-only actions that this work does not do: public visibility flip,
 a numbered GitHub Release, a license change, or rewriting published

@@ -221,7 +221,7 @@ def _load_translation(lang: str) -> gettext.NullTranslations:
     messages = _LOCALE_DIR / lang / "LC_MESSAGES"
     mo = messages / f"{DOMAIN}.mo"
     po = messages / f"{DOMAIN}.po"
-    if not mo.is_file() and po.is_file():
+    if po.is_file() and (not mo.is_file() or po.stat().st_mtime > mo.stat().st_mtime):
         try:
             write_mo(parse_po(po), mo)
         except OSError:

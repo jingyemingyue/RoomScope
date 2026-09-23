@@ -18,7 +18,8 @@ import numpy as np
 from roomscope import __version__
 from roomscope.core.pipeline import Reference
 from roomscope.core.sweep import measurement_signal
-from roomscope.errors import ConfigurationError, InvalidAudioError
+from roomscope.errors import ConfigurationError, InvalidAudioError, SessionError
+from roomscope.io.jsonutil import read_json_object
 from roomscope.models.audio import AudioSignal, FloatArray
 from roomscope.models.configuration import SweepSettings
 
@@ -123,10 +124,10 @@ def read_sweep_sidecar(path: str | Path) -> SweepSettings | None:
             raise ConfigurationError(
                 f"{side.name} is larger than 1 MB; a sweep sidecar cannot be that large"
             )
-        payload = json.loads(side.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        payload = read_json_object(side, kind="sweep sidecar")
+    except (OSError, SessionError) as exc:
         raise ConfigurationError(f"cannot read sweep sidecar {side.name}: {exc}") from exc
-    if not isinstance(payload, dict) or SIDECAR_KEY not in payload:
+    if SIDECAR_KEY not in payload:
         raise ConfigurationError(f"{side.name} is not a RoomScope sweep sidecar")
     return SweepSettings.from_dict(payload[SIDECAR_KEY])
 
