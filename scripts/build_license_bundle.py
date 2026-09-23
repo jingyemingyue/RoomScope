@@ -1,9 +1,12 @@
 """Build THIRD_PARTY_LICENSES/ for a desktop bundle (ARCHITECTURE_V1.md §6.2).
 
-Copies license files from installed distributions, adds notices that the
-wheels omit (Qt/PySide6, PortAudio, FreeType), and fails if a required
-package still has no license text. matplotlib's old ``ttconv`` module is
-treated as resolved: it is not present in matplotlib 3.8+.
+Copies license files from installed distributions, adds the license texts
+that the wheels omit (LGPL-3.0 and GPL-3.0 for Qt / PySide6, the PortAudio
+license) from ``packaging/licenses/``, adds short notices (FreeType, Qhull,
+Agg), and fails if a required package still has no license text or if
+PySide6 is installed but the LGPL / GPL texts are missing. matplotlib's old
+``ttconv`` module is treated as resolved: it is not present in matplotlib
+3.8+.
 """
 
 from __future__ import annotations
@@ -34,17 +37,17 @@ REQUIRED = [
 
 OPTIONAL = ["PySide6_Essentials", "shiboken6", "PySide6"]
 
+# Verbatim license texts kept in the repository because the wheels omit them
+# (DEPENDENCIES.md §3-§4). Every bundle ships all of them; the LGPL / GPL
+# texts are additionally *required* whenever PySide6 is installed.
+TEXTS_DIR = Path(__file__).resolve().parents[1] / "packaging" / "licenses"
+TEXTS = ("LGPL-3.0.txt", "GPL-3.0.txt", "PortAudio-LICENSE.txt")
+QT_TEXTS = ("LGPL-3.0.txt", "GPL-3.0.txt")
+
 KNOWN_NOTICES = {
     "portaudio": (
-        "PortAudio Portable Real-Time Audio Library\n"
-        "Copyright (c) 1999-2011 Ross Bencina and Phil Burk\n\n"
-        "Permission is hereby granted, free of charge, to any person obtaining\n"
-        "a copy of this software and associated documentation files (the\n"
-        '"Software"), to deal in the Software without restriction, including\n'
-        "without limitation the rights to use, copy, modify, merge, publish,\n"
-        "distribute, sublicense, and/or sell copies of the Software.\n\n"
-        'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.\n'
-        "Source: http://www.portaudio.com/license.html\n"
+        "PortAudio (http://www.portaudio.com) is used through the sounddevice\n"
+        "wheel. Its license text is in _texts/PortAudio-LICENSE.txt.\n"
     ),
     "freetype": (
         "This software uses FreeType (https://www.freetype.org/) under the\n"
@@ -65,6 +68,8 @@ KNOWN_NOTICES = {
         "This program uses Qt and PySide6 under the GNU Lesser General Public\n"
         "License version 3 (LGPL-3.0). Qt libraries are loaded as separate shared\n"
         "libraries and may be replaced by interface-compatible versions.\n\n"
+        "The LGPL-3.0 text is in _texts/LGPL-3.0.txt and the GPL-3.0 text it\n"
+        "incorporates is in _texts/GPL-3.0.txt.\n\n"
         "Qt source: https://download.qt.io/official_releases/qt/\n"
         "PySide6 source: https://code.qt.io/cgit/pyside/pyside-setup.git/\n"
         "LGPL-3.0: https://www.gnu.org/licenses/lgpl-3.0.html\n"
@@ -76,6 +81,14 @@ KNOWN_NOTICES = {
         "matplotlib>=3.8, so ttconv is not bundled. Status: resolved.\n"
     ),
 }
+
+
+def _installed(name: str) -> bool:
+    try:
+        distribution(name)
+    except PackageNotFoundError:
+        return False
+    return True
 
 
 def _license_files(name: str) -> list[tuple[str, bytes]]:
@@ -102,7 +115,12 @@ def _license_files(name: str) -> list[tuple[str, bytes]]:
     return found
 
 
-def build(out: Path) -> list[str]:
+def build(out: Path, *, texts_dir: Path = TEXTS_DIR) -> list[str]:
+    """Write the bundle and return the names of unresolved items.
+
+    Unresolved items are required packages without a license file and, when
+    PySide6 is installed, missing LGPL / GPL texts (reported as ``text:<name>``).
+    """
     out.mkdir(parents=True, exist_ok=True)
     unresolved: list[str] = []
     for name in REQUIRED:
@@ -114,6 +132,7 @@ def build(out: Path) -> list[str]:
         dest.mkdir(exist_ok=True)
         for filename, data in files:
             (dest / filename).write_bytes(data)
+    qt_installed = False
     for name in OPTIONAL:
         files = _license_files(name)
         dest = out / name.replace(" ", "_")
@@ -122,6 +141,15 @@ def build(out: Path) -> list[str]:
             (dest / filename).write_bytes(data)
         if name.lower().startswith("pyside") or name == "shiboken6":
             (dest / "LGPL-NOTICE.txt").write_text(KNOWN_NOTICES["pyside6"], encoding="utf-8")
+            qt_installed = qt_installed or _installed(name)
+    texts = out / "_texts"
+    texts.mkdir(exist_ok=True)
+    for filename in TEXTS:
+        src = texts_dir / filename
+        if src.is_file():
+            (texts / filename).write_bytes(src.read_bytes())
+        elif filename in QT_TEXTS and qt_installed:
+            unresolved.append(f"text:{filename}")
     extras = out / "_notices"
     extras.mkdir(exist_ok=True)
     for key, text in KNOWN_NOTICES.items():
@@ -132,9 +160,13 @@ def build(out: Path) -> list[str]:
         if src.is_file():
             (out / name).write_bytes(src.read_bytes())
     summary = out / "INDEX.txt"
+    qt_line = "PySide6 installed; LGPL-3.0 and GPL-3.0 texts in _texts/"
+    if not qt_installed:
+        qt_line = "PySide6 not installed"
     lines = [
         "RoomScope third-party license bundle",
         f"unresolved: {', '.join(unresolved) if unresolved else 'none'}",
+        f"qt: {qt_line}",
         "ttconv: resolved (not present in matplotlib>=3.8)",
         "ASIO: Windows sounddevice ASIO DLLs must be stripped by check_bundle_contents.py",
     ]

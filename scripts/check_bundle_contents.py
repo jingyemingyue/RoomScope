@@ -1,10 +1,18 @@
 """Fail a desktop bundle that contains GPL-only Qt modules or ASIO DLLs.
 
 ARCHITECTURE_V1.md §6.2: a frozen tree must not ship GPL-only Qt modules or
-``*asio*.dll``. PySide6 Essentials wheels still contain ``.pyi`` stubs and a
-few QML / input plugins whose names match the ban list; those are ignored
-only in ``--installed-essentials`` mode, which instead fails if Addons is
-installed or a real GPL extension module is present.
+``*asio*.dll``. PySide6 Essentials wheels still contain ``.pyi`` stubs, a
+few QML / input plugins and versioned ``Qt/lib`` libraries whose names match
+the ban list (``libQt6QuickTimeline.so.6``, the virtual-keyboard QML
+plugins); those are ignored only in ``--installed-essentials`` mode, which
+instead fails if Addons is installed or a real GPL extension module is
+present. ``--strip`` deletes the offending files from a frozen tree before
+the gate is evaluated; the release workflow runs it once with ``--strip``
+and once without.
+
+Library file names carry the Qt major version (``Qt6QuickTimeline.dll``,
+``libQt6QuickTimeline.so.6``) while the module names do not
+(``QtQuickTimeline``), so names are compared with ``qt6`` folded to ``qt``.
 """
 
 from __future__ import annotations
@@ -38,25 +46,91 @@ def _is_binary(path: Path) -> bool:
     suffix = path.suffix.lower()
     if suffix in _BINARY_SUFFIXES:
         return True
+    lowered = path.name.lower()
     # ``QtCharts.abi3.so`` uses suffix ``.so`` already; keep the extra check
     # for names like ``foo.abi3.so`` on case-insensitive volumes.
-    return path.name.lower().endswith((".abi3.so", ".abi3.pyd"))
+    if lowered.endswith((".abi3.so", ".abi3.pyd")):
+        return True
+    # Versioned shared objects as shipped on Linux: ``libQt6Charts.so.6``,
+    # ``libQt6Charts.so.6.11.2``; ``path.suffix`` sees only ``.6`` / ``.2``.
+    if ".so." in lowered or ".dylib." in lowered:
+        return True
+    # macOS framework binaries carry no suffix at all:
+    # ``QtCharts.framework/Versions/A/QtCharts``.
+    return not path.suffix and any(part.lower().endswith(".framework") for part in path.parts)
 
 
 def _name_hits_gpl(name: str) -> str | None:
-    lowered = name.lower()
+    lowered = name.lower().replace("qt6", "qt")
     for banned in GPL_ONLY_QT:
         if banned.lower() in lowered:
             return banned
     return None
 
 
-def _under_essentials_plugin_tree(path: Path, root: Path) -> bool:
+def _framework_hit(path: Path) -> str | None:
+    for part in path.parts:
+        if part.lower().endswith(".framework"):
+            hit = _name_hits_gpl(part)
+            if hit is not None:
+                return hit
+    return None
+
+
+def _under_essentials_qt_tree(path: Path, root: Path) -> bool:
+    """Stock wheel content that Essentials ships and RoomScope never imports."""
     try:
         relative = path.relative_to(root).as_posix().lower()
     except ValueError:
         relative = path.as_posix().lower()
-    return "/qt/plugins/" in f"/{relative}" or "/qt/qml/" in f"/{relative}"
+    marked = f"/{relative}"
+    return "/qt/plugins/" in marked or "/qt/qml/" in marked or "/qt/lib/" in marked
+
+
+def _is_asio_dll(path: Path) -> bool:
+    return path.suffix.lower() == ".dll" and "asio" in path.name.lower()
+
+
+def offending(root: Path, *, installed_essentials: bool = False) -> list[tuple[Path, str]]:
+    """Return ``(path, reason)`` for every file the gate objects to."""
+    found: list[tuple[Path, str]] = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        if _is_asio_dll(path):
+            found.append((path, "ASIO DLL present"))
+        if path.suffix.lower() == ".pyi":
+            continue
+        banned = _name_hits_gpl(path.name)
+        if banned is None and not path.suffix:
+            # A macOS framework directory carries the module name; the files
+            # inside it (the binary, Resources/…) may not.
+            banned = _framework_hit(path)
+        if banned is None:
+            continue
+        if installed_essentials and not _is_binary(path):
+            continue
+        if installed_essentials and _under_essentials_qt_tree(path, root):
+            continue
+        if not installed_essentials and not _is_binary(path) and path.suffix.lower() != ".py":
+            continue
+        found.append((path, f"GPL-only Qt module present ({banned})"))
+    return found
+
+
+def strip(root: Path) -> list[Path]:
+    """Delete every offending file from a frozen tree and return what was removed."""
+    removed: list[Path] = []
+    for path, _reason in offending(root):
+        if path.is_file():
+            path.unlink()
+            removed.append(path)
+    # Remove the now-empty framework / module directories left behind.
+    for directory in sorted((p for p in root.rglob("*") if p.is_dir()), reverse=True):
+        parts = directory.relative_to(root).parts
+        if any(_name_hits_gpl(part) for part in parts) and not any(directory.iterdir()):
+            directory.rmdir()
+    return removed
 
 
 def check(
@@ -75,24 +149,10 @@ def check(
             pass
         else:
             errors.append("PySide6_Addons is installed; RoomScope must use PySide6_Essentials only")
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        name = path.name
-        if path.suffix.lower() == ".dll" and "asio" in name.lower():
-            errors.append(f"ASIO DLL present: {path}")
-        if path.suffix.lower() == ".pyi":
-            continue
-        banned = _name_hits_gpl(name)
-        if banned is None:
-            continue
-        if installed_essentials and not _is_binary(path):
-            continue
-        if installed_essentials and _under_essentials_plugin_tree(path, root):
-            continue
-        if not installed_essentials and not _is_binary(path) and path.suffix.lower() != ".py":
-            continue
-        errors.append(f"GPL-only Qt module present: {path}")
+    errors.extend(
+        f"{reason}: {path}"
+        for path, reason in offending(root, installed_essentials=installed_essentials)
+    )
     if require_licenses:
         licenses = root / "THIRD_PARTY_LICENSES"
         if not licenses.is_dir():
@@ -101,6 +161,10 @@ def check(
             index = licenses / "INDEX.txt"
             if index.is_file() and "unresolved: none" not in index.read_text(encoding="utf-8"):
                 errors.append("THIRD_PARTY_LICENSES/INDEX.txt lists unresolved packages")
+            texts = licenses / "_texts"
+            for filename in ("LGPL-3.0.txt", "GPL-3.0.txt", "PortAudio-LICENSE.txt"):
+                if not (texts / filename).is_file():
+                    errors.append(f"THIRD_PARTY_LICENSES/_texts/{filename} is missing")
     return errors
 
 
@@ -117,7 +181,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="gate a PySide6_Essentials install (ignore wheel stubs and stock plugins)",
     )
+    parser.add_argument(
+        "--strip",
+        action="store_true",
+        help="delete GPL-only Qt modules and ASIO DLLs from a frozen tree, then gate it",
+    )
     args = parser.parse_args(argv)
+    if args.strip:
+        if args.installed_essentials:
+            parser.error("--strip applies to a frozen tree, not to --installed-essentials")
+        for path in strip(args.root):
+            print(f"stripped {path}")
     errors = check(
         args.root,
         require_licenses=args.require_licenses,
