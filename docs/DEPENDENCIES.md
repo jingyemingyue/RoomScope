@@ -46,7 +46,8 @@ Apache-2.0 project with the redistribution obligations listed in §3.
 | mypy | 2.3.1 | https://github.com/python/mypy | MIT (+ PSF/Apache portions) | type checking | Yes |
 | jsonschema | 4.26.0 | https://github.com/python-jsonschema/jsonschema | MIT | validate `to_dict` writers against shipped schemas (tests only) | Yes |
 | babel | (optional `i18n-dev`) | https://github.com/python-babel/babel | BSD-3-Clause | extract/compile gettext catalogs; not required at runtime | Yes |
-| pyinstaller | (release workflow) | https://github.com/pyinstaller/pyinstaller | GPL-2.0-or-later WITH Bootloader-exception | one-directory desktop bundles; not a runtime dependency | Yes* (tool only; not imported by RoomScope) |
+| pyinstaller | (release workflow) | https://github.com/pyinstaller/pyinstaller | GPL-2.0-or-later WITH Bootloader-exception | one-directory desktop bundles; not a runtime dependency | Yes* (the bootloader that PyInstaller embeds in every frozen executable is covered by the Bootloader-exception, which lets it be shipped with a program under any license; RoomScope does not import PyInstaller) |
+| build | (CI and release workflow) | https://github.com/pypa/build | MIT | builds the sdist and wheel; not a runtime dependency | Yes |
 | cyclonedx-bom | (release workflow on `v*` tags) | https://github.com/CycloneDX/cyclonedx-python | Apache-2.0 | SBOM attached to a draft Release; not a runtime dependency | Yes |
 | Inno Setup | (Windows bundle job, when `iscc` is installed) | https://jrsoftware.org/isinfo.php | Inno Setup License (permissive, similar to modified BSD) | optional Windows installer around the one-directory zip; not imported by RoomScope | Yes* (tool only) |
 
@@ -123,7 +124,7 @@ files of the installed distributions (and of a downloaded `.whl`).
 
 | Package | Bundled shared libraries | Notes |
 | --- | --- | --- |
-| numpy 2.5.3 | `numpy.libs/libscipy_openblas64_-*.so`, `libgfortran-*.so.5`, `libquadmath-*.so.0` | Same OpenBLAS + GCC-runtime + LGPL libquadmath set as the macOS audit; `LICENSE.txt` is in `.dist-info/licenses/`. |
+| numpy 2.5.3 | `numpy.libs/libscipy_openblas64_-*.so`, `libgfortran-*.so.5`, `libquadmath-*.so.0` | Same OpenBLAS + GCC-runtime + LGPL libquadmath set as the 2026-09-17 macOS audit (which opened a `macosx_11_0` wheel; see the macOS note below); `LICENSE.txt` is in `.dist-info/licenses/`. |
 | scipy 1.18.1 | `scipy.libs/libscipy_openblas-*.so`, two `libgfortran` builds, two `libquadmath` builds | `COPYING_QHULL.txt` is in the wheel; no extra GPL libraries beyond the GCC runtime exception set. |
 | soundfile 0.14.0 | `_soundfile_data/libsndfile_x86_64.so` | `_soundfile_data/COPYING` is LGPL-2.1; replaceable via `cffi.dlopen` / system libsndfile. |
 | sounddevice 0.5.6 | *none* | Linux wheel uses the system PortAudio (`libportaudio2`). No ASIO DLLs. |
@@ -141,6 +142,20 @@ files of the installed distributions (and of a downloaded `.whl`).
 | matplotlib 3.11.2 | extension modules only (`_qhull`, `ft2font`, `_backend_agg`, …) | No `ttconv` file. |
 | Pillow 12.3.0 | extension modules only (`_imaging`, `_webp`, …) | No `pillow.libs/` folder; codecs are inside the `.pyd` files. MIT-CMU `LICENSE` in `.dist-info/licenses/`. |
 | sounddevice 0.5.6 | `libportaudio{32,64,arm64}bit.dll` and matching `*-asio.dll`, plus a leftover `libportaudio.dylib` | ASIO DLLs remain a packaging gate (`scripts/check_bundle_contents.py`). |
+
+**macOS arm64, CPython 3.12**, checked 2026-09-24 by opening the two numpy
+2.5.3 arm64 wheels on PyPI: `numpy-2.5.3-cp312-cp312-macosx_14_0_arm64.whl`
+— the wheel pip selects on macOS 14 and newer, and therefore on the
+`macos-latest` CI runner — links Apple **Accelerate** and bundles **no**
+shared library at all (there is no `numpy/.dylibs/` folder in it). The older
+`macosx_11_0_arm64` wheel bundles `libscipy_openblas64_.dylib`,
+`libgfortran.5.dylib`, `libquadmath.0.dylib` and `libgcc_s.1.1.dylib` under
+`numpy/.dylibs/`. Which layout a frozen `.app` carries depends on the macOS
+version of the machine that builds it, so the license bundle for a macOS
+build must be generated on that machine; the libquadmath / libgfortran
+obligations in §3 apply only to the OpenBLAS layout. The installed-wheel
+audit test (`tests/unit/test_packaging_and_safety.py`) accepts either layout
+and fails on a mixed one.
 
 The license-bundle script still fails if a required package ships no license
 text. None of these affect the source release.

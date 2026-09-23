@@ -31,20 +31,27 @@ def test_installed_wheels_match_the_bundle_gate() -> None:
     assert matplotlib.ttconv == ()
     assert not any("ttconv" in name.lower() for name in matplotlib.natives)
     assert any("qhull" in name.lower() for name in scipy.licenses)
-    assert any("openblas" in name.lower() for name in numpy_openblas)
     assert any("libsndfile" in name.lower() for name in snd_libs)
 
+    has_openblas = any("openblas" in name.lower() for name in numpy_openblas)
+    has_quadmath = any("quadmath" in name.lower() for name in numpy_openblas)
+
     if sys.platform.startswith("linux"):
-        assert any("quadmath" in name.lower() for name in numpy_openblas)
+        assert has_openblas and has_quadmath
         assert sounddevice.asio == ()
     elif sys.platform == "win32":
-        assert not any("quadmath" in name.lower() for name in numpy_openblas)
+        assert has_openblas and not has_quadmath
         assert sounddevice.asio
     else:
-        # macOS: OpenBLAS + GCC runtime live under .dylibs/; RECORD on the
-        # runner may omit that hidden folder, so audit_installed also walks
-        # the install tree. The sounddevice wheel lists Windows *-asio.dll.
-        assert any("quadmath" in name.lower() for name in numpy_openblas)
+        # macOS: numpy's macosx_14_0 wheels (what macos-latest installs) link
+        # Apple Accelerate and bundle no shared library at all; the older
+        # macosx_11_0 / 10_13 wheels bundle OpenBLAS together with the GCC
+        # runtime (libgfortran, libquadmath, libgcc_s) under numpy/.dylibs/.
+        # Either layout is acceptable; a wheel with OpenBLAS but without the
+        # GCC runtime (or vice versa) would be a new layout to audit.
+        assert has_openblas == has_quadmath
+        if has_openblas:
+            assert any(".dylibs/" in name for name in numpy_libs)
 
 
 def test_bundled_shared_libs_recognises_macos_dylibs() -> None:
