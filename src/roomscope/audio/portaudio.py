@@ -1,8 +1,19 @@
-"""PortAudio backend: callback stream with progress and immediate Stop."""
+"""PortAudio backend: callback stream with progress and immediate Stop.
+
+The real-time callback only copies samples and advances a frame counter. It
+never calls back into the front end: progress is reported from the waiting
+thread, which polls the counter (a print to stderr or a Qt signal emitted from
+the audio thread can block it long enough to drop samples). An exception in
+the callback aborts the stream, is kept, and is re-raised from the waiting
+thread, so a failed take is never returned as a recording. PortAudio's
+under/overflow flags are counted and logged.
+"""
 
 from __future__ import annotations
 
+import logging
 import threading
+import time
 from collections.abc import Callable, Sequence
 
 import numpy as np
@@ -11,6 +22,16 @@ from roomscope.audio.backend import CALLBACK_BLOCK, DeviceInfo, prepare_playback
 from roomscope.audio.devices import check_sample_rate, list_devices, sounddevice_module
 from roomscope.errors import AudioDeviceError, ConfigurationError, MeasurementCancelledError
 from roomscope.models.audio import AudioSignal, FloatArray
+
+log = logging.getLogger(__name__)
+
+#: How often the waiting thread reports progress (s).
+PROGRESS_POLL_S = 0.05
+#: Extra time allowed beyond the signal duration before the take times out (s).
+TIMEOUT_MARGIN_S = 5.0
+#: After Stop, how long to wait for the stream's next callback before giving
+#: up on a stalled device (s).
+CANCEL_GRACE_S = 0.5
 
 
 class PortAudioBackend:
@@ -48,39 +69,55 @@ class PortAudioBackend:
         n_out = output_channel
         frames_total = int(signal.shape[0])
         recorded = np.zeros((frames_total, len(input_channels)), dtype=np.float64)
-        play_idx = 0
+        # Written by the audio thread only; read by this thread (a Python int
+        # assignment is atomic under the GIL).
+        position = [0]
         finished = threading.Event()
         callback_error: list[BaseException] = []
+        xruns: list[str] = []
 
         def callback(
             indata: np.ndarray,
             outdata: np.ndarray,
             frames: int,
             _time: object,
-            _status: object,
+            status: object,
         ) -> None:
-            nonlocal play_idx
             # Silence first: Stop must zero the output in this callback period.
             outdata.fill(0)
             if cancel is not None and cancel.is_set():
                 raise sd.CallbackStop
-            remaining = frames_total - play_idx
-            if remaining <= 0:
-                raise sd.CallbackStop
-            n = min(frames, remaining)
-            outdata[:n, output_channel - 1] = signal[play_idx : play_idx + n]
-            for i, channel in enumerate(input_channels):
-                recorded[play_idx : play_idx + n, i] = np.asarray(
-                    indata[:n, channel - 1], dtype=np.float64
-                )
-            play_idx += n
-            if progress is not None:
-                progress(min(1.0, play_idx / frames_total))
-            if play_idx >= frames_total:
+            try:
+                if status:
+                    xruns.append(str(status))
+                play_idx = position[0]
+                remaining = frames_total - play_idx
+                if remaining <= 0:
+                    raise sd.CallbackStop
+                n = min(frames, remaining)
+                outdata[:n, output_channel - 1] = signal[play_idx : play_idx + n]
+                for i, channel in enumerate(input_channels):
+                    recorded[play_idx : play_idx + n, i] = np.asarray(
+                        indata[:n, channel - 1], dtype=np.float64
+                    )
+                position[0] = play_idx + n
+            except (sd.CallbackStop, sd.CallbackAbort):
+                raise
+            except BaseException as exc:
+                # Keep the error for the waiting thread and abort the stream;
+                # an exception escaping the callback would only be printed.
+                outdata.fill(0)
+                callback_error.append(exc)
+                raise sd.CallbackAbort from exc
+            if position[0] >= frames_total:
                 raise sd.CallbackStop
 
         def on_finished() -> None:
             finished.set()
+
+        def report(fraction: float) -> None:
+            if progress is not None:
+                progress(min(1.0, fraction))
 
         try:
             with sd.Stream(
@@ -92,21 +129,52 @@ class PortAudioBackend:
                 callback=callback,
                 finished_callback=on_finished,
             ):
-                timeout = frames_total / max(sample_rate, 1) + 5.0
-                if not finished.wait(timeout=timeout):
-                    raise AudioDeviceError("playback/recording timed out")
+                deadline = time.monotonic() + frames_total / max(sample_rate, 1) + TIMEOUT_MARGIN_S
+                cancelled_at: float | None = None
+                while not finished.wait(timeout=PROGRESS_POLL_S):
+                    report(position[0] / frames_total)
+                    now = time.monotonic()
+                    if cancel is not None and cancel.is_set():
+                        # The next callback stops the stream; if the device
+                        # has stalled and no callback comes, stop waiting.
+                        cancelled_at = now if cancelled_at is None else cancelled_at
+                        if now - cancelled_at > CANCEL_GRACE_S:
+                            raise MeasurementCancelledError("measurement stopped")
+                    if now > deadline:
+                        raise AudioDeviceError("playback/recording timed out")
+        except MeasurementCancelledError:
+            raise
+        except AudioDeviceError:
+            if cancel is not None and cancel.is_set():
+                raise MeasurementCancelledError("measurement stopped") from None
+            raise
         except Exception as exc:
             if cancel is not None and cancel.is_set():
                 raise MeasurementCancelledError("measurement stopped") from exc
-            if isinstance(exc, MeasurementCancelledError):
-                raise
             raise AudioDeviceError(f"playback/recording failed: {exc}") from exc
         if callback_error:
             raise AudioDeviceError(
-                f"playback/recording failed: {callback_error[0]}"
+                f"playback/recording failed in the audio callback: {callback_error[0]!r}"
             ) from callback_error[0]
         if cancel is not None and cancel.is_set():
             raise MeasurementCancelledError("measurement stopped")
+        if position[0] < frames_total:
+            raise AudioDeviceError(
+                f"the audio stream ended after {position[0]} of {frames_total} frames"
+            )
+        if xruns:
+            log.warning(
+                "the audio device reported %d buffer problem(s) during the take (%s); "
+                "the recording may contain dropouts, measure again if the result looks wrong",
+                len(xruns),
+                "; ".join(sorted(set(xruns))),
+            )
+        try:
+            report(1.0)
+        except Exception:
+            # The take itself is complete; a front end that cannot show 100 %
+            # must not throw it away.
+            log.warning("the progress callback failed after a complete take", exc_info=True)
         samples = recorded[:, 0] if len(input_channels) == 1 else recorded
         return AudioSignal(
             samples=np.ascontiguousarray(samples),
