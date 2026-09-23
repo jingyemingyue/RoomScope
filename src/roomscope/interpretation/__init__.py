@@ -7,7 +7,7 @@ and never changes it. Recording profiles (vocal, drums, ...) plug in through
 
 from __future__ import annotations
 
-from roomscope.interpretation.interpreter import Finding, Severity, interpret
+from roomscope.interpretation.interpreter import Finding, Severity, interpret, interpret_comparison
 from roomscope.interpretation.profiles import (
     AcousticGuitarProfile,
     ChoirProfile,
@@ -35,4 +35,5 @@ __all__ = [
     "VoiceOverProfile",
     "available_profiles",
     "interpret",
+    "interpret_comparison",
 ]

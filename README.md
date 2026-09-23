@@ -89,6 +89,14 @@ roomscope analyze --recording recording.wav --sweep sweep_48k.wav \
 # acoustic_guitar | drums | room_mic | choir)
 roomscope analyze --recording recording.wav --sweep sweep_48k.wav --profile voiceover
 
+# Re-open a saved session (same report; --profile overrides the stored one)
+roomscope show results/
+roomscope show results/ --list
+
+# Compare two saved sessions (every delta carries a validity)
+roomscope compare results/ position-b/ --same-input-gain
+roomscope schema result
+
 # Standalone: list devices, then measure
 roomscope devices
 roomscope measure --out session1/ --input-device 2 --output-device 3 --sample-rate 48000
@@ -115,13 +123,18 @@ measurement modes.
 
 `results/` receives `result.json` (all metrics and curves),
 `impulse_response.wav` (raw IR, float32) and `session.json` (measurement
-metadata). Raw recordings are never modified.
+metadata). Raw recordings are never modified. `roomscope show` and the GUI
+**Open Session** / Home session list reopen that directory; the IR WAV is
+the authoritative sample record (`result.json` stores metrics, not IR
+samples). Recently opened or saved sessions are remembered under
+`$ROOMSCOPE_HOME` (default `~/.roomscope`).
 
 ## Python API
 
 ```python
-from roomscope.core import Reference, analyze
+from roomscope import analyze, compare, interpret_comparison
 from roomscope.io.wav import read_wav, load_reference
+from roomscope.core import Reference
 
 recording = read_wav("recording.wav")
 reference = load_reference("sweep_48k.wav")  # uses the JSON sidecar if present
@@ -153,6 +166,8 @@ for r in result.reflections.reflections:
 | Document | Content |
 | --- | --- |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Package layout, data flow, extension points |
+| [docs/ARCHITECTURE_V1.md](docs/ARCHITECTURE_V1.md) | v1.0 design (proposal): the release open to everyone -- API and schema freeze, comparison, loopback channel, packaging, i18n, validation gates |
+| [docs/ARCHITECTURE_V1.zh-CN.md](docs/ARCHITECTURE_V1.zh-CN.md) | Chinese digest of the v1.0 design |
 | [docs/MEASUREMENT_METHODOLOGY.md](docs/MEASUREMENT_METHODOLOGY.md) | Algorithms, units, validity rules, references |
 | [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) | Every runtime/dev dependency with license and purpose |
 | [docs/THIRD_PARTY_REVIEW.md](docs/THIRD_PARTY_REVIEW.md) | Audit of external repositories that were studied |

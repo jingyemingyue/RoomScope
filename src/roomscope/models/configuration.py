@@ -12,6 +12,8 @@ from dataclasses import asdict, dataclass, fields
 from typing import Any
 
 from roomscope.errors import ConfigurationError
+from roomscope.models.calibration import CalibrationRecord
+from roomscope.models.loadutil import settings_payload
 
 SUPPORTED_SAMPLE_RATES: tuple[int, ...] = (44100, 48000, 88200, 96000, 176400, 192000)
 DEFAULT_SAMPLE_RATE = 48000
@@ -114,11 +116,8 @@ class SweepSettings:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SweepSettings:
-        known = {f.name for f in fields(cls)}
-        unknown = set(data) - known
-        if unknown:
-            raise ConfigurationError(f"unknown sweep settings: {sorted(unknown)}")
-        return cls(**data)
+        payload = settings_payload(data, {f.name for f in fields(cls)}, kind="sweep settings")
+        return cls(**payload)
 
     def with_sample_rate(self, sample_rate: int) -> SweepSettings:
         """Return the same sweep definition at another sample rate."""
@@ -167,6 +166,10 @@ class AnalysisSettings:
     placement_mic_height_m: float | None = None
     #: Air temperature (C). ``None`` assumes 20 C and records that it did.
     placement_temperature_c: float | None = None
+    #: 0-based channel of a loopback recording, or ``None`` when unused.
+    loopback_channel: int | None = None
+    #: Reserved. Stored and ignored by the analysis in 1.0.
+    calibration: CalibrationRecord | None = None
 
     def __post_init__(self) -> None:
         _require(self.channel is None or self.channel >= 0, "channel must be >= 0 or None")
@@ -207,19 +210,23 @@ class AnalysisSettings:
             "placement_mic_height_m needs placement_distance_m: a height on its own "
             "cannot be turned into geometry",
         )
+        _require(
+            self.loopback_channel is None or self.loopback_channel >= 0,
+            "loopback_channel must be >= 0 or None",
+        )
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["octave_bands_hz"] = list(self.octave_bands_hz)
+        if self.calibration is not None:
+            data["calibration"] = self.calibration.to_dict()
         return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AnalysisSettings:
-        known = {f.name for f in fields(cls)}
-        unknown = set(data) - known
-        if unknown:
-            raise ConfigurationError(f"unknown analysis settings: {sorted(unknown)}")
-        payload = dict(data)
+        payload = settings_payload(data, {f.name for f in fields(cls)}, kind="analysis settings")
         if "octave_bands_hz" in payload:
             payload["octave_bands_hz"] = tuple(float(f) for f in payload["octave_bands_hz"])
+        if payload.get("calibration") is not None:
+            payload["calibration"] = CalibrationRecord.from_dict(payload["calibration"])
         return cls(**payload)

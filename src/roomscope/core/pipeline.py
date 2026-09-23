@@ -55,8 +55,10 @@ from roomscope.errors import ConfigurationError, InvalidAudioError, SampleRateMi
 from roomscope.models.audio import AudioSignal, FloatArray
 from roomscope.models.configuration import AnalysisSettings, SweepSettings
 from roomscope.models.result import (
+    EXCITATION_SOURCE_DECLARED,
     EXCITATION_SOURCE_ESTIMATED,
     EXCITATION_SOURCE_SETTINGS,
+    EXCITATION_SOURCE_UNKNOWN,
     AliasedDistortion,
     AnalysisResult,
     ClippingCheck,
@@ -64,7 +66,9 @@ from roomscope.models.result import (
     ExcitationBand,
     HarmonicDistortion,
     ImpulseResponseResult,
+    NoiseResult,
 )
+from roomscope.version import __version__
 
 SILENCE_THRESHOLD_DBFS = -80.0
 #: Periods of the lowest excited frequency analysed before the direct sound
@@ -610,6 +614,198 @@ def analyze(
         clipping=clipping,
         placement=placement,
         warnings=tuple(warnings),
+        roomscope_version=__version__,
+    )
+
+
+def _blank_noise(*, note: str) -> NoiseResult:
+    return NoiseResult(
+        segment_source=None,
+        segment_start_s=None,
+        segment_duration_s=None,
+        rms_dbfs=None,
+        peak_dbfs=None,
+        band_levels_dbfs=(),
+        psd_frequencies_hz=None,
+        psd_db=None,
+        notes=(note,),
+    )
+
+
+def _mark_decay_not_computed(decay: DecayResult, reason: str) -> DecayResult:
+    from dataclasses import replace
+
+    from roomscope.models.result import BandDecay, DecayMetric, Validity
+
+    def blank(metric: DecayMetric) -> DecayMetric:
+        return replace(metric, seconds=None, validity=Validity.NOT_COMPUTED, reason=reason)
+
+    def blank_band(band: BandDecay) -> BandDecay:
+        return replace(
+            band,
+            edt=blank(band.edt),
+            t20=blank(band.t20),
+            t30=blank(band.t30),
+            rt60_estimate_s=None,
+            rt60_basis=None,
+            curvature_percent=None,
+        )
+
+    return replace(
+        decay,
+        broadband=blank_band(decay.broadband),
+        bands=tuple(blank_band(b) for b in decay.bands),
+        notes=(*decay.notes, reason),
+    )
+
+
+def analyze_impulse_response(
+    ir: AudioSignal,
+    settings: AnalysisSettings | None = None,
+    *,
+    excitation_band: tuple[float, float] | None = None,
+) -> AnalysisResult:
+    """Analyse an impulse-response WAV from another tool (no deconvolution).
+
+    Distortion indicators, sweep-position checks and the noise section are
+    skipped. ``excitation_band`` is what the caller declares; without it every
+    band metric is :attr:`~roomscope.models.result.Validity.NOT_COMPUTED`.
+    """
+    from roomscope.core.deconvolution import confidence_label, locate_impulse_response
+    from roomscope.core.frequency_response import frequency_response
+    from roomscope.core.placement import estimate_placement
+    from roomscope.core.reflections import detect_early_reflections
+    from roomscope.core.resonance import detect_potential_resonances
+
+    settings = settings or AnalysisSettings()
+    warnings: list[str] = [
+        "impulse response imported; deconvolution, sweep-position checks and "
+        "distortion indicators were skipped"
+    ]
+    mono, channel, channel_warning = ir.select_channel(settings.channel)
+    if channel_warning:
+        warnings.append(channel_warning)
+    sample_rate = ir.sample_rate
+    if mono.shape[0] < round(0.05 * sample_rate):
+        raise InvalidAudioError("impulse response is shorter than 50 ms")
+
+    located = locate_impulse_response(
+        np.asarray(mono, dtype=np.float64),
+        recording_length=int(mono.shape[0]),
+        reference_length=1,
+        sample_rate=sample_rate,
+        pre_delay_ms=settings.ir_pre_delay_ms,
+        max_length_s=settings.ir_max_length_s,
+        sweep_rate_s=None,
+    )
+    declared: ExcitationBand | None
+    if excitation_band is None:
+        declared = ExcitationBand(
+            low_hz=20.0,
+            high_hz=min(20000.0, sample_rate / 2.0),
+            source=EXCITATION_SOURCE_UNKNOWN,
+            note="excitation band was not declared; band metrics are not computed",
+        )
+    else:
+        low, high = excitation_band
+        if not (low > 0.0 and high > low):
+            raise ConfigurationError(
+                "excitation_band must be a (low_hz, high_hz) pair with high > low > 0"
+            )
+        declared = ExcitationBand(
+            low_hz=float(low), high_hz=float(high), source=EXCITATION_SOURCE_DECLARED
+        )
+
+    confidence = confidence_label(located.pre_peak_margin_db)
+    impulse = ImpulseResponseResult(
+        sample_rate=sample_rate,
+        samples=located.samples,
+        direct_sound_index=located.direct_index,
+        pre_delay_samples=located.pre_delay_samples,
+        peak_value=located.peak_value,
+        valid_length_s=located.valid_length_samples / sample_rate,
+        pre_peak_margin_db=located.pre_peak_margin_db,
+        direct_sound_confidence=confidence,
+        sweep_start_in_recording_s=0.0,
+        notes=tuple(warnings),
+        excitation_band=declared,
+        sweep_passes=1,
+        first_sweep_start_in_recording_s=0.0,
+    )
+    decay = _analyze_decay_of_pass(
+        np.asarray(mono, dtype=np.float64), located, sample_rate, settings, declared
+    )
+    if declared.source == EXCITATION_SOURCE_UNKNOWN:
+        decay = _mark_decay_not_computed(
+            decay, "excitation band unknown (imported impulse response; declare --band)"
+        )
+    fr_segment, fr_direct = _segment_around_pass(
+        np.asarray(mono, dtype=np.float64),
+        located,
+        sample_rate,
+        frequency_response_lead_in_s(declared, settings),
+    )
+    response = frequency_response(
+        fr_segment,
+        sample_rate,
+        direct_index=fr_direct,
+        window_s=settings.fr_window_s,
+        smoothing_fraction=settings.fr_smoothing_fraction,
+        excitation_band=declared if declared.source != EXCITATION_SOURCE_UNKNOWN else None,
+    )
+    ungated = (
+        response
+        if not response.gated
+        else frequency_response(
+            fr_segment,
+            sample_rate,
+            direct_index=fr_direct,
+            smoothing_fraction=0,
+            excitation_band=declared if declared.source != EXCITATION_SOURCE_UNKNOWN else None,
+        )
+    )
+    reflections = detect_early_reflections(
+        located.samples,
+        sample_rate,
+        located.direct_index,
+        min_delay_ms=settings.reflections_min_delay_ms,
+        max_delay_ms=settings.reflections_max_delay_ms,
+        threshold_db=settings.reflections_threshold_db,
+        prominence_db=settings.reflections_prominence_db,
+        direct_sound_confidence=confidence,
+    )
+    placement = estimate_placement(
+        reflections,
+        distance_m=settings.placement_distance_m,
+        mic_height_m=settings.placement_mic_height_m,
+        temperature_c=settings.placement_temperature_c,
+    )
+    resonances = detect_potential_resonances(
+        fr_segment,
+        sample_rate,
+        ungated,
+        max_hz=settings.resonance_max_hz,
+        min_prominence_db=settings.resonance_min_prominence_db,
+        direct_index=fr_direct,
+        excitation_band=declared if declared.source != EXCITATION_SOURCE_UNKNOWN else None,
+    )
+    analysis_dict = settings.to_dict()
+    analysis_dict["channel_analysed"] = channel
+    return AnalysisResult(
+        created_at=datetime.now(UTC).replace(microsecond=0).isoformat(),
+        sample_rate=sample_rate,
+        sweep_settings={},
+        analysis_settings=analysis_dict,
+        impulse_response=impulse,
+        decay=decay,
+        frequency_response=response,
+        noise=_blank_noise(note="no recording segment exists (imported impulse response)"),
+        reflections=reflections,
+        resonances=resonances,
+        clipping=None,
+        placement=placement,
+        warnings=tuple(warnings),
+        roomscope_version=__version__,
     )
 
 
@@ -638,4 +834,4 @@ def synthetic_recording(
     return AudioSignal(samples=recorded, sample_rate=settings.sample_rate, source="synthetic")
 
 
-__all__ = ["Reference", "analyze", "synthetic_recording"]
+__all__ = ["Reference", "analyze", "analyze_impulse_response", "synthetic_recording"]

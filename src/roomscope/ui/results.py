@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from roomscope.cli.report import format_report
 from roomscope.errors import RoomScopeError
+from roomscope.io.recent import remember_session
 from roomscope.io.session_store import save_measurement
 from roomscope.io.wav import write_wav
 from roomscope.ui.plots import (
@@ -115,7 +116,7 @@ class ResultsPage(QWidget):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.table.setItem(r, c, item)
         self.table.resizeColumnsToContents()
-        self.text.setPlainText(format_report(result, self.state.findings))
+        self.text.setPlainText(format_report(result, self.state.findings, self.state.profile))
         plot_impulse_response(self.ir_tab.figure, result)
         plot_frequency_response(self.fr_tab.figure, result)
         plot_decay(self.decay_tab.figure, result)
@@ -147,4 +148,5 @@ class ResultsPage(QWidget):
         except RoomScopeError as exc:
             QMessageBox.critical(self, "Cannot save session", str(exc))
             return
+        remember_session(directory)
         self.status.setText(f"Session saved to {session_path.parent}")

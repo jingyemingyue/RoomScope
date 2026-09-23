@@ -4,6 +4,12 @@ Status: v0.1 foundation (2026-09). This document describes what exists and the
 extension points that later milestones (plug-ins, more profiles, calibrated
 SPL) must respect.
 
+The design for v1.0 -- the first release open to everyone -- is a separate
+proposal, [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) (Chinese digest:
+[ARCHITECTURE_V1.zh-CN.md](ARCHITECTURE_V1.zh-CN.md)). It only adds to what is
+described here; the dependency direction and the single analysis entry point
+are unchanged.
+
 ## 1. Goals that shape the architecture
 
 | Goal | Consequence |
@@ -18,14 +24,18 @@ SPL) must respect.
 
 ```
 src/roomscope/
-  __init__.py            version
+  __init__.py            version + lazy Tier 1 re-exports
   errors.py              exception hierarchy (RoomScopeError -> ...)
   logging_config.py      logger setup for front ends
   models/                data only, no algorithms
     audio.py             AudioSignal (samples, sample_rate, channel selection)
     configuration.py     SweepSettings, AnalysisSettings (validated, immutable)
     result.py            AnalysisResult and sub-results, Validity enum, JSON export
+    result_load.py       JSON → AnalysisResult (unknown keys ignored)
     session.py           MeasurementSession (metadata, paths, summary)
+    comparison.py        ComparisonResult, MetricDelta, CompareSettings
+    project.py           Project index (SHOULD)
+    calibration.py       reserved CalibrationRecord
   core/                  pure DSP
     sweep.py             ESS generation, analytic + spectral inverse filters
     deconvolution.py     whole-recording deconvolution, IR location, confidence
@@ -37,15 +47,18 @@ src/roomscope/
     reflections.py       early-reflection candidates
     placement.py         vertical geometry from reflections + tape measurements
     resonance.py         potential low-frequency resonance candidates
-    pipeline.py          Reference + analyze(): the single entry point
+    compare.py           validity-aware comparison of two AnalysisResults
+    pipeline.py          Reference + analyze() + analyze_impulse_response()
   io/
     wav.py               soundfile-based read/write, sweep sidecar, load_reference
-    session_store.py     save_measurement / load_session
+    session_store.py     save_measurement / load_session / load_measurement / list_sessions / save_comparison
+    recent.py            recent session paths under $ROOMSCOPE_HOME
+  schemas/               result / session / comparison / project / sidecar JSON Schemas
   audio/                 optional (needs PortAudio); Standalone Mode only
     devices.py           list_devices, sample-rate checks
     playrec.py           play_and_record with safety defaults
   interpretation/
-    interpreter.py       Finding, Severity, interpret()
+    interpreter.py       Finding, Severity, interpret(), interpret_comparison()
     profiles.py          RecordingProfile protocol; seven profiles (generic, vocal,
                          voiceover, acoustic_guitar, drums, room_mic, choir)
   cli/
@@ -53,6 +66,8 @@ src/roomscope/
     report.py            plain-text report shared with the GUI
   ui/                    optional (needs PySide6)
     app.py, main_window.py, pages.py, results.py, plots.py, workers.py, state.py
+    browser.py           session list (Home and Compare)
+    compare_view.py      two-session comparison
 ```
 
 Dependency direction (arrows point at what may be imported):
@@ -91,6 +106,7 @@ Reference (settings | signal) ──inverse_filter(_spectral)──▶ inverse f
                                                                │
                                    interpret(result) ──▶ Findings (advice layer)
                                    save_measurement ──▶ session.json, result.json, IR WAV
+                                   load_measurement  ◀── session directory (IR from WAV)
 ```
 
 Key decisions:
@@ -127,8 +143,12 @@ Key decisions:
 * **Calibration (later):** add an optional calibration object to
   `AnalysisSettings`; `noise.py` would then also report dB SPL. Until then all
   levels stay dBFS.
-* **Other storage formats:** `MeasurementSession.to_dict`/`from_dict` are the
-  only serialisation points; `schema_version` is checked on load.
+* **Other storage formats:** `MeasurementSession.to_dict`/`from_dict` and
+  `AnalysisResult.to_dict`/`from_dict` are the serialisation points;
+  `schema_version` is checked on load. Readers are lenient: unknown keys are
+  ignored and logged. Writers stay strict: `to_dict` output is validated
+  against the shipped JSON Schemas in the test suite. IR samples live in
+  `impulse_response.wav`.
 * **Multi-position measurements (ISO 3382-2 engineering/precision):** sessions
   are per position; averaging across sessions is a future module and must
   average T values, not decay curves.
@@ -164,5 +184,6 @@ Synthetic rooms (`tests/conftest.py`) with known RT60, reflections and
 noise floors give exact expectations: sweep formula checks, unit-pulse
 inverse filters, loopback = unit impulse, RT60 recovery within 5-10 %,
 insufficient-range flags at low SNR, hum detection, stereo/mono and
-sample-rate handling, invalid-file handling, CLI round trip, offscreen GUI
-smoke test. Real-room recordings are never the only evidence.
+sample-rate handling, invalid-file handling, CLI round trip, session
+save/load/re-open, offscreen GUI smoke test (including reopening a saved
+session). Real-room recordings are never the only evidence.

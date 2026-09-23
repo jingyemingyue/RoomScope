@@ -9,6 +9,7 @@ from roomscope.core.pipeline import Reference, analyze, synthetic_recording
 from roomscope.errors import ConfigurationError, InvalidAudioError, SessionError
 from roomscope.models.audio import AudioSignal
 from roomscope.models.configuration import AnalysisSettings, SweepSettings
+from roomscope.models.result import AnalysisResult
 from roomscope.models.session import MeasurementSession
 from tests.conftest import make_rir
 
@@ -19,8 +20,8 @@ def test_sweep_settings_round_trip_and_resample() -> None:
     r = s.with_sample_rate(96000)
     assert r.sample_rate == 96000 and r.duration_s == 3.0
     assert r.sweep_rate == pytest.approx(s.sweep_rate)
-    with pytest.raises(ConfigurationError):
-        SweepSettings.from_dict({**s.to_dict(), "bogus": 1})
+    extra = SweepSettings.from_dict({**s.to_dict(), "bogus": 1})
+    assert extra == s
 
 
 @pytest.mark.parametrize(
@@ -46,8 +47,8 @@ def test_analysis_settings_validation_and_round_trip() -> None:
         AnalysisSettings(octave_bands_hz=(250.0, 125.0))
     with pytest.raises(ConfigurationError):
         AnalysisSettings(reflections_threshold_db=3.0)
-    with pytest.raises(ConfigurationError):
-        AnalysisSettings.from_dict({"nope": 1})
+    extra = AnalysisSettings.from_dict({**a.to_dict(), "nope": 1})
+    assert extra == a
 
 
 def test_audio_signal_validation_and_channel_selection() -> None:
@@ -72,8 +73,8 @@ def test_session_round_trip_and_schema_check() -> None:
     assert loaded == session
     with pytest.raises(SessionError):
         MeasurementSession.from_dict({**data, "schema_version": 99})
-    with pytest.raises(SessionError):
-        MeasurementSession.from_dict({**data, "unknown": 1})
+    loaded_extra = MeasurementSession.from_dict({**data, "unknown": 1})
+    assert loaded_extra.room_name == session.room_name
 
 
 def test_analysis_result_is_json_serialisable(short_sweep: SweepSettings) -> None:
@@ -89,3 +90,27 @@ def test_analysis_result_is_json_serialisable(short_sweep: SweepSettings) -> Non
     assert "samples" not in back["impulse_response"]
     slim = result.to_dict(include_curves=False)
     assert "magnitude_db_raw" not in slim["frequency_response"]
+
+    loaded = AnalysisResult.from_dict(json.loads(text))
+    assert loaded.sample_rate == result.sample_rate
+    assert loaded.decay.broadband.rt60_estimate_s == result.decay.broadband.rt60_estimate_s
+    assert loaded.impulse_response.direct_sound_index == result.impulse_response.direct_sound_index
+    assert loaded.impulse_response.samples.size == 0
+    slim_loaded = AnalysisResult.from_dict(slim)
+    assert slim_loaded.frequency_response.frequencies_hz.size == 0
+    assert slim_loaded.reflections.reflections == result.reflections.reflections
+
+    extra = dict(slim)
+    extra["future_field"] = {"ok": True}
+    AnalysisResult.from_dict(extra)
+    with pytest.raises(SessionError):
+        AnalysisResult.from_dict({**slim, "schema_version": 99})
+
+
+def test_session_recording_profile_defaults_when_absent() -> None:
+    session = MeasurementSession(room_name="A", recording_profile="vocal")
+    data = session.to_dict()
+    assert data["recording_profile"] == "vocal"
+    del data["recording_profile"]
+    loaded = MeasurementSession.from_dict(data)
+    assert loaded.recording_profile == "generic"

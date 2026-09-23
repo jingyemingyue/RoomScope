@@ -18,6 +18,7 @@ from typing import Protocol, runtime_checkable
 
 from roomscope.errors import ConfigurationError
 from roomscope.interpretation.interpreter import Finding, Severity
+from roomscope.models.comparison import T_JND_PERCENT, ComparisonResult, MetricDelta
 from roomscope.models.result import AnalysisResult, Reflection, ResonanceCandidate, Validity
 
 
@@ -27,6 +28,8 @@ class RecordingProfile(Protocol):
     description: str
 
     def interpret(self, result: AnalysisResult) -> list[Finding]: ...
+
+    def interpret_comparison(self, comparison: ComparisonResult) -> list[Finding]: ...
 
 
 class ProfileBase:
@@ -68,6 +71,203 @@ class ProfileBase:
         findings.extend(self._noise(result))
         findings.extend(self._resonances(result))
         return findings
+
+    def interpret_comparison(self, comparison: ComparisonResult) -> list[Finding]:
+        """Judge a comparison with this profile's own thresholds.
+
+        Invalid deltas are never quoted as numbers. A change is never called
+        significant; the ISO 3382-1 JND for T is quoted as context only.
+        """
+        findings: list[Finding] = []
+        if not comparison.comparable:
+            findings.append(
+                Finding(
+                    topic="comparison",
+                    severity=Severity.WARNING,
+                    message=(
+                        "These two sessions cannot be compared: "
+                        + (comparison.notes[0] if comparison.notes else "no common excitation band")
+                    ),
+                    evidence={"notes": list(comparison.notes)},
+                    message_id="comparison.not_comparable",
+                    params={"notes": list(comparison.notes)},
+                )
+            )
+            return findings
+        findings.extend(self._comparison_decay(comparison))
+        findings.extend(self._comparison_reflections(comparison))
+        findings.extend(self._comparison_noise(comparison))
+        return findings
+
+    def _comparison_decay(self, comparison: ComparisonResult) -> list[Finding]:
+        by_name = {item.name: item for item in comparison.decay}
+        findings: list[Finding] = []
+        rt = by_name.get("broadband.rt60_estimate")
+        if (
+            rt is not None
+            and rt.validity is Validity.VALID
+            and rt.baseline is not None
+            and rt.candidate is not None
+        ):
+            percent = rt.delta_percent if rt.delta_percent is not None else 0.0
+            direction = "shorter" if rt.candidate < rt.baseline else "longer"
+            findings.append(
+                Finding(
+                    topic="reverberation",
+                    severity=Severity.NOTICE if abs(percent) >= T_JND_PERCENT else Severity.INFO,
+                    message=(
+                        f"Broadband estimated RT60 went from {rt.baseline:.2f} s to "
+                        f"{rt.candidate:.2f} s ({percent:+.1f} % of the baseline, {direction}). "
+                        f"ISO 3382-1 quotes a just-noticeable difference for T of about "
+                        f"{T_JND_PERCENT:g} %; a single pair of positions is not enough to call "
+                        "the change significant."
+                    ),
+                    evidence={
+                        "baseline_s": rt.baseline,
+                        "candidate_s": rt.candidate,
+                        "delta_percent": percent,
+                        "jnd_percent": T_JND_PERCENT,
+                    },
+                    message_id="comparison.decay_rt60",
+                    params={
+                        "baseline_s": rt.baseline,
+                        "candidate_s": rt.candidate,
+                        "delta_percent": percent,
+                    },
+                )
+            )
+            crossed = self._decay_threshold_crossing(rt)
+            if crossed:
+                findings.append(crossed)
+        return findings
+
+    def _decay_threshold_crossing(self, rt: MetricDelta) -> Finding | None:
+        if rt.baseline is None or rt.candidate is None:
+            return None
+        before = self._decay_label(rt.baseline)
+        after = self._decay_label(rt.candidate)
+        if before == after:
+            return None
+        return Finding(
+            topic="reverberation",
+            severity=Severity.NOTICE,
+            message=(
+                f"Against this profile's decay thresholds the broadband RT60 moved from "
+                f"'{before}' ({rt.baseline:.2f} s) to '{after}' ({rt.candidate:.2f} s)."
+            ),
+            evidence={
+                "baseline_s": rt.baseline,
+                "candidate_s": rt.candidate,
+                "long_decay_s": self.long_decay_s,
+                "very_long_decay_s": self.very_long_decay_s,
+            },
+            message_id="comparison.decay_threshold",
+            params={"before": before, "after": after},
+        )
+
+    def _decay_label(self, rt: float) -> str:
+        if rt >= self.very_long_decay_s:
+            return "long"
+        if rt >= self.long_decay_s:
+            return "noticeable"
+        return "short"
+
+    def _comparison_reflections(self, comparison: ComparisonResult) -> list[Finding]:
+        matched = [m for m in comparison.reflections if m.status == "matched"]
+        in_window = [
+            m
+            for m in matched
+            if m.baseline_delay_ms is not None
+            and m.baseline_delay_ms <= self.strong_reflection_window_ms
+            and m.baseline_relative_db is not None
+            and m.candidate_relative_db is not None
+        ]
+        if not in_window:
+            appeared = [
+                m
+                for m in comparison.reflections
+                if m.status == "appeared"
+                and m.candidate_delay_ms is not None
+                and m.candidate_delay_ms <= self.strong_reflection_window_ms
+                and m.candidate_relative_db is not None
+                and m.candidate_relative_db >= self.strong_reflection_db
+            ]
+            if appeared:
+                first = max(appeared, key=lambda m: m.candidate_relative_db or -99.0)
+                return [
+                    Finding(
+                        topic="early_reflections",
+                        severity=Severity.NOTICE,
+                        message=(
+                            f"A reflection appeared at {first.candidate_delay_ms:.1f} ms "
+                            f"({first.candidate_relative_db:.1f} dB) inside this profile's "
+                            f"{self.strong_reflection_window_ms:g} ms window."
+                        ),
+                        evidence={
+                            "delay_ms": first.candidate_delay_ms,
+                            "relative_db": first.candidate_relative_db,
+                            "window_ms": self.strong_reflection_window_ms,
+                        },
+                        message_id="comparison.reflection_appeared",
+                        params={
+                            "delay_ms": first.candidate_delay_ms,
+                            "relative_db": first.candidate_relative_db,
+                        },
+                    )
+                ]
+            return []
+        strongest = max(in_window, key=lambda m: m.baseline_relative_db or -99.0)
+        return [
+            Finding(
+                topic="early_reflections",
+                severity=Severity.NOTICE,
+                message=(
+                    f"The strongest reflection within {self.strong_reflection_window_ms:g} ms "
+                    f"went from {strongest.baseline_relative_db:.1f} dB at "
+                    f"{strongest.baseline_delay_ms:.1f} ms to "
+                    f"{strongest.candidate_relative_db:.1f} dB at "
+                    f"{strongest.candidate_delay_ms:.1f} ms "
+                    f"(threshold {self.strong_reflection_db:.1f} dB for this profile)."
+                ),
+                evidence={
+                    "baseline_delay_ms": strongest.baseline_delay_ms,
+                    "candidate_delay_ms": strongest.candidate_delay_ms,
+                    "baseline_relative_db": strongest.baseline_relative_db,
+                    "candidate_relative_db": strongest.candidate_relative_db,
+                    "threshold_db": self.strong_reflection_db,
+                    "window_ms": self.strong_reflection_window_ms,
+                },
+                message_id="comparison.reflection_change",
+                params={
+                    "baseline_db": strongest.baseline_relative_db,
+                    "candidate_db": strongest.candidate_relative_db,
+                },
+            )
+        ]
+
+    def _comparison_noise(self, comparison: ComparisonResult) -> list[Finding]:
+        rms = next((item for item in comparison.noise if item.name == "noise.rms_dbfs"), None)
+        if rms is None or rms.validity is not Validity.VALID:
+            return []
+        if rms.baseline is None or rms.candidate is None or rms.delta is None:
+            return []
+        return [
+            Finding(
+                topic="noise",
+                severity=Severity.INFO,
+                message=(
+                    f"Background noise went from {rms.baseline:.1f} dBFS to "
+                    f"{rms.candidate:.1f} dBFS ({rms.delta:+.1f} dB) at the declared-equal input gain."
+                ),
+                evidence={
+                    "baseline_dbfs": rms.baseline,
+                    "candidate_dbfs": rms.candidate,
+                    "delta_db": rms.delta,
+                },
+                message_id="comparison.noise_rms",
+                params={"baseline_dbfs": rms.baseline, "candidate_dbfs": rms.candidate},
+            )
+        ]
 
     # ------------------------------------------------------------- helpers
 

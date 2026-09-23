@@ -30,6 +30,9 @@ class Validity(StrEnum):
     #: The band lies (partly) outside the frequency range the excitation
     #: covered; the band contains only leakage and noise, so nothing is reported.
     OUTSIDE_EXCITATION = "outside_excitation_range"
+    #: A comparison delta that cannot be formed (one or both sides missing a
+    #: VALID number, or the two sessions are not comparable).
+    NOT_COMPARABLE = "not_comparable"
 
 
 def _array_to_list(values: FloatArray | None, decimals: int = 4) -> list[float] | None:
@@ -220,6 +223,10 @@ class DecayResult:
 EXCITATION_SOURCE_SETTINGS = "sweep settings"
 #: ``ExcitationBand.source`` when the band was estimated from a reference WAV.
 EXCITATION_SOURCE_ESTIMATED = "estimated from reference audio"
+#: ``ExcitationBand.source`` when the caller declared the band (imported IR).
+EXCITATION_SOURCE_DECLARED = "declared by the user"
+#: ``ExcitationBand.source`` when an imported IR has no declared band.
+EXCITATION_SOURCE_UNKNOWN = "unknown"
 
 
 @dataclass(frozen=True)
@@ -350,6 +357,41 @@ class AliasedDistortion:
 
 
 @dataclass(frozen=True)
+class LoopbackResult:
+    """Optional electrical reference-channel compensation (populated in 0.3).
+
+    ``None`` on :attr:`ImpulseResponseResult.loopback` means no loopback was
+    used. A present object with ``compensation_applied`` false means a channel
+    was offered and refused.
+    """
+
+    channel: int | None
+    compensation_applied: bool
+    reason: str | None = None
+    latency_samples: int | None = None
+    path_delay_ms: float | None = None
+    distance_upper_bound_m: float | None = None
+    interface_response_hz: FloatArray | None = field(default=None, repr=False)
+    interface_response_db: FloatArray | None = field(default=None, repr=False)
+    notes: tuple[str, ...] = ()
+
+    def to_dict(self, include_curves: bool = True) -> dict[str, Any]:
+        data: dict[str, Any] = {
+            "channel": self.channel,
+            "compensation_applied": self.compensation_applied,
+            "reason": self.reason,
+            "latency_samples": self.latency_samples,
+            "path_delay_ms": self.path_delay_ms,
+            "distance_upper_bound_m": self.distance_upper_bound_m,
+            "notes": list(self.notes),
+        }
+        if include_curves:
+            data["interface_response_hz"] = _array_to_list(self.interface_response_hz, 3)
+            data["interface_response_db"] = _array_to_list(self.interface_response_db, 2)
+        return data
+
+
+@dataclass(frozen=True)
 class ImpulseResponseResult:
     sample_rate: int
     #: Impulse response samples (linear amplitude, relative units). The first
@@ -391,6 +433,9 @@ class ImpulseResponseResult:
     #: Folded (aliased) distortion products, which land *after* the direct
     #: sound (empty when the sweep definition is unknown).
     aliased_distortion: tuple[AliasedDistortion, ...] = ()
+    #: Electrical reference channel used to compensate the interface (``None``
+    #: when the measurement had no loopback).
+    loopback: LoopbackResult | None = None
 
     @property
     def direct_sound_time_s(self) -> float:
@@ -415,6 +460,7 @@ class ImpulseResponseResult:
             ),
             "harmonic_distortion": [h.to_dict() for h in self.harmonic_distortion],
             "aliased_distortion": [a.to_dict() for a in self.aliased_distortion],
+            "loopback": self.loopback.to_dict() if self.loopback is not None else None,
             "notes": list(self.notes),
         }
         if include_curves:
@@ -871,6 +917,7 @@ class AnalysisResult:
     #: placement inputs were not supplied and no tier could be produced).
     placement: PlacementResult | None = None
     schema_version: int = RESULT_SCHEMA_VERSION
+    roomscope_version: str = ""
 
     @property
     def excitation_band(self) -> ExcitationBand | None:
@@ -880,6 +927,7 @@ class AnalysisResult:
     def to_dict(self, include_curves: bool = True) -> dict[str, Any]:
         return {
             "schema_version": self.schema_version,
+            "roomscope_version": self.roomscope_version,
             "created_at": self.created_at,
             "sample_rate": self.sample_rate,
             "sweep_settings": self.sweep_settings,
@@ -894,3 +942,9 @@ class AnalysisResult:
             "placement": self.placement.to_dict() if self.placement is not None else None,
             "warnings": list(self.warnings),
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AnalysisResult:
+        from roomscope.models.result_load import analysis_result_from_dict
+
+        return analysis_result_from_dict(data)

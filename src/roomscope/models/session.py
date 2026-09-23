@@ -8,6 +8,7 @@ files next to the session file so that the measurement can be repeated.
 
 from __future__ import annotations
 
+import platform as py_platform
 import uuid
 from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
@@ -15,6 +16,8 @@ from typing import Any
 
 from roomscope.errors import SessionError
 from roomscope.models.configuration import AnalysisSettings, SweepSettings
+from roomscope.models.loadutil import drop_unknown, read_schema_version
+from roomscope.version import __version__
 
 SESSION_SCHEMA_VERSION = 1
 
@@ -51,6 +54,11 @@ class MeasurementSession:
     #: Scalar summary of the analysis (no curves) for quick listing.
     analysis_summary: dict[str, Any] = field(default_factory=dict)
     notes: str = ""
+    #: Recording profile used when the result was last interpreted.
+    recording_profile: str = "generic"
+    roomscope_version: str = field(default_factory=lambda: __version__)
+    platform: str = field(default_factory=lambda: f"{py_platform.system()} {py_platform.release()}")
+    loopback_channel: int | None = None
     schema_version: int = SESSION_SCHEMA_VERSION
 
     def to_dict(self) -> dict[str, Any]:
@@ -63,16 +71,11 @@ class MeasurementSession:
     def from_dict(cls, data: dict[str, Any]) -> MeasurementSession:
         if not isinstance(data, dict):
             raise SessionError("session data must be a JSON object")
-        version = data.get("schema_version", SESSION_SCHEMA_VERSION)
-        if version != SESSION_SCHEMA_VERSION:
-            raise SessionError(f"unsupported session schema version {version}")
-        known = {f.name for f in fields(cls)}
-        unknown = set(data) - known
-        if unknown:
-            raise SessionError(f"unknown session fields: {sorted(unknown)}")
-        payload = dict(data)
+        version = read_schema_version(data, SESSION_SCHEMA_VERSION, "session")
+        payload = drop_unknown(data, {f.name for f in fields(cls)}, kind="session")
         if "sweep_settings" in payload:
             payload["sweep_settings"] = SweepSettings.from_dict(payload["sweep_settings"])
         if "analysis_settings" in payload:
             payload["analysis_settings"] = AnalysisSettings.from_dict(payload["analysis_settings"])
+        payload["schema_version"] = version
         return cls(**payload)

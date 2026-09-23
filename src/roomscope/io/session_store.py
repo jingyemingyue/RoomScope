@@ -13,11 +13,12 @@ inside the session directory) and never modified.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from roomscope.errors import SessionError
-from roomscope.io.wav import write_wav
+from roomscope.io.wav import read_wav, write_wav
 from roomscope.models.result import AnalysisResult, Validity
 from roomscope.models.session import MeasurementSession
 
@@ -108,13 +109,129 @@ def save_measurement(
 
 def load_session(path: str | Path) -> MeasurementSession:
     """Load a session from ``session.json`` or from its directory."""
+    return MeasurementSession.from_dict(_read_json(_session_file(path)))
+
+
+def load_result(path: str | Path) -> AnalysisResult:
+    """Load an :class:`AnalysisResult` from ``result.json``."""
+    return AnalysisResult.from_dict(_read_json(Path(path)))
+
+
+@dataclass(frozen=True)
+class LoadedMeasurement:
+    """A session directory after :func:`load_measurement`."""
+
+    directory: Path
+    session: MeasurementSession
+    result: AnalysisResult
+
+
+@dataclass(frozen=True)
+class SessionListing:
+    """One ``session.json`` found by :func:`list_sessions``."""
+
+    path: Path
+    session: MeasurementSession
+
+    @property
+    def label(self) -> str:
+        room = self.session.room_name or "(unnamed room)"
+        created = self.session.created_at
+        rt60 = self.session.analysis_summary.get("broadband_rt60_estimate_s")
+        rt60_text = f"RT60 {rt60:.2f} s" if isinstance(rt60, (int, float)) else "RT60 n/a"
+        return f"{room}  ·  {created}  ·  {rt60_text}"
+
+
+def load_measurement(path: str | Path) -> LoadedMeasurement:
+    """Load session metadata, ``result.json`` and the IR WAV from a directory."""
+    session_file = _session_file(path)
+    directory = session_file.parent
+    session = MeasurementSession.from_dict(_read_json(session_file))
+    result_path = _resolve_member(directory, session.result_path, RESULT_FILE)
+    if not result_path.is_file():
+        raise SessionError(f"result.json not found next to {session_file}")
+    result = load_result(result_path)
+    ir_path = _resolve_member(directory, session.impulse_response_path, IR_FILE)
+    if ir_path.is_file():
+        ir = read_wav(ir_path)
+        samples = ir.samples if ir.samples.ndim == 1 else ir.samples[:, 0]
+        result = replace(
+            result,
+            impulse_response=replace(
+                result.impulse_response, samples=samples, sample_rate=ir.sample_rate
+            ),
+        )
+    elif result.impulse_response.samples.size == 0:
+        raise SessionError(
+            f"impulse_response.wav not found next to {session_file} and result.json "
+            "has no IR samples"
+        )
+    return LoadedMeasurement(directory=directory, session=session, result=result)
+
+
+def list_sessions(root: str | Path, *, max_depth: int = 2) -> list[SessionListing]:
+    """Find ``session.json`` files under ``root``, newest ``created_at`` first."""
+    base = Path(root)
+    if not base.is_dir():
+        raise SessionError(f"not a directory: {base}")
+    found: list[SessionListing] = []
+    for candidate in base.rglob(SESSION_FILE):
+        try:
+            rel = candidate.relative_to(base)
+        except ValueError:
+            continue
+        if len(rel.parts) - 1 > max_depth:
+            continue
+        if any(part.startswith(".") for part in rel.parts[:-1]):
+            continue
+        try:
+            found.append(SessionListing(path=candidate.parent, session=load_session(candidate)))
+        except SessionError:
+            continue
+    found.sort(key=lambda item: item.session.created_at, reverse=True)
+    return found
+
+
+def _session_file(path: str | Path) -> Path:
     p = Path(path)
     if p.is_dir():
         p = p / SESSION_FILE
     if not p.is_file():
         raise SessionError(f"session file not found: {p}")
+    return p
+
+
+def _read_json(path: Path) -> dict[str, Any]:
     try:
-        data = json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise SessionError(f"cannot read {p}: {exc}") from exc
-    return MeasurementSession.from_dict(data)
+        raise SessionError(f"cannot read {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise SessionError(f"{path} is not a JSON object")
+    return data
+
+
+def _resolve_member(directory: Path, stored: str | None, default_name: str) -> Path:
+    if not stored:
+        return directory / default_name
+    candidate = Path(stored)
+    if candidate.is_absolute():
+        return candidate
+    return directory / candidate
+
+
+def save_comparison(path: str | Path, comparison: object) -> Path:
+    """Write ``comparison.json`` to ``path`` (a file or a directory)."""
+    from roomscope.models.comparison import ComparisonResult
+
+    if not isinstance(comparison, ComparisonResult):
+        raise SessionError("save_comparison expects a ComparisonResult")
+    target = Path(path)
+    if target.suffix.lower() != ".json":
+        target = target / "comparison.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        target.write_text(json.dumps(comparison.to_dict(), indent=1), encoding="utf-8")
+    except (OSError, TypeError, ValueError) as exc:
+        raise SessionError(f"cannot write {target}: {exc}") from exc
+    return target

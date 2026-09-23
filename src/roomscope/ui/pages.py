@@ -37,6 +37,7 @@ from roomscope.models.audio import AudioSignal
 from roomscope.models.configuration import SUPPORTED_SAMPLE_RATES, AnalysisSettings, SweepSettings
 from roomscope.models.result import AnalysisResult
 from roomscope.models.session import MeasurementSession
+from roomscope.ui.browser import SessionBrowser
 from roomscope.ui.state import MeasurementState
 from roomscope.ui.workers import AnalysisWorker, MeasureWorker
 
@@ -52,6 +53,9 @@ DAW_INSTRUCTIONS = (
 
 class HomePage(QWidget):
     choose_mode = Signal(str)
+    open_session = Signal()
+    open_recent = Signal(str)
+    compare_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -75,7 +79,28 @@ class HomePage(QWidget):
         standalone.clicked.connect(lambda: self.choose_mode.emit("standalone"))
         layout.addWidget(daw)
         layout.addWidget(standalone)
-        layout.addStretch(1)
+        layout.addSpacing(16)
+        layout.addWidget(QLabel("Saved sessions"))
+        session_row = QHBoxLayout()
+        open_button = QPushButton("Open Session...")
+        open_button.setToolTip("Open a session.json or a folder that contains one.")
+        open_button.clicked.connect(self.open_session.emit)
+        compare_button = QPushButton("Compare two sessions...")
+        compare_button.setToolTip("Pick two saved sessions and compare their metrics.")
+        compare_button.clicked.connect(self.compare_requested.emit)
+        session_row.addWidget(open_button)
+        session_row.addWidget(compare_button)
+        layout.addLayout(session_row)
+        self.browser = SessionBrowser()
+        self.browser.open_session.connect(self.open_recent.emit)
+        self.recent = self.browser.list
+        layout.addWidget(self.browser, 1)
+
+    def refresh_recent(self) -> None:
+        self.browser.refresh_recent()
+
+    def list_folder(self, root: Path) -> None:
+        self.browser.list_folder(root)
 
 
 def _metadata_form(state: MeasurementState) -> tuple[QGroupBox, QLineEdit, QLineEdit, QLineEdit]:
@@ -288,6 +313,7 @@ class DawModePage(QWidget):
             analysis_settings=self.state.analysis_settings,
             sweep_path=str(self.state.sweep_path) if self.state.sweep_path else None,
             recording_path=str(self.state.recording_path) if self.state.recording_path else None,
+            recording_profile=self.state.profile,
         )
         self._set_busy(True, "Analyzing...")
         self._worker = AnalysisWorker(
@@ -472,6 +498,7 @@ class StandalonePage(QWidget):
             output_channel=int(self.output_channel.value()),
             sweep_settings=self.state.sweep_settings,
             analysis_settings=self.state.analysis_settings,
+            recording_profile=self.state.profile,
         )
         assert self.state.reference is not None
         self.status.setText("Recorded. Analyzing...")

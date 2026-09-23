@@ -97,6 +97,7 @@ def write_sweep_file(settings: SweepSettings, path: str | Path) -> tuple[Path, P
     signal = measurement_signal(settings)
     wav_path = write_wav(path, signal, settings.sample_rate, subtype="PCM_24")
     payload = {
+        "schema_version": 1,
         SIDECAR_KEY: settings.to_dict(),
         "roomscope_version": __version__,
         "wav_file": wav_path.name,

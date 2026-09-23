@@ -13,6 +13,16 @@ templates, code of conduct, security policy). Re-verified on Linux x86_64
 (Ubuntu, Python 3.12.3). The `gui` extra now installs PySide6_Essentials
 only.
 
+Snapshot 5: 2026-09-22 — v0.2 reopen and compare: Tier 1 lazy exports,
+lenient loaders, shipped JSON Schemas, `compare()` / CLI / GUI, and
+comparison findings. Hardware validation is still not claimed.
+
+Snapshot 6: 2026-09-22 — 0.2 follow-up after CI on `0ad2a4e`: the
+comparison test now requires the ISO 3382-1 "not significant" disclaimer
+instead of forbidding the word "significant", and the wheel `force-include`
+lists each schema JSON file so `roomscope/schemas/__init__.py` is not
+added twice. Re-verified on Linux x86_64 (Ubuntu, Python 3.12.3).
+
 ## Implemented
 
 | Area | What exists |
@@ -26,28 +36,32 @@ only.
 | Early reflections | ETC peak candidates (delay ms, level dB re direct) with local-trend prominence |
 | Placement geometry | Excess path per candidate; with a tape-measured loudspeaker distance the exact product of perpendicular distances and its two-sided bracket; with a microphone height the vertical axis (loudspeaker height, plane above the devices, horizontal separation). No coordinates, no room length or width, no wall named |
 | Low-frequency resonances | Candidate peaks (< 300 Hz) with narrow-band decay vs. filter ringing comparison |
-| Models & storage | Validated settings; result model with JSON export; MeasurementSession; session directory (session.json, result.json, impulse_response.wav) |
-| Interpretation | Finding model; RecordingProfile interface; seven profiles (generic, vocal, voiceover, acoustic_guitar, drums, room_mic, choir) with per-profile thresholds and advice; CLI `--profile`, GUI profile selector |
-| CLI | `roomscope sweep / analyze / devices / measure / gui`, text report and JSON output |
+| Models & storage | Validated settings; result model with JSON export and `from_dict` load; MeasurementSession (optional `recording_profile`, `roomscope_version`, `platform`); session directory (session.json, result.json, impulse_response.wav); `load_measurement` / `list_sessions`; recent list under `$ROOMSCOPE_HOME`; shipped JSON Schemas; `comparison.json` |
+| Interpretation | Finding model (`message_id` / `params` / `locale`); RecordingProfile interface; seven profiles; `interpret_comparison` using each profile's thresholds |
+| CLI | `roomscope sweep / analyze / analyze-ir / show / compare / schema / devices / measure / gui` |
+| Public API | Lazy Tier 1 exports from `import roomscope` (ARCHITECTURE_V1.md §5.1) |
+| GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results, session save/open, Compare two sessions (deltas + difference curve + same-gain checkbox) |
 | Standalone Mode | Device enumeration and play+record through PortAudio with safety defaults |
-| GUI | PySide6 window: Home, Universal DAW Mode (4 steps), Standalone Mode, Results (Overview, IR, FR, Decay, Noise, Reflections), session saving |
 
 ## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
 Linux x86_64 re-verified 2026-09-22 after the loopback-peak test fix)
 
 ```
-pytest      238 passed  (tests/unit 193, tests/integration 42, tests/ui 3 offscreen)
+pytest      259 passed  (tests/unit 212, tests/integration 42, tests/ui 5 offscreen)
 ruff check  All checks passed  (src, tests, examples, scripts)
 ruff format files already formatted
-mypy        Success: no issues found in 42 source files (strict)
+mypy        Success: no issues found in 54 source files (strict)
 ```
 
-The 2026-09-17 macOS log recorded 256 tests. The suite on this revision
-collects 238: later DSP work replaced a peak-normalised inverse with unit
-in-band gain and consolidated some assertions; the two loopback tests that
-still expected a time-domain peak of 1.0 were updated on 2026-09-22 and now
-pass on Linux. One extra GUI test checks that matplotlib's QtAgg backend
-loads against PySide6_Essentials (no Addons).
+The 2026-09-17 macOS log recorded 256 tests. Later DSP work replaced a
+peak-normalised inverse with unit in-band gain and consolidated some
+assertions; the two loopback tests that still expected a time-domain peak
+of 1.0 were updated on 2026-09-22 and pass on Linux. Session-reopen tests
+(result `from_dict`, `load_measurement`, recent list, `roomscope show`,
+GUI re-open) plus the 0.2 compare / schema / Tier 1 lock tests bring the
+suite to 259. GUI tests also check that matplotlib's QtAgg backend loads
+against PySide6_Essentials (no Addons). The 0.2 revision was re-run after
+the compare-disclaimer and wheel-include fixes.
 
 What the tests prove with synthetic signals (no real-room recording is used
 as evidence):
@@ -85,7 +99,13 @@ as evidence):
   48 kHz sweep definition; stereo channel auto-selection and explicit
   selection; WAV-only reference (spectral inverse) and resampled reference;
   loudspeaker distortion (2nd/3rd order) leaves the linear IR clean; CLI
-  round trip incl. JSON; session save/load; GUI DAW-mode flow offscreen.
+  round trip incl. JSON; session save/load/re-open (`load_measurement`,
+  `roomscope show`, GUI File → Open and Home recent/browse); two synthetic
+  positions compare with a validity on every decay delta and a noise delta
+  that stays UNRELIABLE until `same_input_gain` is declared; `roomscope
+  schema` matches the shipped files; the Tier 1 export list matches
+  ARCHITECTURE_V1.md §5.1; GUI DAW-mode flow and pick-two compare
+  offscreen.
 * macOS basic run: `roomscope sweep`, `roomscope analyze`,
   `roomscope devices` (12 Core Audio devices listed), the example script,
   and the GUI (offscreen) ran successfully. **Not run:** a real Standalone
@@ -116,14 +136,14 @@ algebra and the refusals, not the acoustics of any real surface.
   devices (Universal DAW Mode relies on the DAW/interface clocking).
 * `result.json` with curves is several MB for long IRs (`--no-curves` to
   shrink); the raw IR WAV is the authoritative record.
-* The GUI is functional but plain; no session re-opening in the GUI yet.
+* The GUI is functional but plain. Session re-opening, a folder/recent
+  list and a two-session comparison are in; there is no project library.
 
 ## Not implemented (by design for v0.1 or deferred)
 
 VST3/AU/AAX plug-ins, room score, auto-EQ/correction, cloud/accounts, 3D
 room modelling, absorption material calculators, dB SPL, room-mode
-identification, multi-position averaging, phase display, session browser,
-packaged binaries.
+identification, multi-position averaging, phase display, packaged binaries.
 
 ## Dependencies
 
@@ -161,28 +181,18 @@ were not copied.
   are noted in MEASUREMENT_METHODOLOGY.md §10 so the design does not drift
   into them. Not a legal opinion.
 
-## Next recommended milestone (v0.1.1 / v0.2)
+## Next recommended milestone (v0.3)
 
-The developer-facing GitHub foundation (this snapshot) is in place: clone,
-editable install, CI, issue/PR templates. Opening the GitHub repository to
-the public remains a **maintainer decision** (Settings → Change repository
-visibility) and is not done by merging this work. Suggested checks before
-that flip:
+0.2 exit criteria of [ARCHITECTURE_V1.md](ARCHITECTURE_V1.md) §10 are
+implemented on this revision: v0.1 sessions reopen; two sessions compare
+with a validity on every delta; `roomscope schema` matches the shipped
+files; the Tier 1 export list is locked against the design document.
 
-* Description and topics on the GitHub repo
-* Private vulnerability reporting enabled
-* CI green on `main`
-* Still no numbered GitHub Release (pre-alpha)
+The next software milestone is 0.3 (trust the chain): loopback
+compensation, `AudioBackend` + fake backend with progress and Stop,
+cross-platform CI, robustness tests. Opening the GitHub repository remains
+a **maintainer decision**.
 
-Scientific / product work after that:
-
-1. A real-room validation campaign: measure one treated and one untreated
-   room with RoomScope and a second tool (e.g. REW, used only as a
-   comparison instrument), and document agreement of T20/T30 per band.
-2. Standalone Mode hardware test on macOS, Windows and Linux (device
-   selection, channel mapping, sample-rate negotiation).
-3. Loopback/reference-channel support (second input for the interface
-   output) to remove interface response and clock ambiguity.
-4. Session re-opening in the GUI and a small session browser.
-5. Packaging (briefcase/PyInstaller one-dir) with the license bundle from
-   DEPENDENCIES.md §3–4.
+Maintainer-only actions that this work does not do: public visibility flip,
+a numbered GitHub Release, a license change, or rewriting published
+history.

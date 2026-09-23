@@ -51,6 +51,7 @@ dev = [
   "pytest-cov>=5",
   "ruff>=0.6",
   "mypy>=1.11",
+  "jsonschema>=4.20",
 ]
 
 [project.scripts]
@@ -63,6 +64,16 @@ Issues = "https://github.com/jingyemingyue/RoomScope/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/roomscope"]
+
+# JSON files are not picked up by the default Python-package walker.
+# Include each schema file, not the directory: force-including
+# src/roomscope/schemas would add __init__.py twice and fail the wheel.
+[tool.hatch.build.targets.wheel.force-include]
+"src/roomscope/schemas/result.schema.json" = "roomscope/schemas/result.schema.json"
+"src/roomscope/schemas/session.schema.json" = "roomscope/schemas/session.schema.json"
+"src/roomscope/schemas/comparison.schema.json" = "roomscope/schemas/comparison.schema.json"
+"src/roomscope/schemas/project.schema.json" = "roomscope/schemas/project.schema.json"
+"src/roomscope/schemas/sweep-sidecar.schema.json" = "roomscope/schemas/sweep-sidecar.schema.json"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -127,6 +138,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "src/roomscope/cli/*" = ["T20"]
 "src/roomscope/ui/results.py" = ["E402", "I001"]
+"src/roomscope/ui/compare_view.py" = ["E402", "I001"]
 "examples/*" = ["T20"]
 "scripts/*" = ["T20"]
 "tests/*" = ["ARG"]
@@ -144,7 +156,7 @@ show_error_codes = true
 
 [[tool.mypy.overrides]]
 # matplotlib's Qt canvas is not fully typed; the GUI results page only wraps it.
-module = ["roomscope.ui.results"]
+module = ["roomscope.ui.results", "roomscope.ui.compare_view"]
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
