@@ -6,6 +6,7 @@ from roomscope.io.recent import recent_session_paths, remember_session
 from roomscope.io.session_store import (
     LoadedMeasurement,
     SessionListing,
+    bundle_session,
     list_sessions,
     load_measurement,
     load_result,
@@ -17,6 +18,7 @@ from roomscope.io.wav import load_reference, read_wav, write_sweep_file, write_w
 __all__ = [
     "LoadedMeasurement",
     "SessionListing",
+    "bundle_session",
     "list_sessions",
     "load_measurement",
     "load_reference",

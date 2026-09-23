@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QStackedWid
 
 from roomscope import __version__
 from roomscope.errors import RoomScopeError
+from roomscope.i18n import _
 from roomscope.interpretation import interpret
 from roomscope.io.recent import remember_session
 from roomscope.io.session_store import load_measurement
@@ -24,9 +25,11 @@ ABOUT_TEXT = (
     "This program uses Qt and PySide6 (Copyright The Qt Company Ltd. and contributors) under the "
     "GNU Lesser General Public License v3; the Qt libraries are loaded as separate shared libraries "
     "and may be replaced by interface-compatible versions. NumPy, SciPy, matplotlib, soundfile "
-    "(libsndfile, LGPL-2.1) and sounddevice (PortAudio) are used under their respective licenses; "
-    "see docs/DEPENDENCIES.md.<br><br>"
-    "Levels are digital (dBFS) unless a calibration is provided; RoomScope never reports dB SPL."
+    "(libsndfile, LGPL-2.1) and sounddevice (PortAudio) are used under their respective licenses.<br><br>"
+    "A desktop bundle ships a <code>THIRD_PARTY_LICENSES/</code> directory next to the "
+    "executable (and inside <code>RoomScope.app</code> on macOS). From a source checkout "
+    "see docs/DEPENDENCIES.md. Levels are digital (dBFS) unless a calibration is provided; "
+    "RoomScope never reports dB SPL."
 )
 
 
@@ -58,23 +61,27 @@ class MainWindow(QMainWindow):
         self.results.new_measurement.connect(self.show_home)
         self.compare.back.connect(self.show_home)
 
-        file_menu = self.menuBar().addMenu("&File")
-        new_action = QAction("&New Measurement", self)
+        file_menu = self.menuBar().addMenu(_("&File"))
+        new_action = QAction(_("&New Measurement"), self)
         new_action.triggered.connect(self.show_home)
-        open_action = QAction("&Open Session...", self)
+        open_action = QAction(_("&Open Session..."), self)
         open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self.choose_session)
-        compare_action = QAction("&Compare Sessions...", self)
+        compare_action = QAction(_("&Compare Sessions..."), self)
         compare_action.triggered.connect(self.show_compare)
-        quit_action = QAction("&Quit", self)
+        settings_action = QAction(_("&Settings..."), self)
+        settings_action.triggered.connect(self.show_settings)
+        quit_action = QAction(_("&Quit"), self)
         quit_action.triggered.connect(self.close)
         file_menu.addAction(new_action)
         file_menu.addAction(open_action)
         file_menu.addAction(compare_action)
         file_menu.addSeparator()
+        file_menu.addAction(settings_action)
+        file_menu.addSeparator()
         file_menu.addAction(quit_action)
-        help_menu = self.menuBar().addMenu("&Help")
-        about_action = QAction("&About RoomScope", self)
+        help_menu = self.menuBar().addMenu(_("&Help"))
+        about_action = QAction(_("&About RoomScope"), self)
         about_action.triggered.connect(self._about)
         help_menu.addAction(about_action)
         self.show_home()
@@ -140,5 +147,10 @@ class MainWindow(QMainWindow):
             self.compare.set_paths(selected[0], selected[1])
         self.stack.setCurrentWidget(self.compare)
 
+    def show_settings(self) -> None:
+        from roomscope.ui.settings_dialog import SettingsDialog
+
+        SettingsDialog(self).exec()
+
     def _about(self) -> None:
-        QMessageBox.about(self, "About RoomScope", ABOUT_TEXT)
+        QMessageBox.about(self, _("About RoomScope"), ABOUT_TEXT)

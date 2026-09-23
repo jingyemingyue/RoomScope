@@ -5,14 +5,17 @@ A session directory contains::
     session.json            metadata + analysis summary (MeasurementSession)
     result.json             full AnalysisResult (metrics and curves)
     impulse_response.wav    raw impulse response, 32-bit float
+    sweep.roomscope-sweep.json   always copied when a sidecar is available
+    recording.wav           copied when copy_recording is on (GUI default)
 
-Raw sweep and recording files are referenced by path (relative when they are
-inside the session directory) and never modified.
+Raw sweep and recording files are never modified in place.
 """
 
 from __future__ import annotations
 
 import json
+import shutil
+import zipfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -25,6 +28,9 @@ from roomscope.models.session import MeasurementSession
 SESSION_FILE = "session.json"
 RESULT_FILE = "result.json"
 IR_FILE = "impulse_response.wav"
+RECORDING_FILE = "recording.wav"
+SWEEP_SIDECAR_NAME = "sweep.roomscope-sweep.json"
+AUDIO_SUFFIXES = {".wav", ".flac", ".aiff", ".aif", ".ogg"}
 
 
 def _relative(path: str | Path | None, base: Path) -> str | None:
@@ -79,10 +85,22 @@ def save_measurement(
     result: AnalysisResult,
     *,
     include_curves: bool = True,
+    copy_recording: bool | None = None,
 ) -> Path:
-    """Write session.json, result.json and impulse_response.wav into ``directory``."""
+    """Write session.json, result.json and impulse_response.wav into ``directory``.
+
+    The sweep sidecar is always copied when one can be found. The raw recording
+    is copied when ``copy_recording`` is true, or when it is omitted and the
+    user settings default to copying (the GUI default).
+    """
     base = Path(directory)
     base.mkdir(parents=True, exist_ok=True)
+    if copy_recording is None:
+        from roomscope.settings import load_settings
+
+        copy_recording = load_settings().copy_recording
+    original_sweep = session.sweep_path
+    original_recording = session.recording_path
     ir_path = write_wav(
         base / IR_FILE, result.impulse_response.samples, result.sample_rate, subtype="FLOAT"
     )
@@ -93,6 +111,11 @@ def save_measurement(
         )
     except (OSError, TypeError, ValueError) as exc:
         raise SessionError(f"cannot write {result_path}: {exc}") from exc
+    _copy_sidecar(original_sweep, base)
+    if copy_recording:
+        copied = _copy_recording(original_recording, base)
+        if copied is not None:
+            session.recording_path = str(copied)
     session.sample_rate = result.sample_rate
     session.impulse_response_path = _relative(ir_path, base)
     session.result_path = _relative(result_path, base)
@@ -105,6 +128,72 @@ def save_measurement(
     except (OSError, TypeError, ValueError) as exc:
         raise SessionError(f"cannot write {session_path}: {exc}") from exc
     return session_path
+
+
+def bundle_session(
+    directory: str | Path,
+    dest: str | Path | None = None,
+    *,
+    include_audio: bool = True,
+) -> Path:
+    """Zip a session folder for a bug report. ``include_audio=False`` drops WAVs."""
+    session_file = _session_file(directory)
+    base = session_file.parent
+    target = Path(dest) if dest is not None else base.with_name(base.name + ".zip")
+    if target.is_dir():
+        target = target / f"{base.name}.zip"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
+            for path in sorted(base.rglob("*")):
+                if not path.is_file():
+                    continue
+                if not include_audio and path.suffix.lower() in AUDIO_SUFFIXES:
+                    continue
+                archive.write(path, path.relative_to(base).as_posix())
+    except OSError as exc:
+        raise SessionError(f"cannot write bundle {target}: {exc}") from exc
+    return target
+
+
+def _copy_into(src: Path, dest: Path) -> Path | None:
+    if not src.is_file():
+        return None
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if src.resolve() == dest.resolve():
+            return dest
+        shutil.copy2(src, dest)
+    except OSError as exc:
+        raise SessionError(f"cannot copy {src} to {dest}: {exc}") from exc
+    return dest
+
+
+def _copy_sidecar(sweep_path: str | None, base: Path) -> Path | None:
+    if not sweep_path:
+        return None
+    from roomscope.io.wav import SIDECAR_SUFFIX, sidecar_path
+
+    src = Path(sweep_path)
+    candidates = []
+    if src.suffix == ".json" or src.name.endswith(SIDECAR_SUFFIX):
+        candidates.append(src)
+    else:
+        candidates.append(sidecar_path(src))
+        candidates.append(src.with_name(SWEEP_SIDECAR_NAME))
+    for candidate in candidates:
+        if candidate.is_file():
+            return _copy_into(candidate, base / SWEEP_SIDECAR_NAME)
+    return None
+
+
+def _copy_recording(recording_path: str | None, base: Path) -> Path | None:
+    if not recording_path:
+        return None
+    src = Path(recording_path)
+    if not src.is_file() and not src.is_absolute():
+        src = base / src
+    return _copy_into(src, base / RECORDING_FILE)
 
 
 def load_session(path: str | Path) -> MeasurementSession:

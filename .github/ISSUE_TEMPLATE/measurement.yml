@@ -28,9 +28,12 @@ body:
     attributes:
       label: Files
       description: |
-        Please attach or link: the sweep sidecar JSON (`*.roomscope-sweep.json`),
-        the recorded WAV, `result.json`, and (if you still have it) the original
-        sweep WAV. Do not upload files that contain other people's performances
+        Please attach a session bundle when you can:
+        `roomscope session bundle <session> --out report.zip`
+        (`--no-audio` leaves the WAVs out). Otherwise attach: the sweep
+        sidecar JSON (`*.roomscope-sweep.json`), the recorded WAV,
+        `result.json`, and (if you still have it) the original sweep WAV.
+        Do not upload files that contain other people's performances
         without permission.
     validations:
       required: true

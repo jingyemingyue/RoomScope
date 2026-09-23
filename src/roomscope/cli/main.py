@@ -1,6 +1,7 @@
 """``roomscope`` command-line interface.
 
-Subcommands: ``sweep``, ``analyze``, ``show``, ``devices``, ``measure``, ``gui``.
+Subcommands: ``sweep``, ``analyze``, ``show``, ``devices``, ``measure``, ``gui``,
+``compare``, ``schema``, ``analyze-ir``, ``session``, ``export``, ``project``.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from pathlib import Path
 from roomscope import __version__
 from roomscope.cli.report import format_comparison_report, format_report
 from roomscope.errors import MeasurementCancelledError, RoomScopeError
+from roomscope.i18n import _, activate
 from roomscope.interpretation import available_profiles
 from roomscope.logging_config import configure_logging
 from roomscope.models.configuration import (
@@ -122,9 +124,9 @@ def _add_analysis_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--profile",
-        default="generic",
+        default=None,
         choices=available_profiles(),
-        help="recording profile that shapes the interpretation (default generic)",
+        help="recording profile that shapes the interpretation (default: user settings)",
     )
 
 
@@ -167,7 +169,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--backend",
         default=None,
-        help="audio backend for Standalone Mode: portaudio (default) or fake",
+        help=_("audio backend for Standalone Mode: portaudio (default) or fake"),
+    )
+    parser.add_argument(
+        "--lang",
+        default=None,
+        help=_("UI language (en, zh_CN). Overrides settings and ROOMSCOPE_LANG"),
+    )
+    parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default=None,
+        help=_("text report or JSON on stdout (diagnostics stay on stderr)"),
+    )
+    parser.add_argument(
+        "--copy-recording",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=_("copy the raw recording into the session folder (default: user settings)"),
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -290,7 +309,45 @@ def build_parser() -> argparse.ArgumentParser:
     p_ir.add_argument("--out", type=Path, default=None, help="session directory")
     _add_analysis_arguments(p_ir)
 
-    sub.add_parser("gui", help="start the desktop GUI (needs the 'gui' extra)")
+    sub.add_parser("gui", help=_("start the desktop GUI (needs the 'gui' extra)"))
+
+    p_sess = sub.add_parser("session", help=_("session folder tools"))
+    sess_sub = p_sess.add_subparsers(dest="session_command", required=True)
+    p_bundle = sess_sub.add_parser("bundle", help=_("zip a session for a bug report"))
+    p_bundle.add_argument("session", type=Path, help=_("session directory or session.json"))
+    p_bundle.add_argument(
+        "--no-audio",
+        action="store_true",
+        help=_("leave WAV files out of the zip"),
+    )
+    p_bundle.add_argument("--out", type=Path, default=None, help=_("zip path (file or directory)"))
+
+    p_ex = sub.add_parser("export", help=_("export curves through an exporter"))
+    p_ex.add_argument("session", type=Path, help=_("session directory or session.json"))
+    p_ex.add_argument(
+        "--format",
+        dest="export_format",
+        default="csv",
+        help=_("exporter name (default csv)"),
+    )
+    p_ex.add_argument("--out", type=Path, default=None, help=_("output directory"))
+
+    p_proj = sub.add_parser("project", help=_("project folders (one room, several positions)"))
+    proj_sub = p_proj.add_subparsers(dest="project_command", required=True)
+    p_init = proj_sub.add_parser("init", help=_("create a project.json"))
+    p_init.add_argument("--out", required=True, type=Path, help=_("project directory"))
+    p_init.add_argument("--name", default="", help=_("room name"))
+    p_init.add_argument("--notes", default="", help=_("free-text notes"))
+    p_add = proj_sub.add_parser("add", help=_("add a session to a position"))
+    p_add.add_argument("project", type=Path, help=_("project directory"))
+    p_add.add_argument("session", type=Path, help=_("session directory"))
+    p_add.add_argument("--position", required=True, help=_("position label"))
+    p_avg = proj_sub.add_parser("average", help=_("spatial average of VALID T values"))
+    p_avg.add_argument("project", type=Path, help=_("project directory"))
+    p_avg.add_argument("--sources", type=int, default=1, help=_("number of source positions"))
+    p_avg.add_argument("--json", action="store_true", help=_("print JSON instead of a table"))
+    p_show_proj = proj_sub.add_parser("show", help=_("list positions and sessions"))
+    p_show_proj.add_argument("project", type=Path, help=_("project directory"))
     return parser
 
 
@@ -312,6 +369,44 @@ def cmd_sweep(args: argparse.Namespace) -> int:
         + str(wav_path)
     )
     return 0
+
+
+def _peek_option(argv: Sequence[str], names: tuple[str, ...]) -> str | None:
+    for index, arg in enumerate(argv):
+        for name in names:
+            if arg == name and index + 1 < len(argv):
+                return argv[index + 1]
+            prefix = name + "="
+            if arg.startswith(prefix):
+                return arg[len(prefix) :]
+    return None
+
+
+def _use_json(args: argparse.Namespace) -> bool:
+    if getattr(args, "format", None) == "json":
+        return True
+    if getattr(args, "json", False):
+        print(
+            "warning: --json is deprecated; use --format json "
+            "(--json will be removed in a future minor release)",
+            file=sys.stderr,
+        )
+        return True
+    return False
+
+
+def _resolve_profile(args: argparse.Namespace, stored: str | None = None) -> str:
+    if getattr(args, "profile", None):
+        name = str(args.profile)
+    elif stored:
+        name = stored
+    else:
+        from roomscope.settings import load_settings
+
+        name = load_settings().default_profile or "generic"
+    if name not in available_profiles():
+        return "generic"
+    return name
 
 
 def _run_analysis(
@@ -341,7 +436,8 @@ def _run_analysis(
     if getattr(args, "loopback", None) is not None:
         loopback_signal = read_wav(args.loopback)
     result = analyze(recording, reference, settings, loopback=loopback_signal)
-    findings = interpret(result, args.profile)
+    profile = _resolve_profile(args)
+    findings = interpret(result, profile)
 
     if out_dir is not None:
         session = MeasurementSession(
@@ -356,18 +452,24 @@ def _run_analysis(
             recording_path=str(recording_path),
             input_channel=result.analysis_settings.get("channel_analysed"),
             loopback_channel=settings.loopback_channel,
-            recording_profile=args.profile,
+            recording_profile=profile,
         )
-        session_path = save_measurement(out_dir, session, result, include_curves=not args.no_curves)
+        session_path = save_measurement(
+            out_dir,
+            session,
+            result,
+            include_curves=not args.no_curves,
+            copy_recording=getattr(args, "copy_recording", None),
+        )
         remember_session(out_dir)
         log.info("session saved to %s", session_path)
 
-    if args.json:
+    if _use_json(args):
         payload = result.to_dict(include_curves=not args.no_curves)
         payload["findings"] = [f.to_dict() for f in findings]
         print(json.dumps(payload, indent=1))
     else:
-        print(format_report(result, findings, args.profile))
+        print(format_report(result, findings, profile))
         if out_dir is not None:
             print(f"\nSaved session to {out_dir}")
     return 0
@@ -479,11 +581,9 @@ def cmd_show(args: argparse.Namespace) -> int:
         return 0
 
     loaded = load_measurement(args.path)
-    profile = args.profile or loaded.session.recording_profile or "generic"
-    if profile not in available_profiles():
-        profile = "generic"
+    profile = _resolve_profile(args, loaded.session.recording_profile or "generic")
     findings = interpret(loaded.result, profile)
-    if args.json:
+    if _use_json(args):
         payload = loaded.result.to_dict(include_curves=not args.no_curves)
         payload["findings"] = [f.to_dict() for f in findings]
         payload["session"] = loaded.session.to_dict()
@@ -510,13 +610,11 @@ def cmd_compare(args: argparse.Namespace) -> int:
         baseline_session=str(baseline.directory),
         candidate_session=str(candidate.directory),
     )
-    profile = args.profile or candidate.session.recording_profile or "generic"
-    if profile not in available_profiles():
-        profile = "generic"
+    profile = _resolve_profile(args, candidate.session.recording_profile or "generic")
     findings = interpret_comparison(comparison, profile)
     if args.out is not None:
         save_comparison(args.out, comparison)
-    if args.json:
+    if _use_json(args):
         payload = comparison.to_dict()
         payload["findings"] = [f.to_dict() for f in findings]
         print(json.dumps(payload, indent=1))
@@ -546,7 +644,8 @@ def cmd_analyze_ir(args: argparse.Namespace) -> int:
     settings = _analysis_settings(args)
     band = (float(args.band[0]), float(args.band[1])) if args.band else None
     result = analyze_impulse_response(ir, settings, excitation_band=band)
-    findings = interpret(result, args.profile)
+    profile = _resolve_profile(args)
+    findings = interpret(result, profile)
     if args.out is not None:
         session = MeasurementSession(
             mode="analyze_ir",
@@ -556,19 +655,111 @@ def cmd_analyze_ir(args: argparse.Namespace) -> int:
             notes=args.notes,
             analysis_settings=settings,
             recording_path=str(args.ir),
-            recording_profile=args.profile,
+            recording_profile=profile,
         )
-        save_measurement(args.out, session, result, include_curves=not args.no_curves)
+        save_measurement(
+            args.out,
+            session,
+            result,
+            include_curves=not args.no_curves,
+            copy_recording=getattr(args, "copy_recording", None),
+        )
         remember_session(args.out)
-    if args.json:
+    if _use_json(args):
         payload = result.to_dict(include_curves=not args.no_curves)
         payload["findings"] = [f.to_dict() for f in findings]
         print(json.dumps(payload, indent=1))
     else:
-        print(format_report(result, findings, args.profile))
+        print(format_report(result, findings, profile))
         if args.out is not None:
             print(f"\nSaved session to {args.out}")
     return 0
+
+
+def cmd_session(args: argparse.Namespace) -> int:
+    from roomscope.io.session_store import bundle_session
+
+    if args.session_command == "bundle":
+        path = bundle_session(args.session, args.out, include_audio=not args.no_audio)
+        print(f"Wrote {path}")
+        return 0
+    raise RoomScopeError(f"unknown session command {args.session_command}")
+
+
+def cmd_export(args: argparse.Namespace) -> int:
+    from roomscope.io.exporters import get_exporter
+    from roomscope.io.session_store import load_measurement
+
+    loaded = load_measurement(args.session)
+    out = args.out if args.out is not None else loaded.directory / "export"
+    written = get_exporter(args.export_format).export(loaded.result, out)
+    for path in written:
+        print(path)
+    return 0
+
+
+def cmd_project(args: argparse.Namespace) -> int:
+    from roomscope.core.averaging import average_decay
+    from roomscope.io.project_store import (
+        add_session,
+        is_project,
+        list_project_sessions,
+        load_project,
+        save_project,
+    )
+    from roomscope.io.session_store import load_measurement
+    from roomscope.models.project import Project
+
+    command = args.project_command
+    if command == "init":
+        project = Project(name=args.name or args.out.name, notes=args.notes)
+        path = save_project(args.out, project)
+        print(f"Wrote {path}")
+        return 0
+    if command == "add":
+        project = add_session(args.project, args.session, position=args.position)
+        print(f"{len(project.positions)} position(s) in {args.project}")
+        return 0
+    if command == "show":
+        if not is_project(args.project):
+            raise RoomScopeError(f"no project.json in {args.project}")
+        project = load_project(args.project)
+        print(f"{project.name or args.project}")
+        for label, path in list_project_sessions(args.project):
+            tag = label or "(unlisted)"
+            print(f"  {tag}\t{path}")
+        return 0
+    if command == "average":
+        if not is_project(args.project):
+            raise RoomScopeError(f"no project.json in {args.project}")
+        items = list_project_sessions(args.project)
+        if not items:
+            raise RoomScopeError(f"no sessions in {args.project}")
+        loaded = [load_measurement(path) for _label, path in items]
+        averaged = average_decay(
+            [item.result for item in loaded],
+            n_source_positions=args.sources,
+            n_microphone_positions=len(loaded),
+            session_labels=[str(item.directory) for item in loaded],
+        )
+        if _use_json(args) or args.json:
+            print(json.dumps(averaged.to_dict(), indent=1))
+        else:
+            print(
+                f"ISO 3382-2 class: {averaged.iso_3382_2_class} "
+                f"({averaged.n_source_positions} source × {averaged.n_microphone_positions} mic)"
+            )
+            print(f"{'band':>10}  {'EDT':>8}  {'T20':>8}  {'T30':>8}  {'RT60':>8}  n")
+            for band in averaged.bands:
+                edt = f"{band.edt.seconds:.2f}" if band.edt.seconds is not None else "-"
+                t20 = f"{band.t20.seconds:.2f}" if band.t20.seconds is not None else "-"
+                t30 = f"{band.t30.seconds:.2f}" if band.t30.seconds is not None else "-"
+                rt = f"{band.rt60_estimate_s:.2f}" if band.rt60_estimate_s is not None else "-"
+                print(
+                    f"{band.band_label:>10}  {edt:>8}  {t20:>8}  {t30:>8}  {rt:>8}  {band.t20.count}"
+                )
+        return 0
+    raise RoomScopeError(f"unknown project command {command}")
 
 
 def cmd_gui(_: argparse.Namespace) -> int:
@@ -593,10 +784,15 @@ COMMANDS = {
     "devices": cmd_devices,
     "measure": cmd_measure,
     "gui": cmd_gui,
+    "session": cmd_session,
+    "export": cmd_export,
+    "project": cmd_project,
 }
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    argv_list = list(sys.argv[1:] if argv is None else argv)
+    activate(_peek_option(argv_list, ("--lang",)))
     parser = build_parser()
     args = parser.parse_args(argv)
     configure_logging(logging.DEBUG if args.verbose else logging.WARNING)

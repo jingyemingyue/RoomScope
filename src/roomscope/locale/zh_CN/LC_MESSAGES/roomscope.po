@@ -1,0 +1,300 @@
+# RoomScope Simplified Chinese catalog.
+# English is the source language. Numbers stay ASCII; units are not translated.
+msgid ""
+msgstr ""
+"Project-Id-Version: roomscope 0.1.0.dev1\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "RoomScope analysis"
+msgstr "RoomScope 分析"
+
+msgid "RoomScope comparison"
+msgstr "RoomScope 对比"
+
+msgid "Sample rate: {rate} Hz    created: {created}"
+msgstr "采样率：{rate} Hz    创建时间：{created}"
+
+msgid "Warnings (core diagnostics, always English):"
+msgstr "警告（核心诊断，始终为英文）："
+
+msgid "Interpretation ({profile} profile):"
+msgstr "解读（{profile} 配置）："
+
+msgid "RoomScope: an open-source, DAW-independent recording environment analyzer."
+msgstr "RoomScope：开源、不依赖 DAW 的录音环境分析器。"
+
+msgid "audio backend for Standalone Mode: portaudio (default) or fake"
+msgstr "独立模式的音频后端：portaudio（默认）或 fake"
+
+msgid "UI language (en, zh_CN). Overrides settings and ROOMSCOPE_LANG"
+msgstr "界面语言（en、zh_CN）。覆盖设置与 ROOMSCOPE_LANG"
+
+msgid "text report or JSON on stdout (diagnostics stay on stderr)"
+msgstr "标准输出为文本报告或 JSON（诊断信息仍走标准错误）"
+
+msgid "copy the raw recording into the session folder (default: user settings)"
+msgstr "把原始录音复制进会话文件夹（默认：用户设置）"
+
+msgid "start the desktop GUI (needs the 'gui' extra)"
+msgstr "启动桌面界面（需要 gui 额外依赖）"
+
+msgid "session folder tools"
+msgstr "会话文件夹工具"
+
+msgid "zip a session for a bug report"
+msgstr "将会话打成 zip 供缺陷报告使用"
+
+msgid "session directory or session.json"
+msgstr "会话目录或 session.json"
+
+msgid "leave WAV files out of the zip"
+msgstr "zip 中不包含 WAV"
+
+msgid "zip path (file or directory)"
+msgstr "zip 路径（文件或目录）"
+
+msgid "export curves through an exporter"
+msgstr "通过导出器导出曲线"
+
+msgid "exporter name (default csv)"
+msgstr "导出器名称（默认 csv）"
+
+msgid "output directory"
+msgstr "输出目录"
+
+msgid "project folders (one room, several positions)"
+msgstr "项目文件夹（一个房间、多个位置）"
+
+msgid "create a project.json"
+msgstr "创建 project.json"
+
+msgid "project directory"
+msgstr "项目目录"
+
+msgid "room name"
+msgstr "房间名称"
+
+msgid "free-text notes"
+msgstr "备注"
+
+msgid "add a session to a position"
+msgstr "把会话加到某个位置"
+
+msgid "session directory"
+msgstr "会话目录"
+
+msgid "position label"
+msgstr "位置标签"
+
+msgid "spatial average of VALID T values"
+msgstr "对有效 T 值做空间平均"
+
+msgid "number of source positions"
+msgstr "声源位置数量"
+
+msgid "print JSON instead of a table"
+msgstr "打印 JSON 而不是表格"
+
+msgid "list positions and sessions"
+msgstr "列出位置与会话"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "System / English fallback"
+msgstr "系统 / 回退到英文"
+
+msgid "Default (PortAudio)"
+msgstr "默认（PortAudio）"
+
+msgid "Browse..."
+msgstr "浏览…"
+
+msgid "Copy the raw recording into every session"
+msgstr "把原始录音复制进每个会话"
+
+msgid "Language"
+msgstr "语言"
+
+msgid "Default profile"
+msgstr "默认配置"
+
+msgid "Audio backend"
+msgstr "音频后端"
+
+msgid "Default output folder"
+msgstr "默认输出文件夹"
+
+msgid "&File"
+msgstr "文件(&F)"
+
+msgid "&New Measurement"
+msgstr "新测量(&N)"
+
+msgid "&Open Session..."
+msgstr "打开会话(&O)…"
+
+msgid "&Compare Sessions..."
+msgstr "对比会话(&C)…"
+
+msgid "&Settings..."
+msgstr "设置(&S)…"
+
+msgid "&Quit"
+msgstr "退出(&Q)"
+
+msgid "&Help"
+msgstr "帮助(&H)"
+
+msgid "&About RoomScope"
+msgstr "关于 RoomScope(&A)"
+
+msgid "About RoomScope"
+msgstr "关于 RoomScope"
+
+msgid "Browse Folder..."
+msgstr "浏览文件夹…"
+
+msgid "Recent"
+msgstr "最近"
+
+msgid "No recent sessions yet. Save a measurement to see it here."
+msgstr "还没有最近会话。保存一次测量后会出现在这里。"
+
+msgid "Cannot list sessions"
+msgstr "无法列出会话"
+
+msgid "No sessions in this project"
+msgstr "此项目中没有会话"
+
+msgid "No session.json files under {root}"
+msgstr "{root} 下没有 session.json"
+
+msgid "An open-source, DAW-independent recording environment analyzer"
+msgstr "开源、不依赖 DAW 的录音环境分析器"
+
+msgid "New Measurement"
+msgstr "新测量"
+
+msgid "Universal DAW Mode"
+msgstr "通用 DAW 模式"
+
+msgid "Standalone Mode"
+msgstr "独立模式"
+
+msgid "Demo (no interface)"
+msgstr "演示（无需音频接口）"
+
+msgid "Saved sessions"
+msgstr "已保存的会话"
+
+msgid "Open Session..."
+msgstr "打开会话…"
+
+msgid "Compare two sessions..."
+msgstr "对比两个会话…"
+
+msgid "These two sessions cannot be compared: {notes}"
+msgstr "这两个会话无法对比：{notes}"
+
+msgid "Broadband estimated RT60 went from {baseline_s:.2f} s to {candidate_s:.2f} s ({delta_percent:+.1f} % of the baseline, {direction}). ISO 3382-1 quotes a just-noticeable difference for T of about {jnd_percent:g} %; a single pair of positions is not enough to call the change significant."
+msgstr "宽带估计 RT60 从 {baseline_s:.2f} s 变为 {candidate_s:.2f} s（相对基线 {delta_percent:+.1f} %，{direction}）。ISO 3382-1 给出的 T 的刚可察觉差约为 {jnd_percent:g} %；仅一对位置不足以把该变化称为显著。"
+
+msgid "Against this profile's decay thresholds the broadband RT60 moved from '{before}' ({baseline_s:.2f} s) to '{after}' ({candidate_s:.2f} s)."
+msgstr "按此配置的衰减阈值，宽带 RT60 从“{before}”（{baseline_s:.2f} s）变为“{after}”（{candidate_s:.2f} s）。"
+
+msgid "A reflection appeared at {delay_ms:.1f} ms ({relative_db:.1f} dB) inside this profile's {window_ms:g} ms window."
+msgstr "在此配置的 {window_ms:g} ms 窗口内出现了 {delay_ms:.1f} ms（{relative_db:.1f} dB）的反射。"
+
+msgid "The strongest reflection within {window_ms:g} ms went from {baseline_relative_db:.1f} dB at {baseline_delay_ms:.1f} ms to {candidate_relative_db:.1f} dB at {candidate_delay_ms:.1f} ms (threshold {threshold_db:.1f} dB for this profile)."
+msgstr "{window_ms:g} ms 内最强反射从 {baseline_delay_ms:.1f} ms 的 {baseline_relative_db:.1f} dB 变为 {candidate_delay_ms:.1f} ms 的 {candidate_relative_db:.1f} dB（此配置阈值 {threshold_db:.1f} dB）。"
+
+msgid "Background noise went from {baseline_dbfs:.1f} dBFS to {candidate_dbfs:.1f} dBFS ({delta_db:+.1f} dB) at the declared-equal input gain."
+msgstr "在已声明输入增益不变的前提下，本底噪声从 {baseline_dbfs:.1f} dBFS 变为 {candidate_dbfs:.1f} dBFS（{delta_db:+.1f} dB）。"
+
+msgid "The direct sound could not be identified with confidence, so delays and levels of reflections may be off. Check that the correct reference sweep was used, lower the playback level if the loudspeaker distorts, and measure again."
+msgstr "无法可靠识别直达声，反射的延时和电平可能不准。请确认使用了正确的参考扫描信号；若扬声器失真请降低回放电平，然后重测。"
+
+msgid "The recording clips. Lower the playback or input gain and measure again."
+msgstr "录音削波。请降低回放或输入增益后重测。"
+
+msgid "The decay range is too small for a reliable reverberation time. A longer sweep, a slightly higher playback level or a quieter room increases it."
+msgstr "衰减动态范围太小，混响时间不可靠。加长扫描、略提高回放电平或换更安静的房间可以改善。"
+
+msgid "The direct sound is only {direct_to_noise_db:.0f} dB above the noise floor in the quiet segment. Sources quieter than this will be recorded with audible noise; lower the noise at the source or increase the playback level within the headroom of the chain."
+msgstr "直达声只比安静段本底高 {direct_to_noise_db:.0f} dB。比这更轻的声源会带上可闻噪声；请从源头降噪，或在链路余量内提高回放电平。"
+
+msgid "A relatively strong early reflection is present approximately {delay_ms:.0f} ms after the direct sound ({relative_db:.1f} dB). For close vocal or instrument recording, try moving the microphone or the performer farther from nearby hard surfaces, or treat that surface, and measure again."
+msgstr "直达声后约 {delay_ms:.0f} ms 有一条较强的早期反射（{relative_db:.1f} dB）。近距离录人声或乐器时，请把话筒或演奏者移离附近硬表面，或处理该表面，然后重测。"
+
+msgid "A strong early reflection is present approximately {delay_ms:.0f} ms after the direct sound ({relative_db:.1f} dB). Close-miked vocals are coloured by reflections this early; move the microphone closer to the singer and farther from the nearest hard surface, or treat that surface, then measure again."
+msgstr "直达声后约 {delay_ms:.0f} ms 有一条强早期反射（{relative_db:.1f} dB）。近距离人声会被这样早的反射染色；把话筒靠近歌手并远离最近的硬表面，或处理该表面，然后重测。"
+
+msgid "An early reflection is present approximately {delay_ms:.0f} ms after the direct sound ({relative_db:.1f} dB). Voice-over is usually close-miked and heavily processed, so even a reflection this weak colours the voice; move the microphone closer to the talent and farther from the nearest hard surface, or treat the surface."
+msgstr "直达声后约 {delay_ms:.0f} ms 有一条早期反射（{relative_db:.1f} dB）。旁白通常近距离拾音且处理很重，即使这样弱的反射也会染色；把话筒靠近讲者并远离最近的硬表面，或处理该表面。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s). This is typical of a treated or small, well-damped room."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s）。这常见于经过处理或较小、阻尼较好的房间。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). This is typical of a treated or small, well-damped room."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s，来自 {basis}）。这常见于经过处理或较小、阻尼较好的房间。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s). Dry close-miked recordings will pick up audible room sound; consider absorption or a closer microphone position."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s）。干的近距离录音仍会拾到可闻的房间声；可考虑吸声或更近的话筒位置。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). Dry close-miked recordings will pick up audible room sound; consider absorption or a closer microphone position."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s，来自 {basis}）。干的近距离录音仍会拾到可闻的房间声；可考虑吸声或更近的话筒位置。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s). A dry room like this suits close vocal recording."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s）。这样的干房间适合近距离人声录音。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). A dry room like this suits close vocal recording."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s，来自 {basis}）。这样的干房间适合近距离人声录音。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s). A vocal that is this live picks up room colour between phrases; add absorption or move to a drier position."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s）。这样活的人声会在乐句之间拾到房间染色；请增加吸声或换到更干的位置。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). A vocal that is this live picks up room colour between phrases; add absorption or move to a drier position."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s，来自 {basis}）。这样活的人声会在乐句之间拾到房间染色；请增加吸声或换到更干的位置。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s). This suits voice-over: the narration stays dry and close."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s）。适合旁白：叙述保持干、近。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). This suits voice-over: the narration stays dry and close."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s，来自 {basis}）。适合旁白：叙述保持干、近。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s). Voice-over needs a dry room; room tone of this length will sit under the narration. Add absorption or move to a drier position."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s）。旁白需要干房间；这么长的房间声会垫在叙述下面。请增加吸声或换到更干的位置。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). Voice-over needs a dry room; room tone of this length will sit under the narration. Add absorption or move to a drier position."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s，来自 {basis}）。旁白需要干房间；这么长的房间声会垫在叙述下面。请增加吸声或换到更干的位置。"
+
+msgid "Low frequencies decay clearly more slowly than the mid range ({low_max:.2f} s vs {mid_mean:.2f} s), which usually makes bass-heavy sources sound boomy at this position. Bass trapping or a different position helps."
+msgstr "低频明显比中频衰减更慢（{low_max:.2f} s 对 {mid_mean:.2f} s），在此位置通常会让偏重低音的声源发轰。低音陷阱或换位置会有帮助。"
+
+msgid "Low frequencies decay more slowly than the mid range ({low_max:.2f} s vs {mid_mean:.2f} s), which makes vocals sound boxy at this position. Bass trapping or a different position helps."
+msgstr "低频比中频衰减更慢（{low_max:.2f} s 对 {mid_mean:.2f} s），在此位置会让人声发闷。低音陷阱或换位置会有帮助。"
+
+msgid "Low frequencies decay more slowly than the mid range ({low_max:.2f} s vs {mid_mean:.2f} s), which makes voice-over sound muddy. Bass trapping or a different position helps."
+msgstr "低频比中频衰减更慢（{low_max:.2f} s 对 {mid_mean:.2f} s），会让旁白发浑。低音陷阱或换位置会有帮助。"
+
+msgid "Mains hum components at multiples of {base_hz:.0f} Hz were detected in the quiet part of the recording. Check grounding, cables, dimmers and power supplies before treating the room."
+msgstr "在录音的安静段检测到 {base_hz:.0f} Hz 倍频的市电哼声。处理房间之前先检查接地、线材、调光器和电源。"
+
+msgid "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS (uncalibrated digital level, not dB SPL). Compare it with the level of the sources you record at the same gain."
+msgstr "{segment} 段的本底噪声为 {rms_dbfs:.1f} dBFS RMS（未校准的数字电平，不是 dB SPL）。请与同一增益下要录的声源电平比较。"
+
+msgid "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS (uncalibrated digital level, not dB SPL). Vocal tracks are often compressed, which brings this noise up; compare it with your chain's noise at the same gain."
+msgstr "{segment} 段的本底噪声为 {rms_dbfs:.1f} dBFS RMS（未校准的数字电平，不是 dB SPL）。人声轨道常被压缩，会把这层噪声抬上来；请与同一增益下链路噪声比较。"
+
+msgid "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS (uncalibrated digital level, not dB SPL). Voice-over is usually quiet and close-miked, so this floor will be audible under the narration."
+msgstr "{segment} 段的本底噪声为 {rms_dbfs:.1f} dBFS RMS（未校准的数字电平，不是 dB SPL）。旁白通常轻声近麦，这层底噪会在叙述下面可闻。"
+
+msgid "Potential low-frequency resonances around {listed}: these frequencies stand out in the response and ring longer than their surroundings. Measure one or two other positions to see whether they follow the room or the position."
+msgstr "可能的低频共振约在 {listed}：这些频率在响应中突出，并且比周围更长地响起。再测一两个位置，看它们跟房间走还是跟位置走。"
+
+msgid "Potential low-frequency resonances around {listed}: these frequencies stand out in the response and ring longer than their surroundings, which colours voice and dialogue. Move the microphone or treat the affected corner, then measure again."
+msgstr "可能的低频共振约在 {listed}：这些频率在响应中突出并且比周围更长地响起，会给人声和对白染色。移动话筒或处理该角落，然后重测。"

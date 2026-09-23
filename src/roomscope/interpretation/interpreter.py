@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from roomscope.i18n import _, current_locale
 from roomscope.models.comparison import ComparisonResult
 from roomscope.models.result import AnalysisResult
 
@@ -38,6 +39,28 @@ class Finding:
             "params": self.params,
             "locale": self.locale,
         }
+
+
+def finding(
+    topic: str,
+    severity: Severity,
+    message_id: str,
+    template: str,
+    *,
+    evidence: dict[str, Any] | None = None,
+    **params: Any,
+) -> Finding:
+    """Build a :class:`Finding` whose sentence is rendered through ``_()``."""
+    message = _(template).format(**params) if params else _(template)
+    return Finding(
+        topic=topic,
+        severity=severity,
+        message=message,
+        evidence=evidence or {},
+        message_id=message_id,
+        params=params,
+        locale=current_locale(),
+    )
 
 
 def interpret(result: AnalysisResult, profile_name: str = "generic") -> list[Finding]:

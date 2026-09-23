@@ -154,6 +154,28 @@ def test_demo_mode_uses_fake_backend(app: QApplication) -> None:
     window.close()
 
 
+def test_settings_dialog_saves(
+    app: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ROOMSCOPE_HOME", str(tmp_path / "home"))
+    from roomscope.settings import load_settings
+    from roomscope.ui.settings_dialog import SettingsDialog
+
+    window = MainWindow()
+    window.show()
+    dialog = SettingsDialog(window)
+    dialog.language.setCurrentIndex(dialog.language.findData("zh_CN"))
+    dialog.copy_recording.setChecked(False)
+    dialog.accept()
+    loaded = load_settings()
+    assert loaded.language == "zh_CN"
+    assert loaded.copy_recording is False
+    from roomscope.i18n import activate
+
+    activate("en")
+    window.close()
+
+
 def test_compare_two_saved_sessions(
     app: QApplication, tmp_path: Path, short_sweep: SweepSettings, monkeypatch: pytest.MonkeyPatch
 ) -> None:

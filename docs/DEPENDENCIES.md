@@ -45,6 +45,9 @@ Apache-2.0 project with the redistribution obligations listed in §3.
 | ruff | 0.16.8 | https://github.com/astral-sh/ruff | MIT | lint + format | Yes |
 | mypy | 2.3.1 | https://github.com/python/mypy | MIT (+ PSF/Apache portions) | type checking | Yes |
 | jsonschema | 4.26.0 | https://github.com/python-jsonschema/jsonschema | MIT | validate `to_dict` writers against shipped schemas (tests only) | Yes |
+| babel | (optional `i18n-dev`) | https://github.com/python-babel/babel | BSD-3-Clause | extract/compile gettext catalogs; not required at runtime | Yes |
+| pyinstaller | (release workflow) | https://github.com/pyinstaller/pyinstaller | GPL-2.0-or-later WITH Bootloader-exception | one-directory desktop bundles; not a runtime dependency | Yes* (tool only; not imported by RoomScope) |
+| cyclonedx-bom | (planned on tags) | https://github.com/CycloneDX/cyclonedx-python | Apache-2.0 | SBOM on a maintainer tag; not used in 0.4 CI | Yes |
 
 Evaluated and **not** adopted: `hypothesis` (MPL-2.0, file-level copyleft;
 dev-only would be acceptable but it is not needed), `pytest-qt` (MIT; the
@@ -110,8 +113,12 @@ the wheels, and must be checked again at packaging time:
 
 ## 6. Items marked UNKNOWN / NEEDS REVIEW
 
-From the full audit: the license of matplotlib's bundled `ttconv`
-component; exact contents of the Linux and Windows wheels of numpy/scipy/
-soundfile/sounddevice/matplotlib/Pillow (only the macOS wheels were opened);
-the ASIO SDK terms bundled in the Windows sounddevice wheel. None of these
-affect the source release; all must be resolved before a binary release.
+matplotlib's historical `ttconv` converter is **resolved**: it is not present
+in matplotlib 3.8+, which RoomScope requires; fonttools is used instead.
+Exact contents of Linux/Windows wheels of numpy/scipy/soundfile/sounddevice/
+matplotlib/Pillow (only macOS wheels were opened in the original audit) are
+still noted; the license-bundle script copies whatever license files the
+installed distributions ship and fails if a required package has none.
+Windows sounddevice ASIO DLLs remain a packaging gate
+(`scripts/check_bundle_contents.py` deletes/fails on `*asio*.dll`). None of
+these affect the source release.

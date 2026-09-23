@@ -26,7 +26,10 @@ are unchanged.
 src/roomscope/
   __init__.py            version + lazy Tier 1 re-exports
   errors.py              exception hierarchy (RoomScopeError -> ...)
-  logging_config.py      logger setup for front ends
+  logging_config.py      rotating log under $ROOMSCOPE_HOME
+  settings.py            user settings (language, profile, backend, folders)
+  i18n.py                gettext setup, locale selection, `_()`
+  locale/                zh_CN/LC_MESSAGES/roomscope.po
   models/                data only, no algorithms
     audio.py             AudioSignal (samples, sample_rate, channel selection)
     configuration.py     SweepSettings, AnalysisSettings (validated, immutable)
@@ -49,12 +52,15 @@ src/roomscope/
     resonance.py         potential low-frequency resonance candidates
     compare.py           validity-aware comparison of two AnalysisResults
     loopback.py          electrical-return validation and regularised compensation
+    averaging.py         spatial average of VALID T values (SHOULD)
     pipeline.py          Reference + analyze() + analyze_impulse_response()
   io/
     wav.py               soundfile-based read/write, sweep sidecar, load_reference
-    session_store.py     save_measurement / load_session / load_measurement / list_sessions / save_comparison
+    session_store.py     save_measurement / load_session / load_measurement / list_sessions / bundle_session / save_comparison
     recent.py            recent session paths under $ROOMSCOPE_HOME
     jsonutil.py          size-capped JSON object reads
+    project_store.py     project.json index
+    exporters/           csv.py + roomscope.exporters entry points
   schemas/               result / session / comparison / project / sidecar JSON Schemas
   audio/                 optional (needs PortAudio); Standalone Mode only
     backend.py           AudioBackend protocol, DeviceInfo, get_backend()
@@ -66,13 +72,15 @@ src/roomscope/
     interpreter.py       Finding, Severity, interpret(), interpret_comparison()
     profiles.py          RecordingProfile protocol; seven profiles (generic, vocal,
                          voiceover, acoustic_guitar, drums, room_mic, choir)
+    registry.py          built-ins + roomscope.profiles entry points
   cli/
     main.py              argparse subcommands
     report.py            plain-text report shared with the GUI
   ui/                    optional (needs PySide6)
     app.py, main_window.py, pages.py, results.py, plots.py, workers.py, state.py
-    browser.py           session list (Home and Compare)
+    browser.py           session list (Home and Compare); project.json folders
     compare_view.py      two-session comparison
+    settings_dialog.py   language, profile, backend, copy-recording
 ```
 
 Dependency direction (arrows point at what may be imported):
@@ -155,8 +163,8 @@ Key decisions:
   against the shipped JSON Schemas in the test suite. IR samples live in
   `impulse_response.wav`.
 * **Multi-position measurements (ISO 3382-2 engineering/precision):** sessions
-  are per position; averaging across sessions is a future module and must
-  average T values, not decay curves.
+  are per position; `core/averaging.average_decay` averages T values, not
+  decay curves, and names the ISO 3382-2 class the position counts reach.
 * **Multi-position placement (deferred, with a constraint):** two microphone
   positions with a fixed loudspeaker make the geometry *exactly* determined
   (twelve equations, twelve unknowns). Exactly determined means a zero

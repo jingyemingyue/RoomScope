@@ -16,8 +16,8 @@ from __future__ import annotations
 import math
 from typing import Protocol, runtime_checkable
 
-from roomscope.errors import ConfigurationError
-from roomscope.interpretation.interpreter import Finding, Severity
+from roomscope.i18n import _, current_locale
+from roomscope.interpretation.interpreter import Finding, Severity, finding
 from roomscope.models.comparison import T_JND_PERCENT, ComparisonResult, MetricDelta
 from roomscope.models.result import AnalysisResult, Reflection, ResonanceCandidate, Validity
 
@@ -80,17 +80,15 @@ class ProfileBase:
         """
         findings: list[Finding] = []
         if not comparison.comparable:
+            notes = comparison.notes[0] if comparison.notes else "no common excitation band"
             findings.append(
-                Finding(
-                    topic="comparison",
-                    severity=Severity.WARNING,
-                    message=(
-                        "These two sessions cannot be compared: "
-                        + (comparison.notes[0] if comparison.notes else "no common excitation band")
-                    ),
+                finding(
+                    "comparison",
+                    Severity.WARNING,
+                    "comparison.not_comparable",
+                    "These two sessions cannot be compared: {notes}",
                     evidence={"notes": list(comparison.notes)},
-                    message_id="comparison.not_comparable",
-                    params={"notes": list(comparison.notes)},
+                    notes=notes,
                 )
             )
             return findings
@@ -112,28 +110,26 @@ class ProfileBase:
             percent = rt.delta_percent if rt.delta_percent is not None else 0.0
             direction = "shorter" if rt.candidate < rt.baseline else "longer"
             findings.append(
-                Finding(
-                    topic="reverberation",
-                    severity=Severity.NOTICE if abs(percent) >= T_JND_PERCENT else Severity.INFO,
-                    message=(
-                        f"Broadband estimated RT60 went from {rt.baseline:.2f} s to "
-                        f"{rt.candidate:.2f} s ({percent:+.1f} % of the baseline, {direction}). "
-                        f"ISO 3382-1 quotes a just-noticeable difference for T of about "
-                        f"{T_JND_PERCENT:g} %; a single pair of positions is not enough to call "
-                        "the change significant."
-                    ),
+                finding(
+                    "reverberation",
+                    Severity.NOTICE if abs(percent) >= T_JND_PERCENT else Severity.INFO,
+                    "comparison.decay_rt60",
+                    "Broadband estimated RT60 went from {baseline_s:.2f} s to "
+                    "{candidate_s:.2f} s ({delta_percent:+.1f} % of the baseline, {direction}). "
+                    "ISO 3382-1 quotes a just-noticeable difference for T of about "
+                    "{jnd_percent:g} %; a single pair of positions is not enough to call "
+                    "the change significant.",
                     evidence={
                         "baseline_s": rt.baseline,
                         "candidate_s": rt.candidate,
                         "delta_percent": percent,
                         "jnd_percent": T_JND_PERCENT,
                     },
-                    message_id="comparison.decay_rt60",
-                    params={
-                        "baseline_s": rt.baseline,
-                        "candidate_s": rt.candidate,
-                        "delta_percent": percent,
-                    },
+                    baseline_s=rt.baseline,
+                    candidate_s=rt.candidate,
+                    delta_percent=percent,
+                    direction=direction,
+                    jnd_percent=T_JND_PERCENT,
                 )
             )
             crossed = self._decay_threshold_crossing(rt)
@@ -148,21 +144,22 @@ class ProfileBase:
         after = self._decay_label(rt.candidate)
         if before == after:
             return None
-        return Finding(
-            topic="reverberation",
-            severity=Severity.NOTICE,
-            message=(
-                f"Against this profile's decay thresholds the broadband RT60 moved from "
-                f"'{before}' ({rt.baseline:.2f} s) to '{after}' ({rt.candidate:.2f} s)."
-            ),
+        return finding(
+            "reverberation",
+            Severity.NOTICE,
+            "comparison.decay_threshold",
+            "Against this profile's decay thresholds the broadband RT60 moved from "
+            "'{before}' ({baseline_s:.2f} s) to '{after}' ({candidate_s:.2f} s).",
             evidence={
                 "baseline_s": rt.baseline,
                 "candidate_s": rt.candidate,
                 "long_decay_s": self.long_decay_s,
                 "very_long_decay_s": self.very_long_decay_s,
             },
-            message_id="comparison.decay_threshold",
-            params={"before": before, "after": after},
+            before=before,
+            after=after,
+            baseline_s=rt.baseline,
+            candidate_s=rt.candidate,
         )
 
     def _decay_label(self, rt: float) -> str:
@@ -195,40 +192,36 @@ class ProfileBase:
             if appeared:
                 first = max(appeared, key=lambda m: m.candidate_relative_db or -99.0)
                 return [
-                    Finding(
-                        topic="early_reflections",
-                        severity=Severity.NOTICE,
-                        message=(
-                            f"A reflection appeared at {first.candidate_delay_ms:.1f} ms "
-                            f"({first.candidate_relative_db:.1f} dB) inside this profile's "
-                            f"{self.strong_reflection_window_ms:g} ms window."
-                        ),
+                    finding(
+                        "early_reflections",
+                        Severity.NOTICE,
+                        "comparison.reflection_appeared",
+                        "A reflection appeared at {delay_ms:.1f} ms "
+                        "({relative_db:.1f} dB) inside this profile's "
+                        "{window_ms:g} ms window.",
                         evidence={
                             "delay_ms": first.candidate_delay_ms,
                             "relative_db": first.candidate_relative_db,
                             "window_ms": self.strong_reflection_window_ms,
                         },
-                        message_id="comparison.reflection_appeared",
-                        params={
-                            "delay_ms": first.candidate_delay_ms,
-                            "relative_db": first.candidate_relative_db,
-                        },
+                        delay_ms=first.candidate_delay_ms,
+                        relative_db=first.candidate_relative_db,
+                        window_ms=self.strong_reflection_window_ms,
                     )
                 ]
             return []
         strongest = max(in_window, key=lambda m: m.baseline_relative_db or -99.0)
         return [
-            Finding(
-                topic="early_reflections",
-                severity=Severity.NOTICE,
-                message=(
-                    f"The strongest reflection within {self.strong_reflection_window_ms:g} ms "
-                    f"went from {strongest.baseline_relative_db:.1f} dB at "
-                    f"{strongest.baseline_delay_ms:.1f} ms to "
-                    f"{strongest.candidate_relative_db:.1f} dB at "
-                    f"{strongest.candidate_delay_ms:.1f} ms "
-                    f"(threshold {self.strong_reflection_db:.1f} dB for this profile)."
-                ),
+            finding(
+                "early_reflections",
+                Severity.NOTICE,
+                "comparison.reflection_change",
+                "The strongest reflection within {window_ms:g} ms "
+                "went from {baseline_relative_db:.1f} dB at "
+                "{baseline_delay_ms:.1f} ms to "
+                "{candidate_relative_db:.1f} dB at "
+                "{candidate_delay_ms:.1f} ms "
+                "(threshold {threshold_db:.1f} dB for this profile).",
                 evidence={
                     "baseline_delay_ms": strongest.baseline_delay_ms,
                     "candidate_delay_ms": strongest.candidate_delay_ms,
@@ -237,11 +230,12 @@ class ProfileBase:
                     "threshold_db": self.strong_reflection_db,
                     "window_ms": self.strong_reflection_window_ms,
                 },
-                message_id="comparison.reflection_change",
-                params={
-                    "baseline_db": strongest.baseline_relative_db,
-                    "candidate_db": strongest.candidate_relative_db,
-                },
+                window_ms=self.strong_reflection_window_ms,
+                baseline_relative_db=strongest.baseline_relative_db,
+                baseline_delay_ms=strongest.baseline_delay_ms,
+                candidate_relative_db=strongest.candidate_relative_db,
+                candidate_delay_ms=strongest.candidate_delay_ms,
+                threshold_db=self.strong_reflection_db,
             )
         ]
 
@@ -252,20 +246,20 @@ class ProfileBase:
         if rms.baseline is None or rms.candidate is None or rms.delta is None:
             return []
         return [
-            Finding(
-                topic="noise",
-                severity=Severity.INFO,
-                message=(
-                    f"Background noise went from {rms.baseline:.1f} dBFS to "
-                    f"{rms.candidate:.1f} dBFS ({rms.delta:+.1f} dB) at the declared-equal input gain."
-                ),
+            finding(
+                "noise",
+                Severity.INFO,
+                "comparison.noise_rms",
+                "Background noise went from {baseline_dbfs:.1f} dBFS to "
+                "{candidate_dbfs:.1f} dBFS ({delta_db:+.1f} dB) at the declared-equal input gain.",
                 evidence={
                     "baseline_dbfs": rms.baseline,
                     "candidate_dbfs": rms.candidate,
                     "delta_db": rms.delta,
                 },
-                message_id="comparison.noise_rms",
-                params={"baseline_dbfs": rms.baseline, "candidate_dbfs": rms.candidate},
+                baseline_dbfs=rms.baseline,
+                candidate_dbfs=rms.candidate,
+                delta_db=rms.delta,
             )
         ]
 
@@ -311,42 +305,44 @@ class ProfileBase:
         ir = result.impulse_response
         if ir.direct_sound_confidence != "high":
             findings.append(
-                Finding(
-                    topic="measurement",
-                    severity=Severity.WARNING,
-                    message=(
-                        "The direct sound could not be identified with confidence, so delays and "
-                        "levels of reflections may be off. Check that the correct reference sweep "
-                        "was used, lower the playback level if the loudspeaker distorts, and "
-                        "measure again."
-                    ),
+                finding(
+                    "measurement",
+                    Severity.WARNING,
+                    "measurement.direct_sound",
+                    "The direct sound could not be identified with confidence, so delays and "
+                    "levels of reflections may be off. Check that the correct reference sweep "
+                    "was used, lower the playback level if the loudspeaker distorts, and "
+                    "measure again.",
                     evidence={"pre_peak_margin_db": ir.pre_peak_margin_db},
+                    pre_peak_margin_db=ir.pre_peak_margin_db,
                 )
             )
         for warning in result.warnings:
             if "clipping" in warning:
                 findings.append(
-                    Finding(
-                        topic="measurement",
-                        severity=Severity.WARNING,
-                        message="The recording clips. Lower the playback or input gain and measure again.",
+                    finding(
+                        "measurement",
+                        Severity.WARNING,
+                        "measurement.clipping",
+                        "The recording clips. Lower the playback or input gain and measure again.",
                         evidence={"warning": warning},
+                        warning=warning,
                     )
                 )
         broadband = result.decay.broadband
         if broadband.t20.validity is Validity.INSUFFICIENT_RANGE:
             findings.append(
-                Finding(
-                    topic="measurement",
-                    severity=Severity.NOTICE,
-                    message=(
-                        "The decay range is too small for a reliable reverberation time. A longer "
-                        "sweep, a slightly higher playback level or a quieter room increases it."
-                    ),
+                finding(
+                    "measurement",
+                    Severity.NOTICE,
+                    "measurement.insufficient_range",
+                    "The decay range is too small for a reliable reverberation time. A longer "
+                    "sweep, a slightly higher playback level or a quieter room increases it.",
                     evidence={
                         "peak_to_noise_db": broadband.peak_to_noise_db,
                         "reason": broadband.t20.reason,
                     },
+                    peak_to_noise_db=broadband.peak_to_noise_db,
                 )
             )
         return findings
@@ -368,6 +364,9 @@ class ProfileBase:
                     "relative_db": first.relative_db,
                     "count_within_window": len(strong),
                 },
+                message_id="reflection.strong_close",
+                params={"delay_ms": first.delay_ms, "relative_db": first.relative_db},
+                locale=current_locale(),
             )
         ]
 
@@ -388,6 +387,9 @@ class ProfileBase:
                     severity=severity,
                     message=self.decay_message(rt, severity, text, broadband.rt60_basis),
                     evidence={"rt60_estimate_s": rt, "basis": broadband.rt60_basis},
+                    message_id="reverberation.rt60",
+                    params={"rt60_s": rt, "label": text, "basis": broadband.rt60_basis},
+                    locale=current_locale(),
                 )
             )
         imbalance = self._low_mid_imbalance(result)
@@ -399,6 +401,9 @@ class ProfileBase:
                     severity=Severity.NOTICE,
                     message=self.low_imbalance_message(low_max, mid_mean),
                     evidence={"low_max_rt60_s": low_max, "mid_mean_rt60_s": mid_mean},
+                    message_id="reverberation.low_imbalance",
+                    params={"low_max_rt60_s": low_max, "mid_mean_rt60_s": mid_mean},
+                    locale=current_locale(),
                 )
             )
         return findings
@@ -417,6 +422,9 @@ class ProfileBase:
                             "base_hz": hum.base_hz,
                             "harmonics": [list(h) for h in hum.harmonics],
                         },
+                        message_id="noise.hum",
+                        params={"base_hz": hum.base_hz},
+                        locale=current_locale(),
                     )
                 )
         if noise.rms_dbfs is not None:
@@ -431,20 +439,24 @@ class ProfileBase:
                         "segment_source": noise.segment_source,
                         "ir_peak_db": peak_db,
                     },
+                    message_id="noise.floor",
+                    params={"rms_dbfs": noise.rms_dbfs, "segment": noise.segment_source},
+                    locale=current_locale(),
                 )
             )
             if peak_db - noise.rms_dbfs < self.quiet_noise_margin_db:
+                margin = peak_db - noise.rms_dbfs
                 findings.append(
-                    Finding(
-                        topic="noise",
-                        severity=Severity.NOTICE,
-                        message=(
-                            f"The direct sound is only {peak_db - noise.rms_dbfs:.0f} dB above the "
-                            "noise floor in the quiet segment. Sources quieter than this will be "
-                            "recorded with audible noise; lower the noise at the source or increase "
-                            "the playback level within the headroom of the chain."
-                        ),
-                        evidence={"direct_to_noise_db": peak_db - noise.rms_dbfs},
+                    finding(
+                        "noise",
+                        Severity.NOTICE,
+                        "noise.direct_to_noise",
+                        "The direct sound is only {direct_to_noise_db:.0f} dB above the "
+                        "noise floor in the quiet segment. Sources quieter than this will be "
+                        "recorded with audible noise; lower the noise at the source or increase "
+                        "the playback level within the headroom of the chain.",
+                        evidence={"direct_to_noise_db": margin},
+                        direct_to_noise_db=margin,
                     )
                 )
         return findings
@@ -459,65 +471,75 @@ class ProfileBase:
                 severity=Severity.NOTICE,
                 message=self.resonance_message(candidates),
                 evidence={"candidates": [c.to_dict() for c in candidates]},
+                message_id="low_frequency.resonance",
+                params={"listed": ", ".join(f"{c.frequency_hz:.0f} Hz" for c in candidates[:4])},
+                locale=current_locale(),
             )
         ]
 
     # ------------------------------------------------------------ messages
 
     def reflection_message(self, r: Reflection) -> str:
-        return (
-            f"A relatively strong early reflection is present approximately "
-            f"{r.delay_ms:.0f} ms after the direct sound ({r.relative_db:.1f} dB). "
+        return _(
+            "A relatively strong early reflection is present approximately "
+            "{delay_ms:.0f} ms after the direct sound ({relative_db:.1f} dB). "
             "For close vocal or instrument recording, try moving the microphone or the "
             "performer farther from nearby hard surfaces, or treat that surface, and "
             "measure again."
-        )
+        ).format(delay_ms=r.delay_ms, relative_db=r.relative_db)
 
     def decay_message(self, rt: float, severity: Severity, text: str, basis: str | None) -> str:
         if severity is Severity.INFO:
-            return (
-                f"The broadband decay is short (estimated RT60 {rt:.2f} s"
-                + (f" from {basis}" if basis else "")
-                + "). "
+            if basis:
+                return _(
+                    "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). "
+                    "This is typical of a treated or small, well-damped room."
+                ).format(rt=rt, basis=basis)
+            return _(
+                "The broadband decay is short (estimated RT60 {rt:.2f} s). "
                 "This is typical of a treated or small, well-damped room."
-            )
-        return (
-            f"The broadband decay is {text} (estimated RT60 {rt:.2f} s"
-            + (f" from {basis}" if basis else "")
-            + "). "
+            ).format(rt=rt)
+        if basis:
+            return _(
+                "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). "
+                "Dry close-miked recordings will pick up audible room sound; consider "
+                "absorption or a closer microphone position."
+            ).format(text=text, rt=rt, basis=basis)
+        return _(
+            "The broadband decay is {text} (estimated RT60 {rt:.2f} s). "
             "Dry close-miked recordings will pick up audible room sound; consider "
             "absorption or a closer microphone position."
-        )
+        ).format(text=text, rt=rt)
 
     def low_imbalance_message(self, low_max: float, mid_mean: float) -> str:
-        return (
-            f"Low frequencies decay clearly more slowly than the mid range "
-            f"({low_max:.2f} s vs {mid_mean:.2f} s), which usually makes bass-heavy sources "
+        return _(
+            "Low frequencies decay clearly more slowly than the mid range "
+            "({low_max:.2f} s vs {mid_mean:.2f} s), which usually makes bass-heavy sources "
             "sound boomy at this position. Bass trapping or a different position helps."
-        )
+        ).format(low_max=low_max, mid_mean=mid_mean)
 
     def hum_message(self, base_hz: float) -> str:
-        return (
-            f"Mains hum components at multiples of {base_hz:.0f} Hz were detected in "
+        return _(
+            "Mains hum components at multiples of {base_hz:.0f} Hz were detected in "
             "the quiet part of the recording. Check grounding, cables, dimmers and "
             "power supplies before treating the room."
-        )
+        ).format(base_hz=base_hz)
 
     def noise_floor_message(self, rms_dbfs: float, segment_source: str | None) -> str:
         segment = segment_source or "quiet"
-        return (
-            f"Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS "
+        return _(
+            "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS "
             "(uncalibrated digital level, not dB SPL). Compare it with the level of the "
             "sources you record at the same gain."
-        )
+        ).format(segment=segment, rms_dbfs=rms_dbfs)
 
     def resonance_message(self, candidates: list[ResonanceCandidate]) -> str:
         listed = ", ".join(f"{c.frequency_hz:.0f} Hz" for c in candidates[:4])
-        return (
-            f"Potential low-frequency resonances around {listed}: these frequencies stand out "
+        return _(
+            "Potential low-frequency resonances around {listed}: these frequencies stand out "
             "in the response and ring longer than their surroundings. Measure one or two other "
             "positions to see whether they follow the room or the position."
-        )
+        ).format(listed=listed)
 
 
 class GenericProfile(ProfileBase):
@@ -539,43 +561,50 @@ class VocalProfile(ProfileBase):
     very_long_decay_s = 0.8
 
     def reflection_message(self, r: Reflection) -> str:
-        return (
-            f"A strong early reflection is present approximately {r.delay_ms:.0f} ms after the "
-            f"direct sound ({r.relative_db:.1f} dB). Close-miked vocals are coloured by "
+        return _(
+            "A strong early reflection is present approximately {delay_ms:.0f} ms after the "
+            "direct sound ({relative_db:.1f} dB). Close-miked vocals are coloured by "
             "reflections this early; move the microphone closer to the singer and farther from "
             "the nearest hard surface, or treat that surface, then measure again."
-        )
+        ).format(delay_ms=r.delay_ms, relative_db=r.relative_db)
 
     def decay_message(self, rt: float, severity: Severity, text: str, basis: str | None) -> str:
         if severity is Severity.INFO:
-            return (
-                f"The broadband decay is short (estimated RT60 {rt:.2f} s"
-                + (f" from {basis}" if basis else "")
-                + "). "
+            if basis:
+                return _(
+                    "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). "
+                    "A dry room like this suits close vocal recording."
+                ).format(rt=rt, basis=basis)
+            return _(
+                "The broadband decay is short (estimated RT60 {rt:.2f} s). "
                 "A dry room like this suits close vocal recording."
-            )
-        return (
-            f"The broadband decay is {text} (estimated RT60 {rt:.2f} s"
-            + (f" from {basis}" if basis else "")
-            + "). "
+            ).format(rt=rt)
+        if basis:
+            return _(
+                "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). "
+                "A vocal that is this live picks up room colour between phrases; add absorption "
+                "or move to a drier position."
+            ).format(text=text, rt=rt, basis=basis)
+        return _(
+            "The broadband decay is {text} (estimated RT60 {rt:.2f} s). "
             "A vocal that is this live picks up room colour between phrases; add absorption "
             "or move to a drier position."
-        )
+        ).format(text=text, rt=rt)
 
     def low_imbalance_message(self, low_max: float, mid_mean: float) -> str:
-        return (
-            f"Low frequencies decay more slowly than the mid range "
-            f"({low_max:.2f} s vs {mid_mean:.2f} s), which makes vocals sound boxy at this "
+        return _(
+            "Low frequencies decay more slowly than the mid range "
+            "({low_max:.2f} s vs {mid_mean:.2f} s), which makes vocals sound boxy at this "
             "position. Bass trapping or a different position helps."
-        )
+        ).format(low_max=low_max, mid_mean=mid_mean)
 
     def noise_floor_message(self, rms_dbfs: float, segment_source: str | None) -> str:
         segment = segment_source or "quiet"
-        return (
-            f"Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS "
+        return _(
+            "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS "
             "(uncalibrated digital level, not dB SPL). Vocal tracks are often compressed, "
             "which brings this noise up; compare it with your chain's noise at the same gain."
-        )
+        ).format(segment=segment, rms_dbfs=rms_dbfs)
 
 
 class VoiceOverProfile(ProfileBase):
@@ -590,51 +619,58 @@ class VoiceOverProfile(ProfileBase):
     very_long_decay_s = 0.7
 
     def reflection_message(self, r: Reflection) -> str:
-        return (
-            f"An early reflection is present approximately {r.delay_ms:.0f} ms after the direct "
-            f"sound ({r.relative_db:.1f} dB). Voice-over is usually close-miked and heavily "
+        return _(
+            "An early reflection is present approximately {delay_ms:.0f} ms after the direct "
+            "sound ({relative_db:.1f} dB). Voice-over is usually close-miked and heavily "
             "processed, so even a reflection this weak colours the voice; move the microphone "
             "closer to the talent and farther from the nearest hard surface, or treat the surface."
-        )
+        ).format(delay_ms=r.delay_ms, relative_db=r.relative_db)
 
     def decay_message(self, rt: float, severity: Severity, text: str, basis: str | None) -> str:
         if severity is Severity.INFO:
-            return (
-                f"The broadband decay is short (estimated RT60 {rt:.2f} s"
-                + (f" from {basis}" if basis else "")
-                + "). "
+            if basis:
+                return _(
+                    "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). "
+                    "This suits voice-over: the narration stays dry and close."
+                ).format(rt=rt, basis=basis)
+            return _(
+                "The broadband decay is short (estimated RT60 {rt:.2f} s). "
                 "This suits voice-over: the narration stays dry and close."
-            )
-        return (
-            f"The broadband decay is {text} (estimated RT60 {rt:.2f} s"
-            + (f" from {basis}" if basis else "")
-            + "). "
+            ).format(rt=rt)
+        if basis:
+            return _(
+                "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). "
+                "Voice-over needs a dry room; room tone of this length will sit under the "
+                "narration. Add absorption or move to a drier position."
+            ).format(text=text, rt=rt, basis=basis)
+        return _(
+            "The broadband decay is {text} (estimated RT60 {rt:.2f} s). "
             "Voice-over needs a dry room; room tone of this length will sit under the "
             "narration. Add absorption or move to a drier position."
-        )
+        ).format(text=text, rt=rt)
 
     def low_imbalance_message(self, low_max: float, mid_mean: float) -> str:
-        return (
-            f"Low frequencies decay more slowly than the mid range "
-            f"({low_max:.2f} s vs {mid_mean:.2f} s), which makes voice-over sound muddy. "
+        return _(
+            "Low frequencies decay more slowly than the mid range "
+            "({low_max:.2f} s vs {mid_mean:.2f} s), which makes voice-over sound muddy. "
             "Bass trapping or a different position helps."
-        )
+        ).format(low_max=low_max, mid_mean=mid_mean)
 
     def noise_floor_message(self, rms_dbfs: float, segment_source: str | None) -> str:
         segment = segment_source or "quiet"
-        return (
-            f"Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS "
+        return _(
+            "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS "
             "(uncalibrated digital level, not dB SPL). Voice-over is usually quiet and "
             "close-miked, so this floor will be audible under the narration."
-        )
+        ).format(segment=segment, rms_dbfs=rms_dbfs)
 
     def resonance_message(self, candidates: list[ResonanceCandidate]) -> str:
         listed = ", ".join(f"{c.frequency_hz:.0f} Hz" for c in candidates[:4])
-        return (
-            f"Potential low-frequency resonances around {listed}: these frequencies stand out "
+        return _(
+            "Potential low-frequency resonances around {listed}: these frequencies stand out "
             "in the response and ring longer than their surroundings, which colours voice and "
             "dialogue. Move the microphone or treat the affected corner, then measure again."
-        )
+        ).format(listed=listed)
 
 
 class AcousticGuitarProfile(ProfileBase):
@@ -649,35 +685,42 @@ class AcousticGuitarProfile(ProfileBase):
     very_long_decay_s = 1.1
 
     def reflection_message(self, r: Reflection) -> str:
-        return (
-            f"A strong early reflection is present approximately {r.delay_ms:.0f} ms after the "
-            f"direct sound ({r.relative_db:.1f} dB). Acoustic guitar is vulnerable to comb "
+        return _(
+            "A strong early reflection is present approximately {delay_ms:.0f} ms after the "
+            "direct sound ({relative_db:.1f} dB). Acoustic guitar is vulnerable to comb "
             "filtering from early reflections; move the microphone or the instrument farther "
             "from the nearest hard surface, or treat it, then measure again."
-        )
+        ).format(delay_ms=r.delay_ms, relative_db=r.relative_db)
 
     def decay_message(self, rt: float, severity: Severity, text: str, basis: str | None) -> str:
         if severity is Severity.INFO:
-            return (
-                f"The broadband decay is short (estimated RT60 {rt:.2f} s"
-                + (f" from {basis}" if basis else "")
-                + "). "
+            if basis:
+                return _(
+                    "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). "
+                    "Acoustic guitar keeps its transients and body in a room like this."
+                ).format(rt=rt, basis=basis)
+            return _(
+                "The broadband decay is short (estimated RT60 {rt:.2f} s). "
                 "Acoustic guitar keeps its transients and body in a room like this."
-            )
-        return (
-            f"The broadband decay is {text} (estimated RT60 {rt:.2f} s"
-            + (f" from {basis}" if basis else "")
-            + "). "
+            ).format(rt=rt)
+        if basis:
+            return _(
+                "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). "
+                "For acoustic guitar, a decay this long clouds transients and adds boom; "
+                "a position with absorption behind the performer helps."
+            ).format(text=text, rt=rt, basis=basis)
+        return _(
+            "The broadband decay is {text} (estimated RT60 {rt:.2f} s). "
             "For acoustic guitar, a decay this long clouds transients and adds boom; "
             "a position with absorption behind the performer helps."
-        )
+        ).format(text=text, rt=rt)
 
     def low_imbalance_message(self, low_max: float, mid_mean: float) -> str:
-        return (
-            f"Low frequencies decay more slowly than the mid range "
-            f"({low_max:.2f} s vs {mid_mean:.2f} s), which makes the guitar sound boomy at "
+        return _(
+            "Low frequencies decay more slowly than the mid range "
+            "({low_max:.2f} s vs {mid_mean:.2f} s), which makes the guitar sound boomy at "
             "this position. Bass trapping or a different position helps."
-        )
+        ).format(low_max=low_max, mid_mean=mid_mean)
 
 
 class DrumsProfile(ProfileBase):
@@ -693,35 +736,42 @@ class DrumsProfile(ProfileBase):
     very_long_decay_s = 1.2
 
     def reflection_message(self, r: Reflection) -> str:
-        return (
-            f"A very strong early reflection is present approximately {r.delay_ms:.0f} ms after "
-            f"the direct sound ({r.relative_db:.1f} dB). Drums mask most reflections, but a slap "
+        return _(
+            "A very strong early reflection is present approximately {delay_ms:.0f} ms after "
+            "the direct sound ({relative_db:.1f} dB). Drums mask most reflections, but a slap "
             "this strong will smear transients; move the kit or the overheads, or hang "
             "absorption at the reflection point."
-        )
+        ).format(delay_ms=r.delay_ms, relative_db=r.relative_db)
 
     def decay_message(self, rt: float, severity: Severity, text: str, basis: str | None) -> str:
         if severity is Severity.INFO:
-            return (
-                f"The broadband decay is short (estimated RT60 {rt:.2f} s"
-                + (f" from {basis}" if basis else "")
-                + "). "
+            if basis:
+                return _(
+                    "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). "
+                    "The kit will stay tight in a room like this."
+                ).format(rt=rt, basis=basis)
+            return _(
+                "The broadband decay is short (estimated RT60 {rt:.2f} s). "
                 "The kit will stay tight in a room like this."
-            )
-        return (
-            f"The broadband decay is {text} (estimated RT60 {rt:.2f} s"
-            + (f" from {basis}" if basis else "")
-            + "). "
+            ).format(rt=rt)
+        if basis:
+            return _(
+                "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). "
+                "A room this live rings under the kit; for a tighter drum sound add absorption "
+                "or move the kit."
+            ).format(text=text, rt=rt, basis=basis)
+        return _(
+            "The broadband decay is {text} (estimated RT60 {rt:.2f} s). "
             "A room this live rings under the kit; for a tighter drum sound add absorption "
             "or move the kit."
-        )
+        ).format(text=text, rt=rt)
 
     def low_imbalance_message(self, low_max: float, mid_mean: float) -> str:
-        return (
-            f"Low frequencies decay more slowly than the mid range "
-            f"({low_max:.2f} s vs {mid_mean:.2f} s), so the kick and low toms will boom at "
+        return _(
+            "Low frequencies decay more slowly than the mid range "
+            "({low_max:.2f} s vs {mid_mean:.2f} s), so the kick and low toms will boom at "
             "this position. Bass trapping or a different kit position helps."
-        )
+        ).format(low_max=low_max, mid_mean=mid_mean)
 
     def _noise(self, _result: AnalysisResult) -> list[Finding]:
         # Drums overwhelm any plausible background noise; a noise finding would be noise.
@@ -741,61 +791,74 @@ class RoomMicProfile(ProfileBase):
     very_long_decay_s = 1.4
 
     def reflection_message(self, r: Reflection) -> str:
-        return (
-            f"A very strong early reflection is present approximately {r.delay_ms:.0f} ms after "
-            f"the direct sound ({r.relative_db:.1f} dB). For a room microphone this is a hard "
+        return _(
+            "A very strong early reflection is present approximately {delay_ms:.0f} ms after "
+            "the direct sound ({relative_db:.1f} dB). For a room microphone this is a hard "
             "slap that will sit under everything; reposition the microphone or add absorption "
             "at the reflection point."
-        )
+        ).format(delay_ms=r.delay_ms, relative_db=r.relative_db)
 
     def decay_message(self, rt: float, severity: Severity, text: str, basis: str | None) -> str:
         if severity is Severity.INFO:
-            return (
-                f"The broadband decay is short (estimated RT60 {rt:.2f} s"
-                + (f" from {basis}" if basis else "")
-                + "). "
+            if basis:
+                return _(
+                    "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). "
+                    "A room microphone in a room this dry records mostly direct sound; if you want "
+                    "ambience, the microphone needs to be farther from the source."
+                ).format(rt=rt, basis=basis)
+            return _(
+                "The broadband decay is short (estimated RT60 {rt:.2f} s). "
                 "A room microphone in a room this dry records mostly direct sound; if you want "
                 "ambience, the microphone needs to be farther from the source."
-            )
+            ).format(rt=rt)
         if severity is Severity.WARNING:
-            return (
-                f"The broadband decay is {text} (estimated RT60 {rt:.2f} s"
-                + (f" from {basis}" if basis else "")
-                + "). "
+            if basis:
+                return _(
+                    "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). "
+                    "For a room microphone this is a long room tone that may swamp the source; "
+                    "check whether the ambience stays usable, and consider absorption or a closer "
+                    "microphone position."
+                ).format(text=text, rt=rt, basis=basis)
+            return _(
+                "The broadband decay is {text} (estimated RT60 {rt:.2f} s). "
                 "For a room microphone this is a long room tone that may swamp the source; "
                 "check whether the ambience stays usable, and consider absorption or a closer "
                 "microphone position."
-            )
-        return (
-            f"The broadband decay is {text} (estimated RT60 {rt:.2f} s"
-            + (f" from {basis}" if basis else "")
-            + "). "
+            ).format(text=text, rt=rt)
+        if basis:
+            return _(
+                "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). "
+                "For a room microphone this is usable ambience; keep the microphone position and "
+                "listen for how it sits under the source."
+            ).format(text=text, rt=rt, basis=basis)
+        return _(
+            "The broadband decay is {text} (estimated RT60 {rt:.2f} s). "
             "For a room microphone this is usable ambience; keep the microphone position and "
             "listen for how it sits under the source."
-        )
+        ).format(text=text, rt=rt)
 
     def low_imbalance_message(self, low_max: float, mid_mean: float) -> str:
-        return (
-            f"Low frequencies decay more slowly than the mid range "
-            f"({low_max:.2f} s vs {mid_mean:.2f} s), so the room sound will be bass-heavy at "
+        return _(
+            "Low frequencies decay more slowly than the mid range "
+            "({low_max:.2f} s vs {mid_mean:.2f} s), so the room sound will be bass-heavy at "
             "this position. Bass trapping or a different microphone position helps."
-        )
+        ).format(low_max=low_max, mid_mean=mid_mean)
 
     def noise_floor_message(self, rms_dbfs: float, segment_source: str | None) -> str:
         segment = segment_source or "quiet"
-        return (
-            f"Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS "
+        return _(
+            "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS "
             "(uncalibrated digital level, not dB SPL). A room microphone captures everything, "
             "so this floor is part of what you record; it is audible whenever the source pauses."
-        )
+        ).format(segment=segment, rms_dbfs=rms_dbfs)
 
     def resonance_message(self, candidates: list[ResonanceCandidate]) -> str:
         listed = ", ".join(f"{c.frequency_hz:.0f} Hz" for c in candidates[:4])
-        return (
-            f"Potential low-frequency resonances around {listed}: these frequencies ring longer "
+        return _(
+            "Potential low-frequency resonances around {listed}: these frequencies ring longer "
             "than their surroundings, so the room sound will be uneven there. Measure one or "
             "two other positions to see whether they follow the room."
-        )
+        ).format(listed=listed)
 
 
 class ChoirProfile(ProfileBase):
@@ -810,56 +873,51 @@ class ChoirProfile(ProfileBase):
     very_long_decay_s = 1.3
 
     def reflection_message(self, r: Reflection) -> str:
-        return (
-            f"An early reflection is present approximately {r.delay_ms:.0f} ms after the direct "
-            f"sound ({r.relative_db:.1f} dB). For an ensemble, early reflections smear diction; "
+        return _(
+            "An early reflection is present approximately {delay_ms:.0f} ms after the direct "
+            "sound ({relative_db:.1f} dB). For an ensemble, early reflections smear diction; "
             "move the microphones away from the nearest hard surface or treat it, and measure "
             "again."
-        )
+        ).format(delay_ms=r.delay_ms, relative_db=r.relative_db)
 
     def decay_message(self, rt: float, severity: Severity, text: str, basis: str | None) -> str:
         if severity is Severity.INFO:
-            return (
-                f"The broadband decay is short (estimated RT60 {rt:.2f} s"
-                + (f" from {basis}" if basis else "")
-                + "). "
+            if basis:
+                return _(
+                    "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). "
+                    "An ensemble keeps its diction in a room like this."
+                ).format(rt=rt, basis=basis)
+            return _(
+                "The broadband decay is short (estimated RT60 {rt:.2f} s). "
                 "An ensemble keeps its diction in a room like this."
-            )
-        return (
-            f"The broadband decay is {text} (estimated RT60 {rt:.2f} s"
-            + (f" from {basis}" if basis else "")
-            + "). "
+            ).format(rt=rt)
+        if basis:
+            return _(
+                "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). "
+                "For a choir, decay this long gives ambience but blurs diction; absorption behind "
+                "the ensemble or a different microphone position helps."
+            ).format(text=text, rt=rt, basis=basis)
+        return _(
+            "The broadband decay is {text} (estimated RT60 {rt:.2f} s). "
             "For a choir, decay this long gives ambience but blurs diction; absorption behind "
             "the ensemble or a different microphone position helps."
-        )
+        ).format(text=text, rt=rt)
 
     def low_imbalance_message(self, low_max: float, mid_mean: float) -> str:
-        return (
-            f"Low frequencies decay more slowly than the mid range "
-            f"({low_max:.2f} s vs {mid_mean:.2f} s), which makes the ensemble bottom-heavy "
+        return _(
+            "Low frequencies decay more slowly than the mid range "
+            "({low_max:.2f} s vs {mid_mean:.2f} s), which makes the ensemble bottom-heavy "
             "and muddies diction. Bass trapping or a different position helps."
-        )
-
-
-_PROFILES: dict[str, RecordingProfile] = {
-    "generic": GenericProfile(),
-    "vocal": VocalProfile(),
-    "voiceover": VoiceOverProfile(),
-    "acoustic_guitar": AcousticGuitarProfile(),
-    "drums": DrumsProfile(),
-    "room_mic": RoomMicProfile(),
-    "choir": ChoirProfile(),
-}
+        ).format(low_max=low_max, mid_mean=mid_mean)
 
 
 def available_profiles() -> list[str]:
-    return sorted(_PROFILES)
+    from roomscope.interpretation.registry import available_profiles as listed
+
+    return listed()
 
 
 def get_profile(name: str) -> RecordingProfile:
-    try:
-        return _PROFILES[name]
-    except KeyError as exc:
-        raise ConfigurationError(
-            f"unknown recording profile '{name}'; available: {available_profiles()}"
-        ) from exc
+    from roomscope.interpretation.registry import get_profile as fetch
+
+    return fetch(name)

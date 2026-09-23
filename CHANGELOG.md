@@ -7,6 +7,17 @@ All notable changes to RoomScope are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- v0.4 for everyone (ARCHITECTURE_V1.md milestone 0.4): gettext with a
+  Simplified Chinese catalog; `--lang` / `settings.language` /
+  `ROOMSCOPE_LANG`; user settings under `$ROOMSCOPE_HOME/settings.json`;
+  self-contained sessions (sweep sidecar always copied, recording copied
+  on `--copy-recording` / the GUI default); `roomscope session bundle`
+  (`--no-audio`); project folders and `average_decay` (SHOULD); CSV
+  exporter and `roomscope export`; user guide in English and Chinese;
+  unsigned desktop-bundle pipeline (`release.yml`, license bundle, GPL /
+  ASIO gate, macOS `NSMicrophoneUsageDescription`). Demo mode was already
+  in 0.3. `--json` is deprecated in favour of `--format json` (stderr
+  warning only).
 - Session re-opening: `AnalysisResult.from_dict` rebuilds a saved result;
   `load_measurement` reloads `session.json` + `result.json` + the IR WAV;
   `list_sessions` finds session directories. CLI `roomscope show` prints a

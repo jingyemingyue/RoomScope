@@ -53,9 +53,16 @@ dev = [
   "mypy>=1.11",
   "jsonschema>=4.20",
 ]
+i18n-dev = ["babel>=2.15"]
 
 [project.scripts]
 roomscope = "roomscope.cli.main:main"
+
+[project.gui-scripts]
+roomscope-gui = "roomscope.ui.app:main"
+
+[project.entry-points."roomscope.exporters"]
+csv = "roomscope.io.exporters.csv:CsvExporter"
 
 [project.urls]
 Homepage = "https://github.com/jingyemingyue/RoomScope"
@@ -74,6 +81,10 @@ packages = ["src/roomscope"]
 "src/roomscope/schemas/comparison.schema.json" = "roomscope/schemas/comparison.schema.json"
 "src/roomscope/schemas/project.schema.json" = "roomscope/schemas/project.schema.json"
 "src/roomscope/schemas/sweep-sidecar.schema.json" = "roomscope/schemas/sweep-sidecar.schema.json"
+"src/roomscope/locale/zh_CN/LC_MESSAGES/roomscope.po" = "roomscope/locale/zh_CN/LC_MESSAGES/roomscope.po"
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -82,6 +93,7 @@ include = [
   "docs",
   "examples",
   "scripts",
+  "packaging",
   "README.md",
   "LICENSE",
   "NOTICE",
@@ -141,6 +153,8 @@ ignore = [
 "src/roomscope/ui/compare_view.py" = ["E402", "I001"]
 "examples/*" = ["T20"]
 "scripts/*" = ["T20"]
+"packaging/*" = ["F821"]
+"hatch_build.py" = ["ARG"]
 "tests/*" = ["ARG"]
 
 [tool.ruff.format]

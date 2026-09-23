@@ -18,8 +18,8 @@ from roomscope.interpretation.profiles import (
     RoomMicProfile,
     VocalProfile,
     VoiceOverProfile,
-    available_profiles,
 )
+from roomscope.interpretation.registry import available_profiles, get_profile, profile_origins
 
 __all__ = [
     "AcousticGuitarProfile",
@@ -34,6 +34,8 @@ __all__ = [
     "VocalProfile",
     "VoiceOverProfile",
     "available_profiles",
+    "get_profile",
     "interpret",
     "interpret_comparison",
+    "profile_origins",
 ]

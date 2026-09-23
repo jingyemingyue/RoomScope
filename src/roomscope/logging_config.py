@@ -9,10 +9,14 @@ from __future__ import annotations
 
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
 from typing import IO
 
 LOGGER_NAME = "roomscope"
 _FORMAT = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
+LOG_FILENAME = "roomscope.log"
+LOG_MAX_BYTES = 1_000_000
+LOG_BACKUPS = 3
 
 
 def get_logger(name: str | None = None) -> logging.Logger:
@@ -29,11 +33,13 @@ def configure_logging(
     stream: IO[str] | None = None,
     *,
     fmt: str = _FORMAT,
+    log_file: bool = True,
 ) -> logging.Logger:
-    """Configure the ``roomscope`` logger with a single stream handler.
+    """Configure the ``roomscope`` logger with a stream handler and a log file.
 
-    Calling this more than once replaces the previous RoomScope handler instead
-    of stacking handlers.
+    The rotating file lives under ``$ROOMSCOPE_HOME/roomscope.log``. Calling
+    this more than once replaces the previous RoomScope handlers instead of
+    stacking them.
     """
     logger = logging.getLogger(LOGGER_NAME)
     for handler in list(logger.handlers):
@@ -43,6 +49,20 @@ def configure_logging(
     handler.setFormatter(logging.Formatter(fmt))
     handler._roomscope_handler = True  # type: ignore[attr-defined]
     logger.addHandler(handler)
+    if log_file:
+        try:
+            from roomscope.io.recent import roomscope_home
+
+            path = roomscope_home() / LOG_FILENAME
+            path.parent.mkdir(parents=True, exist_ok=True)
+            file_handler = RotatingFileHandler(
+                path, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUPS, encoding="utf-8"
+            )
+            file_handler.setFormatter(logging.Formatter(fmt))
+            file_handler._roomscope_handler = True  # type: ignore[attr-defined]
+            logger.addHandler(file_handler)
+        except OSError:
+            pass
     logger.setLevel(level)
     logger.propagate = False
     return logger
