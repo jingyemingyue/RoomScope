@@ -87,6 +87,31 @@ every time; that confirmation is never saved.
 **Demo** (GUI or `roomscope --backend fake measure`) runs the same flow on a
 synthetic room. Nothing is sent to a loudspeaker.
 
+### Per platform
+
+`roomscope devices` prints each device with its host API in brackets.
+
+* **Windows.** Every interface is listed once per host API. Prefer
+  `[Windows WASAPI]` (or `[Windows WDM-KS]`); avoid `[MME]` and
+  `[Windows DirectSound]`, which pass through the Windows mixer. In shared
+  mode WASAPI only runs at the rate set in Sound settings ▸ the device ▸
+  Properties ▸ Advanced, so set that to the measurement rate and switch
+  *Audio enhancements* off. Allow desktop apps to use the microphone
+  (Settings ▸ Privacy & security ▸ Microphone). The bundles carry no ASIO
+  support (the ASIO DLLs are built with Steinberg's proprietary SDK and are
+  removed, DEPENDENCIES.md §3); an interface that only works through ASIO is
+  measured in Universal DAW Mode.
+* **macOS.** Core Audio. Allow RoomScope in System Settings ▸ Privacy &
+  Security ▸ Microphone; without that permission the recording is silent and
+  RoomScope reports *"recording is silent"*. Set the interface's rate in Audio
+  MIDI Setup, and combine separate input and output devices into an
+  aggregate device there if needed.
+* **Linux.** ALSA through the system PortAudio (`libportaudio2`). A `hw:`
+  device gives the interface's own rates; `pipewire`, `pulse` or `default`
+  go through the sound server, which may resample: RoomScope shows the
+  device rate next to the requested one before measuring. Your user may need
+  to be in the `audio` group.
+
 ## Reading a result
 
 Each metric has a validity flag. `insufficient_decay_range` means the number is

@@ -57,6 +57,14 @@ roomscope-env/bin/roomscope gui
 
 **演示**（界面或 `roomscope --backend fake measure`）在合成房间上走同一流程，不会对扬声器发声。
 
+### 各平台注意事项
+
+`roomscope devices` 会在方括号里显示每个设备的主机 API。
+
+* **Windows。** 同一台声卡会按每种主机 API 各列一次。优先选 `[Windows WASAPI]`（或 `[Windows WDM-KS]`）；避免 `[MME]` 和 `[Windows DirectSound]`，它们要经过 Windows 混音器。共享模式下 WASAPI 只能以“声音设置 ▸ 设备 ▸ 属性 ▸ 高级”中设定的采样率运行，请把它设为测量采样率，并关闭*音频增强*。在“设置 ▸ 隐私和安全性 ▸ 麦克风”中允许桌面应用使用麦克风。安装包不含 ASIO 支持（ASIO DLL 用 Steinberg 的专有 SDK 构建，已被移除，见 DEPENDENCIES.md §3）；只能通过 ASIO 工作的声卡请用通用 DAW 模式测量。
+* **macOS。** Core Audio。在“系统设置 ▸ 隐私与安全性 ▸ 麦克风”中允许 RoomScope；没有该权限时录音是静音，RoomScope 会报告 *“recording is silent”*。在“音频 MIDI 设置”中设定声卡采样率；输入和输出是不同设备时，可在那里把它们合成一个聚合设备。
+* **Linux。** 通过系统 PortAudio（`libportaudio2`）使用 ALSA。`hw:` 设备使用声卡自身的采样率；`pipewire`、`pulse` 或 `default` 经过声音服务器，可能被重采样：RoomScope 在测量前会把设备采样率显示在请求的采样率旁边。你的用户可能需要加入 `audio` 组。
+
 ## 读结果
 
 每个指标都有有效性标记。`insufficient_decay_range` 表示数字被收回，不是零。没有总分。
