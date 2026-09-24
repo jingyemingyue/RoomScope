@@ -96,6 +96,38 @@ tag whose name does not equal `v<pyproject version>` fails the workflow;
 tags come only from publishing a draft or from the maintainer's own push;
 published history is never rewritten.
 
+### 3a. Without GitHub Actions minutes
+
+A private repository spends its own Actions minutes, and macOS runners count
+ten times. When they run out, jobs fail within seconds without a runner (no
+step runs, no log). Three ways on, from cheapest:
+
+1. **Build locally.** `scripts/build_release.py` runs the release workflow's
+   bundle job on the machine it is started on and writes the same file names
+   to `dist/`. Run it once per platform: on a Mac with Apple silicon
+   (`RoomScope-macos-arm64.dmg`), an Intel Mac if available
+   (`RoomScope-macos-x86_64.dmg`), Windows with Inno Setup 6 installed
+   (`roomscope-windows-x64.zip`, `RoomScope-setup.exe`) and Linux x86_64
+   (`roomscope-linux-x86_64.tar.gz`); add `--python-dist` on one of them for
+   the wheel and sdist. The script installs nothing itself: install
+   `requirements/bundle.lock`, the `dev` and `gui` extras, `pyinstaller==6.22.3`
+   and `build` as the script's docstring shows; it refuses other versions
+   unless `--allow-unlocked`. It runs the test suite, the license bundle, the
+   `--strip --require-licenses` gate and the smoke test (CLI, fake-backend
+   measurement, offscreen GUI, windowed launcher); on macOS it also ad-hoc
+   signs the app and mounts, copies and launches it from the DMG.
+2. **Publish by hand.** Create or edit the draft `v<version>` on the Releases
+   page (tag `v<version>` on the release commit of `main`, *pre-release*),
+   paste the notes (`packaging/release-notes-header.md` with `{version}`
+   replaced, then the CHANGELOG section), upload every file from step 1 and
+   each machine's `SHA256SUMS-*`, and publish. The PyPI job needs Actions;
+   without it nothing reaches PyPI, as before.
+3. **Make the repository public** (§5): standard GitHub-hosted runners are
+   free for public repositories, and the workflow then runs as written.
+
+A locally built release has had exactly the checks the script ran on that
+machine; `docs/STATUS.md` records which machines built which files.
+
 ## 4. Gates that apply to every release
 
 * CI (`ci.yml`) green on the release commit: lint, mypy, docs link check,

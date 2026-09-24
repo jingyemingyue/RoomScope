@@ -163,6 +163,12 @@ first version meant for a draft Release.
   its version comes from `pyproject.toml` via `/DMyAppVersion`, and the
   workflow installs it silently, smoke-tests the installed copy and
   uninstalls it.
+- **Build without GitHub Actions.** `scripts/build_release.py` runs the
+  release workflow's bundle job on the local machine (tests, license bundle,
+  PyInstaller, `--strip` gate, smoke test, archive / installer / DMG,
+  `SHA256SUMS-<OS>-<ARCH>`, optionally wheel and sdist) with the workflow's
+  file names, and refuses packages that differ from `requirements/bundle.lock`;
+  `docs/RELEASE_PLAN.md` §3a describes publishing such a build by hand.
 - `scripts/smoke_bundle.py` also runs `gui --smoke` through the windowed
   launcher; `--require-gui-launcher` fails a Windows / Linux bundle without
   one.

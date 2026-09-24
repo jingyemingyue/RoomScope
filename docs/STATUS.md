@@ -30,10 +30,16 @@ On GitHub Actions, the release workflow run #11 on this branch (commit
 Windows: the Windows job built `RoomScope-setup.exe` with Inno Setup,
 installed it per-user, ran `smoke_bundle.py --require-gui-launcher` on the
 installed copy (CLI, fake measurement, offscreen GUI through
-`roomscope-gui.exe`) and uninstalled it. **What was not run:** the Intel
-macOS job and CI's Intel test job before this snapshot was written (the
-later runs on this branch are the record); any DAW or hardware cell — the
-DAW notes come from the DAWs' documentation and the new DAW matrix in
+`roomscope-gui.exe`) and uninstalled it. Release run #12 (the Intel macOS job) never started: the
+repository's Actions minutes were used up, and every job failed within
+seconds without a runner. `scripts/build_release.py` (RELEASE_PLAN.md §3a)
+was then run on this Linux machine from `requirements/bundle.lock` with
+`--python-dist`: tests, wheel and sdist, license bundle, PyInstaller, gate,
+smoke test (CLI, fake measurement, offscreen GUI, `roomscope-gui`),
+`roomscope-linux-x86_64.tar.gz` and `SHA256SUMS-Linux-X64`, about 4 minutes.
+**What was not run:** the Intel macOS build (neither in Actions nor on a
+Mac), `build_release.py` on macOS or Windows, and any DAW or hardware cell —
+the DAW notes come from the DAWs' documentation and the new DAW matrix in
 HARDWARE_TESTS.md is empty.
 
 Snapshot 23: 2026-09-24 — **v0.4.1 workflow verification on PR #18**,
