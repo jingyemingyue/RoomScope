@@ -694,10 +694,6 @@ def cmd_measure(args: argparse.Namespace) -> int:
         return 2
     backend = get_backend(args.backend)
     print(_(SAFETY_MESSAGE))
-    if args.input_device is not None:
-        backend.check_sample_rate(args.input_device, settings.sample_rate, kind="input")
-    if args.output_device is not None:
-        backend.check_sample_rate(args.output_device, settings.sample_rate, kind="output")
     if args.input_channels:
         requested = [
             int(part.strip()) for part in str(args.input_channels).split(",") if part.strip()
@@ -709,30 +705,23 @@ def cmd_measure(args: argparse.Namespace) -> int:
     plan = plan_input_channels(requested, getattr(args, "measure_loopback_channel", None))
     channels = list(plan.input_channels)
     options = _stream_options(args)
-    # Device pre-flight: one host API for both directions, channels that
-    # exist, and a warning for two devices on two clocks (docs/AUDIO_DEVICES.md).
-    from roomscope.audio.inventory import (
-        build_inventory,
-        check_channels,
-        resolve_duplex,
-        separate_clocks_warning,
-    )
+    # Device pre-flight, shared with the GUI: one host API for both
+    # directions, channels that exist, the rate on the devices the stream will
+    # open, and a warning for two devices on two clocks (docs/AUDIO_DEVICES.md).
+    from roomscope.audio.inventory import build_inventory, preflight
 
-    inventory = build_inventory(backend, probe_rates=False)
-    listed = [probe.device for probe in inventory.devices]
-    args.input_device, args.output_device = resolve_duplex(
-        listed, inventory.host_apis, args.input_device, args.output_device
-    )
-    check_channels(
-        listed,
+    device_plan = preflight(
+        backend,
+        build_inventory(backend, probe_rates=False),
         input_device=args.input_device,
         output_device=args.output_device,
         input_channels=channels,
         output_channel=int(args.output_channel),
+        sample_rate=settings.sample_rate,
     )
-    clocks = separate_clocks_warning(listed, args.input_device, args.output_device)
-    if clocks:
-        print(_("Warning: {message}").format(message=clocks), file=sys.stderr)
+    args.input_device, args.output_device = device_plan.input_device, device_plan.output_device
+    if device_plan.clock_warning:
+        print(_("Warning: {message}").format(message=device_plan.clock_warning), file=sys.stderr)
     args.loopback_channel = plan.analysis_loopback_channel
     args.channel = plan.analysis_channel
     out_dir: Path = args.out

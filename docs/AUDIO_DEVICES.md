@@ -188,7 +188,10 @@ illustration, 50 ppm over 10 s is 0.5 ms, 24 samples at 48 kHz).
   chosen, uses that host API's default device for the other direction
   (`resolve_duplex` in `audio/inventory.py`); on Windows the system default
   is MME's, which would not match a WASAPI choice. Channels beyond the
-  device's count are refused before playing (`check_channels`).
+  device's count are refused before playing (`check_channels`), and only
+  then is the sample rate asked of the devices the stream will open, with
+  the channel counts it opens (`Pa_IsFormatSupported`). The GUI and
+  `roomscope measure` run the same `preflight`.
 * **The take:** one full-duplex `sd.Stream`: float32, 256-frame blocks, the
   device's default high latency, "typically more robust" [14] (`portaudio.py`);
   `--latency low` selects the default low latency instead.

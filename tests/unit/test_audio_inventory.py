@@ -17,6 +17,7 @@ from roomscope.audio.inventory import (
     build_inventory,
     check_channels,
     physical_key,
+    preflight,
     resolve_duplex,
     separate_clocks_warning,
 )
@@ -174,6 +175,93 @@ def test_channels_are_checked_before_playing() -> None:
         check_channels(
             devices, input_device=5, output_device=6, input_channels=[1], output_channel=3
         )
+
+
+@dataclass
+class StreamCheckBackend:
+    """Records the (device, rate, kind, channels) a pre-flight asks about."""
+
+    name: str = "portaudio"
+    checked: list[tuple[int, int, str, int | None]] = field(default_factory=list)
+
+    def list_devices(self) -> list[DeviceInfo]:
+        return _devices()
+
+    def check_sample_rate(
+        self, device: int, sample_rate: int, *, kind: str, channels: int | None = None
+    ) -> None:
+        self.checked.append((device, sample_rate, kind, channels))
+        if sample_rate not in RAW[device][5]:
+            raise AudioDeviceError(f"{kind} device {device} refuses {sample_rate} Hz")
+
+    def play_and_record(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover
+        raise AssertionError("nothing may be played")
+
+
+def test_preflight_checks_the_devices_the_stream_will_open(windows: WindowsBackend) -> None:
+    """GUI and CLI share this; the rate is asked of the resolved devices."""
+    inventory = build_inventory(windows, probe_rates=False, platform="win32")
+    backend = StreamCheckBackend()
+    plan = preflight(
+        backend,
+        inventory,
+        input_device=None,
+        output_device=6,
+        input_channels=[1, 2],
+        output_channel=2,
+        sample_rate=48000,
+    )
+    assert (plan.input_device, plan.output_device) == (5, 6)
+    # The channel counts the stream opens, not one channel and not the maximum.
+    assert backend.checked == [(5, 48000, "input", 2), (6, 48000, "output", 2)]
+    assert plan.clock_warning is None
+    # The system default input (MME, device 0) takes 44.1 kHz; the stream would
+    # open WASAPI's default input (device 5), which does not.
+    with pytest.raises(AudioDeviceError, match="input device 5"):
+        preflight(
+            backend,
+            inventory,
+            input_device=None,
+            output_device=6,
+            input_channels=[1],
+            output_channel=1,
+            sample_rate=44100,
+        )
+    # A missing channel is refused before any device is queried.
+    backend.checked.clear()
+    with pytest.raises(ConfigurationError, match="input channel 3"):
+        preflight(
+            backend,
+            inventory,
+            input_device=5,
+            output_device=6,
+            input_channels=[3],
+            output_channel=1,
+            sample_rate=48000,
+        )
+    assert backend.checked == []
+    # Nothing chosen: PortAudio's default devices are the ones checked.
+    plan = preflight(
+        backend,
+        inventory,
+        input_device=None,
+        output_device=None,
+        input_channels=[1],
+        output_channel=1,
+        sample_rate=44100,
+    )
+    assert (plan.input_device, plan.output_device) == (None, None)
+    assert backend.checked == [(0, 44100, "input", 1), (1, 44100, "output", 1)]
+    plan = preflight(
+        backend,
+        inventory,
+        input_device=5,
+        output_device=7,
+        input_channels=[1],
+        output_channel=1,
+        sample_rate=48000,
+    )
+    assert plan.clock_warning is not None and "separate sample clocks" in plan.clock_warning
 
 
 def test_separate_clocks_are_warned() -> None:

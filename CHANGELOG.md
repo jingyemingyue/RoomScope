@@ -80,6 +80,15 @@ All notable changes to RoomScope are documented here. The format follows
   Python 3.12; with the newest releases it passes on 3.13 and 3.14.
 
 ### Fixed
+- **Standalone pre-flight checked the wrong device.** The GUI and
+  `roomscope measure` asked for the sample rate before resolving which host
+  API the take would use: with one side left at "system default", the GUI
+  checked the system default device (MME on Windows) while the stream
+  opened the chosen host API's default device, and the CLI skipped that side;
+  both asked for the device's maximum channel count instead of the channels
+  the stream opens. One `inventory.preflight`, used by both, now resolves the
+  devices, checks the channels, then the rate on those devices with those
+  channel counts.
 - Cross-platform audit (Windows / macOS behaviour emulated in
   `tests/unit/test_cross_platform.py`): CLI output redirected to a file or
   pipe is written as UTF-8 (the locale code page raised UnicodeEncodeError on

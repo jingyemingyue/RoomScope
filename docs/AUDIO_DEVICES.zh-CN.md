@@ -149,7 +149,7 @@ Core Audio 用两个回调之间的环形缓冲连接两个设备 [11]。两个�
   `default`、`pulse` 和 `pipewire` 会转换 [32][35]；ALSA 和 OSS 接受 1 % 以内的
   采样率 [12]。只有 `hw:`、WDM-KS、WASAPI 独占、ASIO 和 JACK 反映硬件或服务器实际
   运行的采样率。
-* **一次测量只用一个主机 API。** 全双工流要求两个设备属于同一主机 API，否则 `Pa_OpenStream` 以 `paBadIODeviceCombination` 失败 [9]。RoomScope 在播放前检查这一点；只选了一个设备时，另一方向使用同一主机 API 的默认设备（`audio/inventory.py` 的 `resolve_duplex`）；在 Windows 上系统默认设备属于 MME，与 WASAPI 选择不匹配。超出设备声道数的声道会在播放前被拒绝（`check_channels`）。
+* **一次测量只用一个主机 API。** 全双工流要求两个设备属于同一主机 API，否则 `Pa_OpenStream` 以 `paBadIODeviceCombination` 失败 [9]。RoomScope 在播放前检查这一点；只选了一个设备时，另一方向使用同一主机 API 的默认设备（`audio/inventory.py` 的 `resolve_duplex`）；在 Windows 上系统默认设备属于 MME，与 WASAPI 选择不匹配。超出设备声道数的声道会在播放前被拒绝（`check_channels`），之后才向流实际要打开的设备、按流实际打开的声道数询问采样率（`Pa_IsFormatSupported`）。图形界面和 `roomscope measure` 执行同一个 `preflight`。
 * **测量本身：** 一个全双工 `sd.Stream`：float32、256 帧块、设备的默认高延迟，
   “typically more robust” [14]（`portaudio.py`）；`--latency low` 改用默认低延迟。
 

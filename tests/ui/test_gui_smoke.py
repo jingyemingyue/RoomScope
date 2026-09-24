@@ -314,7 +314,8 @@ def test_standalone_shows_requested_and_device_rate(app: QApplication) -> None:
     assert "44100" in label
     assert "48000" in label
     assert "requested" in label
-    page._check_selected_rates(48000)
+    # The same pre-flight as roomscope measure: resolved devices, real channels.
+    assert page._preflight([1], 48000) == (0, 0)  # the demo interface, preselected
     window.close()
 
 

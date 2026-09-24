@@ -496,3 +496,58 @@ def resolve_duplex(
             f"on {anchor.host_api} as well"
         )
     return (other, output_device) if chosen_in is None else (input_device, other)
+
+
+@dataclass(frozen=True)
+class DevicePlan:
+    """The devices a Standalone take will open, after :func:`preflight`."""
+
+    input_device: int | None
+    output_device: int | None
+    #: Set when playback and recording run on two sample clocks.
+    clock_warning: str | None = None
+
+
+def preflight(
+    backend: AudioBackend,
+    inventory: DeviceInventory,
+    *,
+    input_device: int | None,
+    output_device: int | None,
+    input_channels: Sequence[int],
+    output_channel: int,
+    sample_rate: int,
+) -> DevicePlan:
+    """Everything the GUI and the CLI check before a Standalone take plays a sample.
+
+    In this order, so each check sees the devices the stream will open:
+    both directions on one host API (:func:`resolve_duplex`), the channels
+    exist (:func:`check_channels`), each device accepts ``sample_rate`` with
+    the channel count the stream opens (``max(input_channels)`` in,
+    ``output_channel`` out; ``Pa_IsFormatSupported``, nothing is played), and
+    a warning for separate clocks. A ``None`` device is PortAudio's default.
+    Raises :class:`~roomscope.errors.ConfigurationError` for the device or
+    channel choice and :class:`~roomscope.errors.AudioDeviceError` for a rate
+    the device refuses.
+    """
+    devices = [probe.device for probe in inventory.devices]
+    inp, out = resolve_duplex(devices, inventory.host_apis, input_device, output_device)
+    check_channels(
+        devices,
+        input_device=inp,
+        output_device=out,
+        input_channels=input_channels,
+        output_channel=output_channel,
+    )
+    for kind, index, channels, default_attr in (
+        ("input", inp, max(input_channels, default=1), "is_default_input"),
+        ("output", out, output_channel, "is_default_output"),
+    ):
+        device = (
+            next((d for d in devices if d.index == index), None)
+            if index is not None
+            else next((d for d in devices if getattr(d, default_attr)), None)
+        )
+        if device is not None:
+            backend.check_sample_rate(device.index, sample_rate, kind=kind, channels=channels)
+    return DevicePlan(inp, out, separate_clocks_warning(devices, inp, out))

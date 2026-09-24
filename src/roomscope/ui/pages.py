@@ -33,7 +33,7 @@ from roomscope.audio.playrec import (
 )
 from roomscope.core.pipeline import Reference
 from roomscope.core.sweep import measurement_signal
-from roomscope.errors import RoomScopeError
+from roomscope.errors import AudioDeviceError, RoomScopeError
 from roomscope.i18n import N_, _
 from roomscope.interpretation import available_profiles, interpret
 from roomscope.io.wav import load_reference, read_wav, write_sweep_file
@@ -680,7 +680,7 @@ class StandalonePage(QWidget):
             self._inventory = None
             self.host_api.clear()
             self._fill_device_lists()
-            self.status.setText(f"Audio backend unavailable: {exc}")
+            self.status.setText(_("Audio backend unavailable: {error}").format(error=exc))
             self.run_button.setEnabled(False)
             return
         self._inventory = inventory
@@ -756,44 +756,46 @@ class StandalonePage(QWidget):
             and self.coreaudio_set_rate.isChecked(),
         )
 
-    def _preflight(self, input_channels: list[int]) -> tuple[int | None, int | None] | None:
-        """One host API, existing channels, and a clock warning, before playing."""
-        from roomscope.audio.inventory import (
-            check_channels,
-            resolve_duplex,
-            separate_clocks_warning,
-        )
+    def _preflight(
+        self, input_channels: list[int], sample_rate: int
+    ) -> tuple[int | None, int | None] | None:
+        """The checks the CLI makes too (``inventory.preflight``), before playing."""
+        from roomscope.audio.backend import get_backend
+        from roomscope.audio.inventory import preflight
 
         if self._inventory is None:
-            return self.input_device.currentData(), self.output_device.currentData()
-        try:
-            inp, out = resolve_duplex(
-                self._devices,
-                self._inventory.host_apis,
-                self.input_device.currentData(),
-                self.output_device.currentData(),
+            QMessageBox.critical(
+                self,
+                _("Audio backend unavailable"),
+                _("No audio device list is available; Universal DAW Mode still works."),
             )
-            check_channels(
-                self._devices,
-                input_device=inp,
-                output_device=out,
+            return None
+        try:
+            plan = preflight(
+                get_backend("fake" if self.demo_mode else None),
+                self._inventory,
+                input_device=self.input_device.currentData(),
+                output_device=self.output_device.currentData(),
                 input_channels=input_channels,
                 output_channel=int(self.output_channel.value()),
+                sample_rate=sample_rate,
             )
+        except AudioDeviceError as exc:
+            QMessageBox.critical(self, _("Sample rate not supported"), str(exc))
+            return None
         except RoomScopeError as exc:
             QMessageBox.critical(self, _("Invalid settings"), str(exc))
             return None
-        warning = separate_clocks_warning(self._devices, inp, out)
-        if warning:
+        if plan.clock_warning:
             answer = QMessageBox.warning(
                 self,
                 _("Two devices, two clocks"),
-                warning + "\n\n" + _("Measure anyway?"),
+                plan.clock_warning + "\n\n" + _("Measure anyway?"),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if answer != QMessageBox.StandardButton.Yes:
                 return None
-        return inp, out
+        return plan.input_device, plan.output_device
 
     def _device_for(self, combo: QComboBox, *, kind: str) -> DeviceInfo | None:
         index = combo.currentData()
@@ -837,15 +839,6 @@ class StandalonePage(QWidget):
             text += _(" — rates differ; the interface may resample")
         self.device_rate.setText(text)
 
-    def _check_selected_rates(self, sample_rate: int) -> None:
-        from roomscope.audio.backend import get_backend
-
-        backend = get_backend("fake" if self.demo_mode else None)
-        for kind, combo in (("input", self.input_device), ("output", self.output_device)):
-            device = self._device_for(combo, kind=kind)
-            if device is not None:
-                backend.check_sample_rate(device.index, sample_rate, kind=kind)
-
     def current_sweep_settings(self) -> SweepSettings:
         return SweepSettings(
             sample_rate=int(self.sample_rate.currentData()),
@@ -869,11 +862,6 @@ class StandalonePage(QWidget):
                 ).format(level=SAFE_MAX_LEVEL_DBFS),
             )
             return
-        try:
-            self._check_selected_rates(settings.sample_rate)
-        except RoomScopeError as exc:
-            QMessageBox.critical(self, _("Sample rate not supported"), str(exc))
-            return
         self.state.mode = "standalone"
         self.state.sweep_settings = settings
         self.state.reference = Reference.from_settings(settings)
@@ -888,7 +876,7 @@ class StandalonePage(QWidget):
         except RoomScopeError as exc:
             QMessageBox.critical(self, _("Invalid settings"), str(exc))
             return
-        devices = self._preflight(list(plan.input_channels))
+        devices = self._preflight(list(plan.input_channels), settings.sample_rate)
         if devices is None:
             return
         input_device, output_device = devices
