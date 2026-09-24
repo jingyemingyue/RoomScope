@@ -13,7 +13,8 @@ RoomScope 用来测量录音房间，让你听到房间对近距离拾音声源�
 | 系统 | 文件 | 启动方式 |
 | --- | --- | --- |
 | Windows 10/11 x64 | `RoomScope-setup.exe`（安装程序）或 `roomscope-windows-x64.zip` | 开始菜单 → RoomScope，或运行 zip 里的 `roomscope-gui.exe` |
-| macOS 13+，Apple 芯片（Intel Mac 请用下文的 wheel） | `RoomScope.dmg` | 把 RoomScope 拖进“应用程序”后打开 |
+| macOS 13+，Apple 芯片 | `RoomScope-macos-arm64.dmg` | 把 RoomScope 拖进“应用程序”后打开 |
+| macOS 13+，Intel | `RoomScope-macos-x86_64.dmg` | 把 RoomScope 拖进“应用程序”后打开 |
 | Linux x86_64 | `roomscope-linux-x86_64.tar.gz` | `tar xzf roomscope-linux-x86_64.tar.gz && roomscope/roomscope-gui` |
 
 Windows 和 Linux 包含两个程序：桌面程序 `roomscope-gui` 和命令行工具 `roomscope`

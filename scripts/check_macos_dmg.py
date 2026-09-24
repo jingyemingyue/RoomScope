@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import plistlib
 import subprocess
 import sys
@@ -19,8 +20,10 @@ def check_app(app: Path, version: str) -> Path:
     assert info["NSMicrophoneUsageDescription"]
     executable = app / "Contents" / "MacOS" / info["CFBundleExecutable"]
     assert executable.is_file(), executable
+    # The app is built for the runner's architecture: arm64 on Apple silicon,
+    # x86_64 on an Intel runner.
     archs = subprocess.check_output(["lipo", "-archs", str(executable)], text=True)
-    assert "arm64" in archs.split(), archs
+    assert platform.machine() in archs.split(), (platform.machine(), archs)
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
     return executable
 

@@ -221,6 +221,12 @@ msgstr "在已声明输入增益不变的前提下，本底噪声从 {baseline_d
 msgid "The direct sound could not be identified with confidence, so delays and levels of reflections may be off. Check that the correct reference sweep was used, lower the playback level if the loudspeaker distorts, and measure again."
 msgstr "无法可靠识别直达声，反射的延时和电平可能不准。请确认使用了正确的参考扫描信号；若扬声器失真请降低回放电平，然后重测。"
 
+msgid "The sweep was generated at {generated_rate_hz} Hz but played at {played_rate_hz} Hz: the DAW project runs at another sample rate and did not convert the file. Generate the sweep at the project's sample rate, or let the DAW convert it on import, and measure again."
+msgstr "扫描信号按 {generated_rate_hz} Hz 生成，却以 {played_rate_hz} Hz 播放：DAW 工程的采样率不同，且没有对文件做采样率转换。请按工程采样率生成扫描信号，或让 DAW 在导入时转换采样率，然后重测。"
+
+msgid "The sweep was played at {speed_percent:.1f} % of its speed: the DAW time-stretched it (Warp, Flex Time, Follow Tempo, elastic audio or a stretch mode). Switch time-stretching off for the sweep clip and measure again."
+msgstr "扫描信号以原速度的 {speed_percent:.1f} % 播放：DAW 对它做了时间伸缩（Warp、Flex Time、Follow Tempo、Elastic Audio 或其他伸缩模式）。请关闭扫描片段的时间伸缩，然后重测。"
+
 msgid "The recording clips. Lower the playback or input gain and measure again."
 msgstr "录音削波。请降低回放或输入增益后重测。"
 

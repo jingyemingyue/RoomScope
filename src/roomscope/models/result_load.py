@@ -32,6 +32,7 @@ from roomscope.models.result import (
     NoiseResult,
     PlacementLength,
     PlacementResult,
+    PlaybackSpeed,
     Reflection,
     ReflectionsResult,
     ResonanceCandidate,
@@ -196,6 +197,7 @@ def impulse_from_dict(data: Any) -> ImpulseResponseResult:
             aliased_from_dict(a) for a in payload.get("aliased_distortion") or ()
         ),
         loopback=loopback_from_dict(payload.get("loopback")),
+        playback_speed=playback_speed_from_dict(payload.get("playback_speed")),
     )
 
 
@@ -215,6 +217,19 @@ def loopback_from_dict(data: Any) -> LoopbackResult | None:
         interface_response_hz=None if hz is None else _array(hz),
         interface_response_db=None if db is None else _array(db),
         notes=_str_tuple(payload.get("notes")),
+    )
+
+
+def playback_speed_from_dict(data: Any) -> PlaybackSpeed | None:
+    if data is None:
+        return None
+    payload = _obj(data, "playback_speed")
+    played = payload.get("played_rate_hz")
+    return PlaybackSpeed(
+        speed_ratio=float(payload["speed_ratio"]),
+        kind=str(payload["kind"]),
+        generated_rate_hz=int(payload["generated_rate_hz"]),
+        played_rate_hz=None if played is None else int(played),
     )
 
 

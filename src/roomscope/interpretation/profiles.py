@@ -19,7 +19,13 @@ from typing import Protocol, runtime_checkable
 from roomscope.i18n import _, current_locale, pgettext
 from roomscope.interpretation.interpreter import Finding, Severity, finding
 from roomscope.models.comparison import T_JND_PERCENT, ComparisonResult, MetricDelta
-from roomscope.models.result import AnalysisResult, Reflection, ResonanceCandidate, Validity
+from roomscope.models.result import (
+    KIND_SAMPLE_RATE,
+    AnalysisResult,
+    Reflection,
+    ResonanceCandidate,
+    Validity,
+)
 
 
 def decay_length_text(label: str) -> str:
@@ -338,7 +344,36 @@ class ProfileBase:
     def _data_quality(self, result: AnalysisResult) -> list[Finding]:
         findings: list[Finding] = []
         ir = result.impulse_response
-        if ir.direct_sound_confidence != "high":
+        speed = ir.playback_speed
+        if speed is not None and speed.kind == KIND_SAMPLE_RATE and speed.played_rate_hz:
+            findings.append(
+                finding(
+                    "measurement",
+                    Severity.WARNING,
+                    "measurement.playback_sample_rate",
+                    "The sweep was generated at {generated_rate_hz} Hz but played at "
+                    "{played_rate_hz} Hz: the DAW project runs at another sample rate and did not "
+                    "convert the file. Generate the sweep at the project's sample rate, or let the "
+                    "DAW convert it on import, and measure again.",
+                    evidence=speed.to_dict(),
+                    generated_rate_hz=speed.generated_rate_hz,
+                    played_rate_hz=speed.played_rate_hz,
+                )
+            )
+        elif speed is not None:
+            findings.append(
+                finding(
+                    "measurement",
+                    Severity.WARNING,
+                    "measurement.playback_time_stretch",
+                    "The sweep was played at {speed_percent:.1f} % of its speed: the DAW "
+                    "time-stretched it (Warp, Flex Time, Follow Tempo, elastic audio or a stretch "
+                    "mode). Switch time-stretching off for the sweep clip and measure again.",
+                    evidence=speed.to_dict(),
+                    speed_percent=speed.speed_ratio * 100.0,
+                )
+            )
+        elif ir.direct_sound_confidence != "high":
             findings.append(
                 finding(
                     "measurement",

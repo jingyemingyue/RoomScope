@@ -131,8 +131,12 @@ tagged; because #17 had to be fixed before any bundle is published
 - Release notes open with a download table, the unsigned-bundle warning and
   links to the user guide; the README has a Download section and the user
   guide's install section names every Release file, the checksums, the Linux
-  system libraries and the wheel install (RoomScope is not on PyPI yet). The
-  macOS DMG is built on Apple silicon only; Intel Macs use the wheel.
+  system libraries and the wheel install (RoomScope is not on PyPI yet).
+- **Intel Macs.** The release workflow also builds on an Intel macOS runner;
+  the disk images are `RoomScope-macos-arm64.dmg` and
+  `RoomScope-macos-x86_64.dmg` (was `RoomScope.dmg`, Apple silicon only),
+  each checked for its own architecture, and the checksum files are named per
+  runner OS and architecture (`SHA256SUMS-macOS-ARM64`, ...).
 
 ## [0.4.0] - 2026-09-24
 

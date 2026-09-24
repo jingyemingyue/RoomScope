@@ -38,7 +38,8 @@ Pre-release builds are attached to the
 | System | File |
 | --- | --- |
 | Windows 10/11 x64 | `RoomScope-setup.exe` (installer) or `roomscope-windows-x64.zip` |
-| macOS 13+, Apple silicon | `RoomScope.dmg` |
+| macOS 13+, Apple silicon | `RoomScope-macos-arm64.dmg` |
+| macOS 13+, Intel | `RoomScope-macos-x86_64.dmg` |
 | Linux x86_64 | `roomscope-linux-x86_64.tar.gz` |
 | Any OS with Python 3.12+ | `roomscope-<version>-py3-none-any.whl` |
 

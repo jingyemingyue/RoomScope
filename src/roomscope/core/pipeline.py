@@ -46,6 +46,7 @@ from roomscope.core.loopback import (
 )
 from roomscope.core.noise import analyze_noise, quiet_segment_candidates, sweep_level_dbfs
 from roomscope.core.placement import estimate_placement
+from roomscope.core.playback_speed import diagnose_playback_speed
 from roomscope.core.reflections import detect_early_reflections
 from roomscope.core.resonance import detect_potential_resonances
 from roomscope.core.sweep import (
@@ -81,6 +82,7 @@ from roomscope.models.result import (
     NoiseResult,
     PlacementLength,
     PlacementResult,
+    PlaybackSpeed,
     Validity,
 )
 from roomscope.version import __version__
@@ -374,9 +376,15 @@ def _decay_unreliable_reasons(
     margin_db: float | None,
     clipped: bool,
     aliased: tuple[AliasedDistortion, ...] = (),
+    playback_speed: PlaybackSpeed | None = None,
 ) -> list[str]:
     """Measurement-level reasons why no decay metric may be reported as valid."""
     reasons: list[str] = []
+    if playback_speed is not None:
+        reasons.append(
+            f"the sweep was played at {playback_speed.speed_ratio * 100.0:.1f} % of the speed it "
+            "was generated at, so the deconvolved response is not the room's impulse response"
+        )
     if confidence == "low":
         margin = "not checkable" if margin_db is None else f"{margin_db:.1f} dB"
         reasons.append(
@@ -397,6 +405,29 @@ def _decay_unreliable_reasons(
             "spreads over the impulse response after the direct sound and imitates a decay"
         )
     return reasons
+
+
+def _playback_speed(
+    mono: FloatArray, sample_rate: int, reference: Reference
+) -> PlaybackSpeed | None:
+    """Diagnose a sweep played at the wrong speed (needs the sweep definition)."""
+    if reference.settings is None:
+        return None
+    return diagnose_playback_speed(mono, sample_rate, reference.settings)
+
+
+def _with_playback_speed(
+    exc: InvalidAudioError, mono: FloatArray, sample_rate: int, reference: Reference
+) -> InvalidAudioError:
+    """``exc``, or a copy that also names a wrong sweep speed when there is one.
+
+    A sweep played faster than generated is shorter than the reference and
+    seems to start late; the speed is the cause the user can fix.
+    """
+    speed = _playback_speed(mono, sample_rate, reference)
+    if speed is None:
+        return exc
+    return InvalidAudioError(f"{exc}. However, {speed.describe()}")
 
 
 def _select_mic_and_loopback(
@@ -550,7 +581,10 @@ def analyze(
     prepared = _prepare_reference(reference, sample_rate)
     warnings.extend(prepared.warnings)
 
-    h_full = deconvolve(mono, prepared.inverse)
+    try:
+        h_full = deconvolve(mono, prepared.inverse)
+    except InvalidAudioError as exc:
+        raise _with_playback_speed(exc, mono, sample_rate, reference) from exc
     located = _locate_pass(
         h_full,
         recording_length=mono.shape[0],
@@ -615,7 +649,12 @@ def analyze(
     ir_notes: list[str] = []
     # The excitation band is what later stages (decay, frequency response,
     # resonances) must respect: impulse.excitation_band / result.excitation_band.
-    band, start_note = _check_recording_start(prepared, -located.sweep_start_raw_index, sample_rate)
+    try:
+        band, start_note = _check_recording_start(
+            prepared, -located.sweep_start_raw_index, sample_rate
+        )
+    except InvalidAudioError as exc:
+        raise _with_playback_speed(exc, mono, sample_rate, reference) from exc
     if start_note:
         ir_notes.append(start_note)
     if located.sweep_passes > 1:
@@ -648,6 +687,12 @@ def analyze(
             "(noise, pre-ringing or a wrong reference); direct-sound detection confidence is "
             f"{confidence}"
         )
+    # A sweep played at the wrong speed (a DAW sample-rate mismatch or
+    # time-stretch) is one cause of an unidentifiable direct sound that the
+    # user can fix; the check costs one short-time spectrum.
+    playback_speed = _playback_speed(mono, sample_rate, reference) if confidence != "high" else None
+    if playback_speed is not None:
+        ir_notes.append(playback_speed.describe())
     warnings.extend(ir_notes)
 
     harmonics: tuple[HarmonicDistortion, ...] = ()
@@ -699,11 +744,12 @@ def analyze(
         harmonic_distortion=harmonics,
         aliased_distortion=aliased,
         loopback=loopback_result,
+        playback_speed=playback_speed,
     )
 
     decay = _analyze_decay_of_pass(h_full, located, sample_rate, settings, band)
     unreliable = _decay_unreliable_reasons(
-        confidence, located.pre_peak_margin_db, clipping.clipped, aliased
+        confidence, located.pre_peak_margin_db, clipping.clipped, aliased, playback_speed
     )
     if unreliable:
         decay = decay.with_all_unreliable("; ".join(unreliable))

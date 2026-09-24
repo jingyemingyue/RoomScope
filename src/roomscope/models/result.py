@@ -391,6 +391,51 @@ class LoopbackResult:
         return data
 
 
+#: Kinds of :class:`PlaybackSpeed` (see ``roomscope.core.playback_speed``).
+KIND_SAMPLE_RATE = "sample_rate_mismatch"
+KIND_TIME_STRETCH = "time_stretch"
+
+
+@dataclass(frozen=True)
+class PlaybackSpeed:
+    """The sweep speed measured in a recording, relative to the generated sweep."""
+
+    #: Measured sweep rate / generated sweep rate (1.0: played as generated).
+    speed_ratio: float
+    #: :data:`KIND_SAMPLE_RATE` or :data:`KIND_TIME_STRETCH`.
+    kind: str
+    #: Sample rate the sweep file was generated at (Hz).
+    generated_rate_hz: int
+    #: For a sample-rate mismatch: the common rate the file was played at (Hz).
+    played_rate_hz: int | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "speed_ratio": self.speed_ratio,
+            "kind": self.kind,
+            "generated_rate_hz": self.generated_rate_hz,
+            "played_rate_hz": self.played_rate_hz,
+        }
+
+    def describe(self) -> str:
+        """One English sentence for the result notes."""
+        if self.kind == KIND_SAMPLE_RATE and self.played_rate_hz is not None:
+            return (
+                f"the sweep in the recording runs at {self.speed_ratio * 100.0:.1f} % of the "
+                f"speed it was generated at: a file generated at {self.generated_rate_hz} Hz was "
+                f"played at {self.played_rate_hz} Hz without sample-rate conversion (a DAW project "
+                "at another sample rate, or a recording exported at another rate than the "
+                "project). Generate the sweep at the project's sample rate, or let the DAW "
+                "convert it on import, and measure again"
+            )
+        return (
+            f"the sweep in the recording runs at {self.speed_ratio * 100.0:.1f} % of the speed "
+            "it was generated at: the DAW time-stretched it (Warp, Flex Time, Follow Tempo, "
+            "elastic audio or a stretch mode). Switch time-stretching off for the sweep clip "
+            "and measure again"
+        )
+
+
 @dataclass(frozen=True)
 class ImpulseResponseResult:
     sample_rate: int
@@ -436,6 +481,10 @@ class ImpulseResponseResult:
     #: Electrical reference channel used to compensate the interface (``None``
     #: when the measurement had no loopback).
     loopback: LoopbackResult | None = None
+    #: The sweep was not played at the speed it was generated at (a DAW
+    #: sample-rate mismatch or time-stretch). Only checked, and only set, when
+    #: the direct sound could not be identified with high confidence.
+    playback_speed: PlaybackSpeed | None = None
 
     @property
     def direct_sound_time_s(self) -> float:
@@ -461,6 +510,9 @@ class ImpulseResponseResult:
             "harmonic_distortion": [h.to_dict() for h in self.harmonic_distortion],
             "aliased_distortion": [a.to_dict() for a in self.aliased_distortion],
             "loopback": self.loopback.to_dict() if self.loopback is not None else None,
+            "playback_speed": (
+                self.playback_speed.to_dict() if self.playback_speed is not None else None
+            ),
             "notes": list(self.notes),
         }
         if include_curves:

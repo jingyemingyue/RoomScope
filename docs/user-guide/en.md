@@ -17,7 +17,8 @@ downloaded (`shasum -a 256 <file>` on macOS / Linux,
 | System | File | Start RoomScope |
 | --- | --- | --- |
 | Windows 10/11 x64 | `RoomScope-setup.exe` (installer) or `roomscope-windows-x64.zip` | Start menu → RoomScope, or `roomscope-gui.exe` in the zip |
-| macOS 13+ on Apple silicon (Intel Macs: use the wheel below) | `RoomScope.dmg` | Drag RoomScope to Applications, then open it |
+| macOS 13+, Apple silicon | `RoomScope-macos-arm64.dmg` | Drag RoomScope to Applications, then open it |
+| macOS 13+, Intel | `RoomScope-macos-x86_64.dmg` | Drag RoomScope to Applications, then open it |
 | Linux x86_64 | `roomscope-linux-x86_64.tar.gz` | `tar xzf roomscope-linux-x86_64.tar.gz && roomscope/roomscope-gui` |
 
 The Windows and Linux bundles carry two programs: the desktop app

@@ -130,7 +130,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # macos-latest is Apple silicon; macos-15-intel builds the x86_64 app.
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -217,8 +218,9 @@ jobs:
       - name: macOS disk image
         if: runner.os == 'macOS'
         run: |
-          bash packaging/macos/make_dmg.sh dist/RoomScope.app dist/RoomScope.dmg
-          python scripts/check_macos_dmg.py dist/RoomScope.dmg
+          dmg="dist/RoomScope-macos-$(uname -m).dmg"
+          bash packaging/macos/make_dmg.sh dist/RoomScope.app "$dmg"
+          python scripts/check_macos_dmg.py "$dmg"
       - name: Linux archive
         if: runner.os == 'Linux'
         run: tar -C dist -czf dist/roomscope-linux-x86_64.tar.gz roomscope
@@ -229,14 +231,16 @@ jobs:
           import hashlib
           import os
           from pathlib import Path
-          names = ['roomscope-linux-x86_64.tar.gz', 'RoomScope.dmg',
-                   'roomscope-windows-x64.zip', 'RoomScope-setup.exe']
+          names = ['roomscope-linux-x86_64.tar.gz', 'RoomScope-macos-arm64.dmg',
+                   'RoomScope-macos-x86_64.dmg', 'roomscope-windows-x64.zip',
+                   'RoomScope-setup.exe']
           assets = [Path('dist') / name for name in names if (Path('dist') / name).is_file()]
           if not assets:
               raise SystemExit('No distributable archive found')
           lines = [f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}'
                    for path in assets]
-          (Path('dist') / f'SHA256SUMS-{os.environ["RUNNER_OS"]}').write_text(
+          suffix = f'{os.environ["RUNNER_OS"]}-{os.environ["RUNNER_ARCH"]}'
+          (Path('dist') / f'SHA256SUMS-{suffix}').write_text(
               '\n'.join(lines) + '\n', encoding='utf-8')
           PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -244,7 +248,7 @@ jobs:
           name: bundle-${{ matrix.os }}
           path: |
             dist/roomscope-linux-x86_64.tar.gz
-            dist/RoomScope.dmg
+            dist/RoomScope-macos-*.dmg
             dist/roomscope-windows-x64.zip
             dist/RoomScope-setup.exe
             dist/SHA256SUMS-*
