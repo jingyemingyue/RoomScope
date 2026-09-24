@@ -80,6 +80,11 @@ All notable changes to RoomScope are documented here. The format follows
   Python 3.12; with the newest releases it passes on 3.13 and 3.14.
 
 ### Fixed
+- **A bug-report bundle could carry a file from outside the session.**
+  `roomscope session bundle` followed symbolic links, so a session folder
+  from someone else with a link to, say, a private key put that file into
+  the zip meant for a public issue. Files that resolve outside the session
+  folder are now left out (with a log line).
 - **Buffer under/overflows reached only the log.** A Standalone take whose
   device reported an input overflow (samples dropped) or output underflow (a
   gap in the sweep) was analysed with no sign of it in the GUI. The flags

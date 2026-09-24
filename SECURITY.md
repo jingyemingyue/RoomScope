@@ -32,7 +32,10 @@ evaluates them, caps JSON size and nesting, is meant to turn malformed content
 into a `RoomScopeError` rather than a crash (`tests/robustness/`), and reads a
 session's `result.json` and
 `impulse_response.wav` only from inside that session's folder (a path in
-`session.json` that is absolute or leads out of the folder is refused). A
+`session.json` that is absolute or leads out of the folder is refused).
+`roomscope session bundle` leaves out any file that links out of the session
+folder, so a session from someone else cannot put one of your files into the
+zip you attach to a public issue. A
 `project.json` is different by design: it lists session folders, which may
 live anywhere, so opening someone else's project opens the session folders it
 names — look at it first. Apart from that, a way to make RoomScope read or
