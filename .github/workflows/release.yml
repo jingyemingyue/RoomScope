@@ -10,8 +10,8 @@ on:
     paths:
       - pyproject.toml
       - .github/workflows/release.yml
-      - packaging/macos/**
-      - packaging/roomscope.spec
+      - packaging/**
+      - scripts/smoke_bundle.py
       - src/roomscope/__main__.py
   pull_request:
     paths:
@@ -19,6 +19,7 @@ on:
       - packaging/**
       - scripts/check_bundle_contents.py
       - scripts/check_macos_dmg.py
+      - scripts/smoke_bundle.py
       - src/roomscope/__main__.py
       - tests/unit/test_desktop_entry.py
       - pyproject.toml
@@ -168,35 +169,51 @@ jobs:
           codesign --verify --deep --strict --verbose=2 dist/RoomScope.app
       - name: Smoke frozen binary
         shell: bash
-        run: python scripts/smoke_bundle.py --root dist/roomscope --out "$RUNNER_TEMP/bundle-smoke"
+        run: |
+          launcher=--require-gui-launcher
+          [[ "$RUNNER_OS" != macOS ]] || launcher=
+          python scripts/smoke_bundle.py --root dist/roomscope --out "$RUNNER_TEMP/bundle-smoke" $launcher
       - name: Smoke macOS .app executable
         if: runner.os == 'macOS'
         shell: bash
         run: QT_QPA_PLATFORM=offscreen dist/RoomScope.app/Contents/MacOS/RoomScope gui --smoke
-      - name: Windows zip and optional installer
+      - name: Windows zip
         if: runner.os == 'Windows'
         shell: bash
+        run: python -c "import shutil; shutil.make_archive('dist/roomscope-windows-x64', 'zip', 'dist/roomscope')"
+      - name: Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
         env:
           ROOMSCOPE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          python -c "import shutil; shutil.make_archive('dist/roomscope-windows-x64', 'zip', 'dist/roomscope')"
-          if command -v iscc >/dev/null 2>&1; then
-            python - <<'PY'
-          import os
-          import re
-          from pathlib import Path
-          spec = Path('packaging/windows/roomscope.iss')
-          old = spec.read_text(encoding='utf-8')
-          new, count = re.subn(r'(?m)^#define MyAppVersion ".*"$',
-                               '#define MyAppVersion "' + os.environ['ROOMSCOPE_VERSION'] + '"', old)
-          if count != 1:
-              raise SystemExit('Expected exactly one Inno Setup version definition')
-          spec.write_text(new, encoding='utf-8')
-          PY
-            iscc packaging/windows/roomscope.iss
-          else
-            echo "ISCC unavailable; Windows zip is the deliverable."
-          fi
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup install failed' }
+          }
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
+          & $iscc "/DMyAppVersion=$env:ROOMSCOPE_VERSION" packaging\windows\roomscope.iss
+          if ($LASTEXITCODE -ne 0) { throw "iscc failed ($LASTEXITCODE)" }
+          if (-not (Test-Path dist\RoomScope-setup.exe)) { throw 'dist\RoomScope-setup.exe missing' }
+      - name: Install, smoke and uninstall the Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'RoomScope-installed'
+          $p = Start-Process dist\RoomScope-setup.exe -Wait -PassThru -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', "/DIR=$dir")
+          if ($p.ExitCode -ne 0) { throw "installer exited with $($p.ExitCode)" }
+          if (-not (Test-Path (Join-Path $dir 'roomscope-gui.exe'))) { throw 'roomscope-gui.exe not installed' }
+          if (-not (Test-Path (Join-Path $dir 'THIRD_PARTY_LICENSES'))) { throw 'licenses not installed' }
+          python scripts/smoke_bundle.py --root $dir --out (Join-Path $env:RUNNER_TEMP 'installed-smoke') --require-gui-launcher
+          if ($LASTEXITCODE -ne 0) { throw 'installed smoke failed' }
+          $u = Start-Process (Join-Path $dir 'unins000.exe') -Wait -PassThru -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
+          if ($u.ExitCode -ne 0) { throw "uninstaller exited with $($u.ExitCode)" }
+          # The uninstaller re-launches itself from %TEMP%; wait for it to finish.
+          for ($i = 0; $i -lt 60 -and (Test-Path (Join-Path $dir 'roomscope.exe')); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path (Join-Path $dir 'roomscope.exe')) { throw 'uninstall left roomscope.exe behind' }
       - name: macOS disk image
         if: runner.os == 'macOS'
         run: |
@@ -280,9 +297,10 @@ jobs:
           match = re.search(r'(?ms)^## \[' + version + r'\].*?\n(.*?)(?=^## \[|\Z)', changelog)
           if match is None:
               raise SystemExit('CHANGELOG section missing for this version')
-          Path('release-notes.md').write_text(match.group(1).strip() + '\n\n'
-              'Unsigned bundles for maintainer testing; hardware validation remains pending.\n',
-              encoding='utf-8')
+          header = Path('packaging/release-notes-header.md').read_text(encoding='utf-8')
+          header = header.replace('{version}', os.environ['ROOMSCOPE_VERSION'])
+          Path('release-notes.md').write_text(header + '## Changes\n\n'
+              + match.group(1).strip() + '\n', encoding='utf-8')
           PY
       - name: Restore matching draft tag name if GitHub reset it
         env:

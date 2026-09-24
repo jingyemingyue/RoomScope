@@ -106,6 +106,34 @@ tagged; because #17 had to be fixed before any bundle is published
 - Coverage of `core` + `models` (branch coverage, the CI gate's measure) is
   90.20 % (87.74 % on 0.4.0); the run is recorded in `docs/STATUS.md`.
 
+### Packaging
+- **macOS app opens the GUI.** `RoomScope.app` has its own windowed
+  executable, so a Finder launch without arguments opens the GUI; the DMG is
+  mounted, copied and launched in the release workflow
+  (`scripts/check_macos_dmg.py`).
+- **Windows and Linux desktop launch.** The bundles gain a windowed
+  `roomscope-gui` launcher next to the console `roomscope`, sharing its
+  libraries. Started without arguments (Explorer, the Start menu, a desktop
+  file, the AppImage `AppRun`) it opens the GUI; before, those launches ran
+  the console CLI, which printed its usage and exited, so a double-click
+  never showed a window. With arguments both executables are the CLI.
+- **Windows installer.** The release workflow installs Inno Setup when the
+  runner lacks it and always builds `RoomScope-setup.exe` (per-user, no
+  administrator rights; Start-menu and optional desktop shortcuts to
+  `roomscope-gui.exe`; upgrades replace the previous libraries). The
+  installer is written to `dist/` (it went to `packaging/windows/Output`),
+  its version comes from `pyproject.toml` via `/DMyAppVersion`, and the
+  workflow installs it silently, smoke-tests the installed copy and
+  uninstalls it.
+- `scripts/smoke_bundle.py` also runs `gui --smoke` through the windowed
+  launcher; `--require-gui-launcher` fails a Windows / Linux bundle without
+  one.
+- Release notes open with a download table, the unsigned-bundle warning and
+  links to the user guide; the README has a Download section and the user
+  guide's install section names every Release file, the checksums, the Linux
+  system libraries and the wheel install (RoomScope is not on PyPI yet). The
+  macOS DMG is built on Apple silicon only; Intel Macs use the wheel.
+
 ## [0.4.0] - 2026-09-24
 
 First pre-release. Everything below was developed against synthetic rooms;

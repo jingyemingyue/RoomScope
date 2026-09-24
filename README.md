@@ -22,13 +22,30 @@ unit, its algorithm source and a validity flag; when the data is not good
 enough, RoomScope says *"Insufficient decay range"* instead of inventing a
 figure. There is deliberately no "room score".
 
-> Status: **1.0-rc software in progress** ([ARCHITECTURE_V1.md](docs/ARCHITECTURE_V1.md)).
-> The DSP core, CLI, GUI, compare, loopback, zh-CN catalog, session bundles
-> and the unsigned-bundle workflow exist and are covered by synthetic tests.
-> There is no numbered GitHub Release and no PyPI publish yet. Hardware-matrix
-> cells and the validation campaign are empty. Developers can clone, install
-> in editable mode and run the suite; see [CONTRIBUTING.md](CONTRIBUTING.md).
-> Snapshot of what works: [docs/STATUS.md](docs/STATUS.md).
+> Status: **0.4.x pre-release** on the way to 1.0
+> ([RELEASE_PLAN.md](docs/RELEASE_PLAN.md)). The DSP core, CLI, GUI, compare,
+> loopback, zh-CN catalog, session bundles and the desktop bundles exist and
+> are covered by synthetic tests on Linux, macOS and Windows. **Not yet:** any
+> result measured on real hardware (the hardware matrix and the validation
+> campaign are empty), signed bundles, a PyPI package. Treat the numbers as
+> unvalidated until 0.5.0. Snapshot of what works: [docs/STATUS.md](docs/STATUS.md).
+
+## Download
+
+Pre-release builds are attached to the
+[GitHub Releases](https://github.com/jingyemingyue/RoomScope/releases):
+
+| System | File |
+| --- | --- |
+| Windows 10/11 x64 | `RoomScope-setup.exe` (installer) or `roomscope-windows-x64.zip` |
+| macOS 13+, Apple silicon | `RoomScope.dmg` |
+| Linux x86_64 | `roomscope-linux-x86_64.tar.gz` |
+| Any OS with Python 3.12+ | `roomscope-<version>-py3-none-any.whl` |
+
+The bundles are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on
+first launch. How to open them, check the `SHA256SUMS-*` files and install the
+wheel is in the [user guide](docs/user-guide/en.md#install)
+([简体中文](docs/user-guide/zh-CN.md#安装)).
 
 ## Two workflows, one analysis core
 
@@ -58,7 +75,7 @@ never touches system volume or audio settings.
 Both modes call exactly the same analysis pipeline
 (`roomscope.core.pipeline.analyze`).
 
-## Install (development)
+## Install from source
 
 Requires Python 3.12 or newer. **Supported for 1.0:** macOS 13+ (arm64,
 x86_64), Windows 10/11 x64, Linux x86_64 with glibc of the CI runner or

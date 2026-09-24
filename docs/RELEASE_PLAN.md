@@ -54,14 +54,12 @@ The pipeline is `.github/workflows/release.yml`
 ([source](../.github/workflows/release.yml)). It is driven by the version
 in `pyproject.toml`, and the maintainer keeps the last word.
 
-> **Workflow status (2026-09-24).** The version-driven `.github/workflows/release.yml`
-> is included in PR #18. Its PR validation run builds and smoke-tests the
-> Linux, macOS and Windows bundles without opening a draft or publishing to
-> PyPI. The workflow becomes active on `main` when the PR is merged; the
-> merge changes `pyproject.toml` to 0.4.1 and is intended to create the
-> first v0.4.1 draft after the release jobs pass. Check the merged commit's
-> CI and the draft assets before publishing. Do not push a tag while the
-> older tag-only workflow is still on `main`.
+> **Workflow status (2026-09-24).** The version-driven workflow has been on
+> `main` since PR #18; the v0.4.1 draft Release was opened from it and is
+> refreshed whenever `pyproject.toml`, the workflow, `packaging/` or
+> `scripts/smoke_bundle.py` change on `main` while `v0.4.1` has no tag. The
+> Windows job builds and installs `RoomScope-setup.exe` on every run. Check
+> the latest `main` run and the draft's assets before publishing.
 
 1. **Prepare the release commit on `main`.** Set `project.version` in
    `pyproject.toml` to the new version (no `.dev` suffix). Move the

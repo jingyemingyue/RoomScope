@@ -8,19 +8,48 @@ This page is the English guide. The Chinese translation is
 
 ## Install
 
-**From Python (pipx).** `pipx install "roomscope[gui]"` gives you the `roomscope`
-command without a virtual environment you have to manage. `pip install -e ".[gui]"`
+Download from the project's
+[Releases page](https://github.com/jingyemingyue/RoomScope/releases). Each
+Release lists `SHA256SUMS-*` files; compare them with the file you
+downloaded (`shasum -a 256 <file>` on macOS / Linux,
+`Get-FileHash <file>` in PowerShell).
+
+| System | File | Start RoomScope |
+| --- | --- | --- |
+| Windows 10/11 x64 | `RoomScope-setup.exe` (installer) or `roomscope-windows-x64.zip` | Start menu → RoomScope, or `roomscope-gui.exe` in the zip |
+| macOS 13+ on Apple silicon (Intel Macs: use the wheel below) | `RoomScope.dmg` | Drag RoomScope to Applications, then open it |
+| Linux x86_64 | `roomscope-linux-x86_64.tar.gz` | `tar xzf roomscope-linux-x86_64.tar.gz && roomscope/roomscope-gui` |
+
+The Windows and Linux bundles carry two programs: the desktop app
+`roomscope-gui` and the command-line tool `roomscope` (run `roomscope --help`
+in a terminal). On macOS the app's executable is also the CLI when it is given
+arguments: `/Applications/RoomScope.app/Contents/MacOS/RoomScope --help`.
+
+**The bundles are unsigned** until the maintainer holds signing identities,
+so the operating system warns the first time:
+
+* **macOS:** right-click the app → Open, or System Settings → Privacy &
+  Security → Open Anyway after Gatekeeper blocks it. Grant microphone access
+  when asked (`NSMicrophoneUsageDescription` is in the bundle Info.plist).
+* **Windows:** SmartScreen may warn; choose “More info” → “Run anyway”. The
+  installer installs for the current user and needs no administrator rights;
+  uninstall from Settings → Apps.
+* **Linux:** the tarball needs the system's PortAudio, OpenGL/EGL and
+  XCB libraries (on Debian / Ubuntu: `sudo apt install libportaudio2 libegl1
+  libxkbcommon-x11-0 libxcb-cursor0`). `packaging/linux/roomscope.desktop`
+  is a desktop entry you can adapt.
+
+**From Python.** RoomScope is not on PyPI yet. With Python 3.12 or newer,
+install the wheel attached to the Release into a virtual environment:
+
+```bash
+python3 -m venv roomscope-env
+roomscope-env/bin/pip install "./roomscope-<version>-py3-none-any.whl[gui]"
+roomscope-env/bin/roomscope gui
+```
+
+Leave out `[gui]` for the CLI and the Python API only. `pip install -e ".[gui]"`
 is the developer install from a clone.
-
-**Unsigned desktop bundle.** The `release.yml` workflow builds one-directory
-bundles for macOS, Windows and Linux. Until the maintainer holds signing
-identities they are **unsigned**:
-
-* **macOS:** right-click the app → Open, or System Settings → Privacy & Security
-  after Gatekeeper blocks it. Grant microphone access when asked
-  (`NSMicrophoneUsageDescription` is in the bundle Info.plist).
-* **Windows:** SmartScreen may warn; choose “More info” → “Run anyway”.
-* **Linux:** extract the directory and run `roomscope`. An AppImage may follow.
 
 The About dialog and `THIRD_PARTY_LICENSES/` list Qt, libsndfile and the other
 bundled licenses.

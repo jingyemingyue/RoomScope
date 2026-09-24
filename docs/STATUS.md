@@ -4,6 +4,30 @@ Snapshot: 2026-09-17, v0.1.0.dev1 (foundation). Everything below was
 verified by actually running it on macOS (Apple silicon, Python 3.12.14).
 Nothing is marked PASS that was not run.
 
+Snapshot 24: 2026-09-24 — **v0.4.1 release readiness: desktop launch,
+Windows installer, download docs** (branch
+`claude/publication-ready-level-n3hkor`; see CHANGELOG `[0.4.1]`
+Packaging). The Windows and Linux bundles gain a windowed `roomscope-gui`
+launcher that opens the GUI without arguments (the Start-menu shortcut,
+Explorer double-click, desktop file and AppImage `AppRun` all ran the
+console CLI before, which printed its usage and exited); the release workflow
+now always builds `RoomScope-setup.exe`, installs it silently, smoke-tests
+the installed copy and uninstalls it; the README, user guide and release
+notes tell a user which file to download and how to open an unsigned bundle.
+**What was run for this snapshot** (Linux x86_64, Ubuntu, CPython 3.12,
+the `dev`, `gui` and `i18n-dev` extras): the full suite, **477 passed**;
+the CI coverage gate command, **90.20 %**; `ruff check`,
+`ruff format --check`, `mypy` (strict, 69 files), `check_doc_links.py`,
+`check_src_safety.py`, `build_docs_site.py`; `uv build` of sdist and wheel;
+a Linux PyInstaller 6.22.3 one-directory build that contains `roomscope` and
+`roomscope-gui` over one `_internal/`, passes
+`check_bundle_contents.py --strip --require-licenses` and
+`smoke_bundle.py --require-gui-launcher`; `roomscope-gui` without arguments
+entered the Qt event loop (offscreen) and `AppRun --version` / `AppRun`
+without arguments behaved as the CLI / the GUI. **What was not run here:**
+the Windows installer and the macOS bundle (the release workflow run on this
+branch is the record), any hardware cell.
+
 Snapshot 23: 2026-09-24 — **v0.4.1 workflow verification on PR #18**,
 commit `ec9a6b7406e5788830dbe68931899671df0d94d4`.
 GitHub Actions CI #43 completed successfully (Ubuntu Python 3.12/3.13/3.14,

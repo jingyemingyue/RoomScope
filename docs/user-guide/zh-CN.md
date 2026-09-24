@@ -6,13 +6,35 @@ RoomScope 用来测量录音房间，让你听到房间对近距离拾音声源�
 
 ## 安装
 
-**用 Python（pipx）。** `pipx install "roomscope[gui]"` 会装好 `roomscope` 命令。从源码开发请用 `pip install -e ".[gui]"`。
+从项目的 [Releases 页面](https://github.com/jingyemingyue/RoomScope/releases)
+下载。每个 Release 都附有 `SHA256SUMS-*` 文件，可与下载文件的校验值比对
+（macOS / Linux：`shasum -a 256 <文件>`；PowerShell：`Get-FileHash <文件>`）。
 
-**未签名桌面包。** `release.yml` 会为 macOS、Windows、Linux 打出一目录布局的包。在维护者持有签名证书之前，这些包都是**未签名**的：
+| 系统 | 文件 | 启动方式 |
+| --- | --- | --- |
+| Windows 10/11 x64 | `RoomScope-setup.exe`（安装程序）或 `roomscope-windows-x64.zip` | 开始菜单 → RoomScope，或运行 zip 里的 `roomscope-gui.exe` |
+| macOS 13+，Apple 芯片（Intel Mac 请用下文的 wheel） | `RoomScope.dmg` | 把 RoomScope 拖进“应用程序”后打开 |
+| Linux x86_64 | `roomscope-linux-x86_64.tar.gz` | `tar xzf roomscope-linux-x86_64.tar.gz && roomscope/roomscope-gui` |
 
-* **macOS：** 右键打开，或在“隐私与安全性”里放行。系统询问麦克风权限时请允许。
-* **Windows：** SmartScreen 可能拦截，选“更多信息”→“仍要运行”。
-* **Linux：** 解压目录后运行 `roomscope`。
+Windows 和 Linux 包含两个程序：桌面程序 `roomscope-gui` 和命令行工具 `roomscope`
+（在终端运行 `roomscope --help`）。macOS 上，应用的可执行文件带参数运行时就是命令行工具：
+`/Applications/RoomScope.app/Contents/MacOS/RoomScope --help`。
+
+在维护者持有签名证书之前，这些包都是**未签名**的，首次打开时系统会提示：
+
+* **macOS：** 右键 → 打开，或在“系统设置 → 隐私与安全性”里点“仍要打开”。系统询问麦克风权限时请允许。
+* **Windows：** SmartScreen 可能拦截，选“更多信息”→“仍要运行”。安装程序只为当前用户安装，不需要管理员权限；可在“设置 → 应用”中卸载。
+* **Linux：** 需要系统自带的 PortAudio、OpenGL/EGL 和 XCB 库（Debian / Ubuntu：`sudo apt install libportaudio2 libegl1 libxkbcommon-x11-0 libxcb-cursor0`）。`packaging/linux/roomscope.desktop` 是可参考的桌面启动项。
+
+**用 Python 安装。** RoomScope 还没有发布到 PyPI。使用 Python 3.12 或更新版本，把 Release 附带的 wheel 装进虚拟环境：
+
+```bash
+python3 -m venv roomscope-env
+roomscope-env/bin/pip install "./roomscope-<version>-py3-none-any.whl[gui]"
+roomscope-env/bin/roomscope gui
+```
+
+只需要命令行和 Python API 时去掉 `[gui]`。从源码开发请用 `pip install -e ".[gui]"`。
 
 关于对话框和 `THIRD_PARTY_LICENSES/` 列出了 Qt、libsndfile 等许可证。
 

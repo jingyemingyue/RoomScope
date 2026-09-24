@@ -148,10 +148,18 @@ def test_inno_setup_and_linux_desktop_files_exist() -> None:
     iss = Path("packaging/windows/roomscope.iss").read_text(encoding="utf-8")
     assert "roomscope.exe" in iss
     assert "dist\\roomscope" in iss or "dist/roomscope" in iss
+    # Shortcuts start the windowed launcher, which opens the GUI without
+    # arguments; the console roomscope.exe would only print CLI help.
+    assert '#define MyAppExeName "roomscope-gui.exe"' in iss
+    assert 'Name: "{group}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"' in iss
+    assert "OutputDir=..\\..\\dist" in iss
     desktop = Path("packaging/linux/roomscope.desktop").read_text(encoding="utf-8")
-    assert "Exec=roomscope" in desktop
+    assert "Exec=roomscope-gui" in desktop
     apprun = Path("packaging/linux/AppRun").read_text(encoding="utf-8")
-    assert "roomscope" in apprun
+    assert '"$HERE/roomscope-gui"' in apprun
+    assert '"$HERE/roomscope" "$@"' in apprun
+    spec = Path("packaging/roomscope.spec").read_text(encoding="utf-8")
+    assert 'name="roomscope-gui"' in spec
     dmg = Path("packaging/macos/make_dmg.sh").read_text(encoding="utf-8")
     assert "hdiutil" in dmg
 
@@ -163,6 +171,10 @@ def test_smoke_bundle_finds_explicit_binary(tmp_path: Path) -> None:
     assert module.find_binary(tmp_path, None) == fake
     assert module.find_binary(None, fake) == fake
     assert module.smoke_gui_argv(fake) == [str(fake), "gui", "--smoke"]
+    assert module.find_gui_launcher(fake) is None
+    launcher = tmp_path / "roomscope-gui.exe"
+    launcher.write_text("", encoding="utf-8")
+    assert module.find_gui_launcher(fake) == launcher
 
 
 def test_settings_refuse_deep_json_and_fall_back(tmp_path: Path, monkeypatch) -> None:

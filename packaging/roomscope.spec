@@ -52,8 +52,28 @@ exe = EXE(
     upx=False,
     console=True,
 )
+# Windows and Linux: a windowed ``roomscope-gui`` launcher next to the console
+# executable, sharing its libraries. Explorer, the Start menu and desktop files
+# start it without arguments and ``roomscope.__main__.desktop_args`` opens the
+# GUI; the console ``roomscope`` keeps the CLI and never flashes a window.
+launchers = [exe]
+if sys.platform != "darwin":
+    launchers.append(
+        EXE(
+            pyz,
+            a.scripts,
+            [],
+            exclude_binaries=True,
+            name="roomscope-gui",
+            debug=False,
+            bootloader_ignore_signals=False,
+            strip=False,
+            upx=False,
+            console=False,
+        )
+    )
 coll = COLLECT(
-    exe,
+    *launchers,
     a.binaries,
     a.datas,
     strip=False,
