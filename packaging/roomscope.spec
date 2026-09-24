@@ -4,10 +4,14 @@
 
 import sys
 import plistlib
+import tomllib
 from pathlib import Path
 
 ROOT = Path(SPECPATH).resolve().parent  # noqa: F821
 MACOS_INFO = plistlib.loads((ROOT / "packaging" / "macos" / "Info.plist").read_bytes())
+VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+MACOS_INFO["CFBundleShortVersionString"] = VERSION
+MACOS_INFO["CFBundleVersion"] = VERSION
 
 a = Analysis(
     [str(ROOT / "src" / "roomscope" / "__main__.py")],
@@ -57,13 +61,31 @@ coll = COLLECT(
     name="roomscope",
 )
 
-# macOS .app wrapper (ARCHITECTURE_V1.md §6.2). Unsigned until the maintainer
-# holds a Developer ID. The microphone string is required; without it the
-# system denies the input device silently. Linux and Windows keep the
-# one-directory layout at dist/roomscope so release.yml does not change.
+# Keep the console executable for CLI users. Finder needs a separate windowed
+# bootloader so the .app opens the GUI and receives normal macOS app events.
 if sys.platform == "darwin":
+    gui_exe = EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name="RoomScope",
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,
+        console=False,
+    )
+    gui_coll = COLLECT(
+        gui_exe,
+        a.binaries,
+        a.datas,
+        strip=False,
+        upx=False,
+        name="roomscope-gui",
+    )
     app = BUNDLE(  # noqa: F821
-        coll,
+        gui_coll,
         name="RoomScope.app",
         icon=None,
         bundle_identifier="org.roomscope.RoomScope",

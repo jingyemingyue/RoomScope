@@ -9,11 +9,18 @@ on:
     tags: ["v*"]
     paths:
       - pyproject.toml
+      - .github/workflows/release.yml
+      - packaging/macos/**
+      - packaging/roomscope.spec
+      - src/roomscope/__main__.py
   pull_request:
     paths:
       - .github/workflows/release.yml
       - packaging/**
       - scripts/check_bundle_contents.py
+      - scripts/check_macos_dmg.py
+      - src/roomscope/__main__.py
+      - tests/unit/test_desktop_entry.py
       - pyproject.toml
   workflow_dispatch:
 
@@ -157,13 +164,15 @@ jobs:
           cp -R THIRD_PARTY_LICENSES dist/RoomScope.app/Contents/Resources/THIRD_PARTY_LICENSES
           python scripts/check_bundle_contents.py --root dist/RoomScope.app --strip
           python scripts/check_bundle_contents.py --root dist/RoomScope.app/Contents/Resources --require-licenses
+          codesign --force --deep --sign - dist/RoomScope.app
+          codesign --verify --deep --strict --verbose=2 dist/RoomScope.app
       - name: Smoke frozen binary
         shell: bash
         run: python scripts/smoke_bundle.py --root dist/roomscope --out "$RUNNER_TEMP/bundle-smoke"
       - name: Smoke macOS .app executable
         if: runner.os == 'macOS'
         shell: bash
-        run: python scripts/smoke_bundle.py --roomscope dist/RoomScope.app/Contents/MacOS/roomscope --out "$RUNNER_TEMP/app-smoke"
+        run: QT_QPA_PLATFORM=offscreen dist/RoomScope.app/Contents/MacOS/RoomScope gui --smoke
       - name: Windows zip and optional installer
         if: runner.os == 'Windows'
         shell: bash
@@ -190,7 +199,9 @@ jobs:
           fi
       - name: macOS disk image
         if: runner.os == 'macOS'
-        run: bash packaging/macos/make_dmg.sh dist/RoomScope.app dist/RoomScope.dmg
+        run: |
+          bash packaging/macos/make_dmg.sh dist/RoomScope.app dist/RoomScope.dmg
+          python scripts/check_macos_dmg.py dist/RoomScope.dmg
       - name: Linux archive
         if: runner.os == 'Linux'
         run: tar -C dist -czf dist/roomscope-linux-x86_64.tar.gz roomscope

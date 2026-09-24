@@ -7,7 +7,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>RoomScope</string>
 	<key>CFBundleExecutable</key>
-	<string>roomscope</string>
+	<string>RoomScope</string>
 	<key>CFBundleIdentifier</key>
 	<string>org.roomscope.RoomScope</string>
 	<key>CFBundleInfoDictionaryVersion</key>
