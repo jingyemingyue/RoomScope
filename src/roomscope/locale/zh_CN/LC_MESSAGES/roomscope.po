@@ -1649,3 +1649,6 @@ msgstr "音频后端不可用：{error}"
 
 msgid "The audio device reported dropped or late buffers during the take, so samples may be missing and the result may be smeared. Close other audio programs, choose a higher latency or buffer size, and measure again."
 msgstr "音频设备在本次测量中报告了丢失或延迟的缓冲区，录音中可能缺少采样，结果可能因此被抹平。请关闭其他音频程序，选择更高的延迟或缓冲区大小，然后重新测量。"
+
+msgid "The recording has no background noise at all: its quiet part is exact digital silence, which a microphone never records. Check that you exported the microphone track, not the test-signal track, and that no gate or noise reduction is on the microphone track. The room figures are not reliable until then."
+msgstr "这段录音完全没有背景噪声：其安静部分是精确的数字静音，而话筒永远会录到一些噪声。请确认导出的是话筒音轨而不是测试信号音轨，并确认话筒音轨上没有门限或降噪处理。在此之前，房间相关数值都不可靠。"

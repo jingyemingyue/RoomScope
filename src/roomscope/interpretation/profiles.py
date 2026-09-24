@@ -388,6 +388,29 @@ class ProfileBase:
                     pre_peak_margin_db=ir.pre_peak_margin_db,
                 )
             )
+        noise = result.noise
+        if (
+            noise is not None
+            and noise.rms_dbfs is None
+            and any("digital silence (exact zeros)" in note for note in noise.notes)
+        ):
+            # A microphone always records some noise. Exact zeros where the
+            # room should be heard mean a digital source: typically the DAW's
+            # test-signal track exported instead of the microphone take, which
+            # otherwise analyses as a near-perfect "room" with RT60 ~ 0.
+            findings.append(
+                finding(
+                    "measurement",
+                    Severity.WARNING,
+                    "measurement.digital_silence",
+                    "The recording has no background noise at all: its quiet part is exact "
+                    "digital silence, which a microphone never records. Check that you exported "
+                    "the microphone track, not the test-signal track, and that no gate or noise "
+                    "reduction is on the microphone track. The room figures are not reliable "
+                    "until then.",
+                    evidence={"notes": list(noise.notes)},
+                )
+            )
         for warning in result.warnings:
             if "buffer problem" in warning:
                 findings.append(

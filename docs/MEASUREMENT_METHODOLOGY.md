@@ -113,9 +113,10 @@ delay (±0.05 ms) and level (±0.2 dB) and its resonance candidates
 
 A DAW can play the test file at the wrong speed: a file generated at one
 sample rate placed in a project at another without conversion (a 48 kHz
-sweep in a 44.1 kHz project runs at 91.9 %), a project exported at another
-rate than it ran at, or a time-stretch (Warp, Flex Time, Follow Tempo,
-elastic audio). The inverse filter of the generated sweep then no longer
+sweep in a 44.1 kHz project runs at 91.9 %), or a time-stretch (Warp, Flex
+Time, Follow Tempo, elastic audio). Exporting the recording at another rate
+than the project ran at is not a cause: the DAW converts on export, and the
+reference sweep is regenerated at the recording's rate. The inverse filter of the generated sweep then no longer
 collapses the recording to an impulse; the pre-peak margin collapses and all
 the pipeline could say before 0.4.1 was that the direct sound is not
 identified.

@@ -55,14 +55,19 @@ wheel is in the [user guide](docs/user-guide/en.md#install)
 
 ### Universal DAW Mode
 
-Works with any DAW that can import, play, record and export WAV files
-(Cubase / Nuendo, Pro Tools, Logic Pro, Studio One, Ableton Live, REAPER,
-FL Studio, Bitwig, Digital Performer, ...). RoomScope never talks to the DAW.
-It reads what DAWs export (Broadcast WAV, RF64, Wave64, AIFF, CAF, FLAC;
-16/24/32-bit PCM or 32-bit float; mono or multi-channel) and tells you when the
-DAW played the sweep at the wrong speed (a project at another sample rate, or
-Warp / Flex / Follow Tempo stretching). Step-by-step notes for each DAW:
-[docs/user-guide/daw-setup.md](docs/user-guide/daw-setup.md).
+Designed for any DAW that can import, play, record and export WAV files.
+RoomScope never talks to the DAW. It reads what DAWs export (Broadcast WAV,
+RF64, Wave64, AIFF, CAF, FLAC; 16/24/32-bit PCM or 32-bit float; mono or
+multi-channel) and, when the sweep's sidecar file is used, names the usual
+cause when the DAW played the sweep at the wrong speed (a project at another
+sample rate, or a Warp / Flex / Follow Tempo stretch of more than about 1 %).
+Step-by-step notes, written from each vendor's documentation, cover Pro
+Tools, Logic Pro / GarageBand, Cubase / Nuendo, Fender Studio Pro (Studio
+One), Ableton Live, REAPER, FL Studio, Bitwig, Digital Performer and
+Audacity: [docs/user-guide/daw-setup.md](docs/user-guide/daw-setup.md).
+**None of them has been run with RoomScope in a real DAW yet**
+([HARDWARE_TESTS.md](docs/HARDWARE_TESTS.md)); a DAW compatibility report is
+the most useful contribution you can make.
 
 1. **Generate Test Signal** – RoomScope writes a sweep WAV (plus a small JSON
    sidecar with the exact sweep definition).
@@ -197,9 +202,10 @@ for r in result.reflections.reflections:
 * **It refuses to invent a number.** Every metric carries its unit, its
   algorithm source and a validity flag; a decay too short for T30 says
   *insufficient range* instead of a figure. There is no single "room score".
-* **It lives next to your DAW, not inside it.** Any DAW that plays and records
-  WAV works; RoomScope also tells you when the DAW played the sweep at the
-  wrong speed (sample-rate mismatch or Warp / Flex / Follow Tempo).
+* **It lives next to your DAW, not inside it.** It needs only a DAW that
+  plays and records WAV, and it names the usual cause when the DAW played the
+  sweep at the wrong speed (sample-rate mismatch or Warp / Flex / Follow
+  Tempo). The per-DAW steps are documented, not yet tested in each DAW.
 * **It speaks the recording engineer's question** — "is this position usable
   for a vocal, a drum room mic, a choir?" — through labelled interpretation
   profiles, and compares two positions with a validity on every delta.

@@ -246,9 +246,8 @@ been published.
 
 ### DAW workflow
 - **Wrong sweep speed is diagnosed.** A DAW that plays the test signal at the
-  wrong speed (a 48 kHz file in a 44.1 kHz project without conversion, a
-  project exported at another rate, Warp / Flex Time / Follow Tempo / elastic
-  audio) made the analysis report only "direct-sound detection confidence is
+  wrong speed (a 48 kHz file in a 44.1 kHz project without conversion, or
+  Warp / Flex Time / Follow Tempo / elastic audio) made the analysis report only "direct-sound detection confidence is
   low" or "recording is shorter than the reference sweep".
   `roomscope.core.playback_speed` measures the sweep rate in the recording
   (for every frequency bin the frame where the passing sweep peaks; a
@@ -324,18 +323,27 @@ been published.
   verified it (CI job, local build, test module) and what is not verified.
 - `docs/EDITIONS.md` (+ zh-CN): the developer edition and the installer
   edition, what each shows, and how to switch.
-- `docs/user-guide/daw-setup.md` (+ zh-CN) re-checked against each vendor's
-  current manual, with a numbered source per step: Pro Tools (Apply SRC is
+- `docs/user-guide/daw-setup.md` (+ zh-CN) rewritten from each vendor's
+  current documentation, with a numbered source per step (a documented
+  workflow; no step has been run in a DAW with RoomScope yet): Pro Tools
+  (Apply SRC is
   not a mismatch indicator; TrackInput off still monitors while recording),
   Logic Pro 12.3 (*Flex* + *Smart Tempo* replace *Flex & Follow*), GarageBand
   (no sample-rate setting; *Export projects at full volume* normalises),
   Cubase / Nuendo (*Convert to Project Settings*, Auto Monitoring *Manual*,
   Export Selected Events *Dry*), Fender Studio Pro 8 (formerly Studio One;
   the track's *Tempo* mode), Live (*Auto-Warp Long Samples* is on by
-  default), REAPER (*Allow projects to override device sample rate*),
+  default), REAPER (*Request sample rate*; the default *Beats* timebase),
   FL Studio (monitor and loop-record defaults), Bitwig (*Stretch* mode
   *Raw*; there is no *Off*), Audacity 3.4+ (*Record New Track*, *Export
-  Audio* with *Current Selection*).
+  Audio* with *Current Selection*), MOTU Digital Performer 12, and a
+  checklist for any other DAW with Ardour and Cakewalk notes. Rules added:
+  no plug-ins on the microphone track; exporting at another rate is
+  harmless; a stretch under about 1 % is not named by the diagnosis.
+- A recording whose quiet part is exact digital silence gets a warning
+  finding (`measurement.digital_silence`): the DAW's test-signal track
+  exported instead of the microphone otherwise analysed as a near-perfect
+  room with an RT60 of a few hundredths of a second.
 - `docs/COMPARISON.md` (+ zh-CN): a sourced comparison with REW, Open Sound
   Meter, ARTA, Smaart, SoundID Reference, ARC X, Dirac Live, HouseCurve,
   AURORA, pyroomacoustics, python-acoustics, pyrato and ITA-Toolbox, what

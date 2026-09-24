@@ -24,7 +24,7 @@
 
 ## DAW
 
-Pro Tools、Logic Pro、GarageBand、Cubase / Nuendo、Fender Studio Pro（Studio One）、Ableton Live、REAPER、FL Studio、Bitwig Studio 和 Audacity 的分步说明见 [user-guide/daw-setup.zh-CN.md](user-guide/daw-setup.zh-CN.md)，每一步均按厂商当前手册核对（来源列于该页）。**尚未在真实硬件上用任何 DAW 运行过 RoomScope**。
+Pro Tools、Logic Pro、GarageBand、Cubase / Nuendo、Fender Studio Pro（Studio One）、Ableton Live、REAPER、FL Studio、Bitwig Studio、Digital Performer 和 Audacity 的分步说明以及其他 DAW 的检查清单见 [user-guide/daw-setup.zh-CN.md](user-guide/daw-setup.zh-CN.md)。它们依据各厂商的文档编写，每一步都有来源（少数第三方来源已注明）：属于按文档编写的流程。**尚未在真实硬件上用任何 DAW 运行过 RoomScope**，[HARDWARE_TESTS.md](HARDWARE_TESTS.md) 中的 DAW 矩阵是空的。
 
 ## 音频主机 API（独立模式）
 

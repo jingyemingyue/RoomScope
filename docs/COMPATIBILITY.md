@@ -54,10 +54,12 @@ unconverted sample rate or time-stretching) is diagnosed
 
 Step-by-step notes for Pro Tools, Logic Pro, GarageBand, Cubase / Nuendo,
 Fender Studio Pro (Studio One), Ableton Live, REAPER, FL Studio, Bitwig
-Studio and Audacity are in [user-guide/daw-setup.md](user-guide/daw-setup.md).
-Each step was checked against the vendor's current manual (sources listed on
-that page). **No DAW has been run with RoomScope on real hardware yet**; the
-per-DAW matrix in [HARDWARE_TESTS.md](HARDWARE_TESTS.md) is empty.
+Studio, Digital Performer and Audacity, plus a checklist for any other DAW,
+are in [user-guide/daw-setup.md](user-guide/daw-setup.md). They are written
+from each vendor's documentation, with a source per step (a few third-party
+sources are marked): a documented workflow. **No DAW has been run with
+RoomScope on real hardware yet**; the per-DAW matrix in
+[HARDWARE_TESTS.md](HARDWARE_TESTS.md) is empty.
 
 ## Audio host APIs (Standalone Mode)
 

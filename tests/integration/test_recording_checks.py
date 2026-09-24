@@ -188,3 +188,21 @@ def test_device_buffer_problems_reach_the_result_and_a_finding(
     assert len(dropouts) == 1 and dropouts[0].evidence == {"warning": warning}
     clean = analyze(AudioSignal(samples, sr), Reference.from_settings(short_sweep))
     assert not any(f.message_id == "measurement.dropouts" for f in interpret(clean))
+
+
+def test_the_test_signal_exported_instead_of_the_microphone_is_flagged(
+    short_sweep: SweepSettings,
+) -> None:
+    """Review finding: the sweep track analysed as the recording gave a
+    confident, room-like result (T30 of a few hundredths of a second) whose
+    only hint was a note about digital silence."""
+    sr = short_sweep.sample_rate
+    sweep_only = measurement_signal(short_sweep)
+    result = analyze(AudioSignal(sweep_only, sr), Reference.from_settings(short_sweep))
+    ids = [f.message_id for f in interpret(result)]
+    assert "measurement.digital_silence" in ids
+    # A microphone take (room noise before the sweep) is not flagged.
+    take = analyze(
+        AudioSignal(_room_recording(short_sweep), sr), Reference.from_settings(short_sweep)
+    )
+    assert "measurement.digital_silence" not in [f.message_id for f in interpret(take)]

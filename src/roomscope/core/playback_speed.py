@@ -4,8 +4,10 @@ A DAW can change the speed of the test file without anyone noticing:
 
 * **Sample-rate mismatch.** A sweep generated at 48 kHz, placed in a
   44.1 kHz project that does not convert files on import, is played 8.1 %
-  slower and 8.1 % lower in pitch (and the other way round). The same happens
-  when the project runs at one rate and the recording is exported at another.
+  slower and 8.1 % lower in pitch (and the other way round). Exporting the
+  recording at another rate than the project's is not a cause: the DAW
+  converts on export, and the pipeline regenerates the reference sweep at the
+  recording's rate.
 * **Time-stretching.** Warp (Ableton Live), Flex Time (Logic Pro), Follow
   Tempo (Studio One), elastic audio (Pro Tools), stretch modes (Bitwig,
   FL Studio, REAPER) change the duration and usually keep the pitch.

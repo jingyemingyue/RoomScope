@@ -44,21 +44,25 @@ generated at the project rate, recorded and exported with the listed menus,
 analysed with `direct_sound_confidence` high. A cell also checks that the
 notes are right for that DAW version; correct the guide in the same pull
 request when they are not. Two negative checks per DAW confirm the diagnosis:
-a 48 kHz sweep in a 44.1 kHz project (expect the sample-rate finding) and,
-where the DAW stretches, the sweep with stretching on (expect the
-time-stretch finding).
+a 48 kHz sweep in a 44.1 kHz project with the DAW's import conversion off
+(expect the sample-rate finding; a DAW that resamples during playback, such
+as Live or REAPER, should instead give a valid result, and Digital Performer
+refuses to play the file: record which happened), and, where the DAW
+stretches, the clip stretched (for example to 97 %) or the tempo changed after
+import (expect the time-stretch finding).
 
 | DAW (version) | macOS | Windows | Linux | Sample-rate finding | Time-stretch finding |
 | --- | --- | --- | --- | --- | --- |
 | Pro Tools | | | n/a | | |
 | Logic Pro | | n/a | n/a | | |
-| GarageBand | | n/a | n/a | | n/a |
+| GarageBand | | n/a | n/a | | |
 | Cubase / Nuendo | | | n/a | | |
 | Fender Studio Pro (Studio One) | | | | | |
 | Ableton Live | | | n/a | | |
 | REAPER | | | | | |
 | FL Studio | | | n/a | | |
 | Bitwig Studio | | | | | |
+| Digital Performer | | | n/a | | |
 | Audacity | | | | | n/a |
 
 What the automated tests show instead: `tests/integration/test_daw_exports.py`

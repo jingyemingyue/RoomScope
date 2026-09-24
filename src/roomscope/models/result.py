@@ -426,9 +426,9 @@ class PlaybackSpeed:
                 f"the sweep in the recording runs at {self.speed_ratio * 100.0:.1f} % of the "
                 f"speed it was generated at: a file generated at {self.generated_rate_hz} Hz was "
                 f"played at {self.played_rate_hz} Hz without sample-rate conversion (a DAW project "
-                "at another sample rate, or a recording exported at another rate than the "
-                "project). Generate the sweep at the project's sample rate, or let the DAW "
-                "convert it on import, and measure again"
+                "at another sample rate that did not convert the file on import). Generate the "
+                "sweep at the project's sample rate, or let the DAW convert it on import, and "
+                "measure again"
             )
         return (
             f"the sweep in the recording runs at {self.speed_ratio * 100.0:.1f} % of the speed "
