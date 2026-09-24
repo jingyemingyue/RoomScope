@@ -284,6 +284,25 @@ jobs:
               'Unsigned bundles for maintainer testing; hardware validation remains pending.\n',
               encoding='utf-8')
           PY
+      - name: Restore matching draft tag name if GitHub reset it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROOMSCOPE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          release_ids="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+            --jq ".[] | select(.draft and .name == \"v$ROOMSCOPE_VERSION\") | .id")"
+          if [[ -n "$release_ids" ]]; then
+            [[ "$release_ids" != *$'\n'* ]] || { echo 'Multiple matching drafts' >&2; exit 1; }
+            release="repos/$GITHUB_REPOSITORY/releases/$release_ids"
+            tag="$(gh api "$release" --jq '.tag_name')"
+            if [[ "$tag" == untagged-* ]]; then
+              gh api --method PATCH "$release" -f tag_name="v$ROOMSCOPE_VERSION" \
+                -f target_commitish="$GITHUB_SHA" >/dev/null
+              test "$(gh api "$release" --jq '.tag_name')" = "v$ROOMSCOPE_VERSION"
+            else
+              test "$tag" = "v$ROOMSCOPE_VERSION"
+            fi
+          fi
       - name: Open or update draft
         id: release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
@@ -300,12 +319,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ steps.release.outputs.id }}
+          ROOMSCOPE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           test -n "$RELEASE_ID"
           release="repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"
           test "$(gh api "$release" --jq '.draft')" = true
-          gh api --method PATCH "$release" -f target_commitish="$GITHUB_SHA" \
-            --jq '.target_commitish' | grep -Fx "$GITHUB_SHA"
+          gh api --method PATCH "$release" -f tag_name="v$ROOMSCOPE_VERSION" \
+            -f target_commitish="$GITHUB_SHA" >/dev/null
+          test "$(gh api "$release" --jq '.target_commitish')" = "$GITHUB_SHA"
+          test "$(gh api "$release" --jq '.tag_name')" = "v$ROOMSCOPE_VERSION"
+          test "$(gh api "$release" --jq '.draft')" = true
 
   pypi:
     name: Publish to PyPI (explicit opt-in)
