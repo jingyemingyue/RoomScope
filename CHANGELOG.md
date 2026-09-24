@@ -82,6 +82,11 @@ All notable changes to RoomScope are documented here. The format follows
   macOS microphone permission.
 
 ### Documentation
+- `docs/COMPATIBILITY.md` (+ zh-CN): platforms, Python and dependency floors,
+  DAW export formats, host APIs and cross-platform behaviour, each with what
+  verified it (CI job, local build, test module) and what is not verified.
+- `docs/EDITIONS.md` (+ zh-CN): the developer edition and the installer
+  edition, what each shows, and how to switch.
 - `docs/user-guide/daw-setup.md` (+ zh-CN) re-checked against each vendor's
   current manual, with a numbered source per step: Pro Tools (Apply SRC is
   not a mismatch indicator; TrackInput off still monitors while recording),

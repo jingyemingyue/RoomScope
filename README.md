@@ -236,6 +236,9 @@ A sourced comparison with other tools is in [docs/COMPARISON.md](docs/COMPARISON
 | [docs/STATUS.md](docs/STATUS.md) | Implemented / tested / known limitations / next milestone |
 | [docs/user-guide/en.md](docs/user-guide/en.md) | User guide (English): install, measure, read, compare, bundle |
 | [docs/user-guide/zh-CN.md](docs/user-guide/zh-CN.md) | 用户指南（简体中文） |
+| [docs/AUDIO_DEVICES.md](docs/AUDIO_DEVICES.md) | Host APIs (WASAPI, WDM-KS, MME, Core Audio, ALSA, JACK, …), what each does to a measurement, and how RoomScope probes and chooses devices, with sources; [中文](docs/AUDIO_DEVICES.zh-CN.md) |
+| [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) | Platforms, Python and dependency floors, DAW export formats, host APIs — and what verified each; [中文](docs/COMPATIBILITY.zh-CN.md) |
+| [docs/EDITIONS.md](docs/EDITIONS.md) | Developer edition vs. installer edition; [中文](docs/EDITIONS.zh-CN.md) |
 | [docs/COMPARISON.md](docs/COMPARISON.md) | How RoomScope differs from REW, Open Sound Meter, ARTA, Smaart, SoundID and others, and when another tool is the better choice; [中文](docs/COMPARISON.zh-CN.md) |
 | [docs/user-guide/daw-setup.md](docs/user-guide/daw-setup.md) | Step-by-step DAW notes (Pro Tools, Logic, Cubase, Studio One, Live, REAPER, FL Studio, Bitwig, Audacity); [中文](docs/user-guide/daw-setup.zh-CN.md) |
 | [docs/PROJECT_BRIEF.zh-CN.md](docs/PROJECT_BRIEF.zh-CN.md) | Original project brief (Chinese) |
