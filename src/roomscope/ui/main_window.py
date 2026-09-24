@@ -112,11 +112,9 @@ class MainWindow(QMainWindow):
             inspector_action = QAction(_("Audio Device &Inspector..."), self)
             inspector_action.setShortcut("Ctrl+Shift+D")
             inspector_action.triggered.connect(self.show_device_inspector)
-            report_action = QAction(_("&Environment Report..."), self)
-            report_action.triggered.connect(self.show_environment_report)
             folder_action = QAction(_("Open &Data Folder"), self)
             folder_action.triggered.connect(self._open_data_folder)
-            for action in (inspector_action, report_action, folder_action):
+            for action in (inspector_action, folder_action):
                 self.developer_menu.addAction(action)
 
         help_menu = self.menuBar().addMenu(_("&Help"))
@@ -124,6 +122,10 @@ class MainWindow(QMainWindow):
         about_action.triggered.connect(self._about)
         licenses_action = QAction(_("&Third-party licenses..."), self)
         licenses_action.triggered.connect(self._open_licenses)
+        self.report_action = QAction(_("&Environment Report for Bug Reports..."), self)
+        self.report_action.triggered.connect(self.show_environment_report)
+        help_menu.addAction(self.report_action)
+        help_menu.addSeparator()
         help_menu.addAction(about_action)
         help_menu.addAction(licenses_action)
         self.show_home()
@@ -203,7 +205,8 @@ class MainWindow(QMainWindow):
     def show_environment_report(self) -> None:
         from roomscope.ui.dev_tools import EnvironmentReport
 
-        EnvironmentReport(None, self).exec()
+        backend = "fake" if self.standalone.demo_mode else None
+        EnvironmentReport(backend, self).exec()
 
     def _open_data_folder(self) -> None:
         from roomscope.io.recent import roomscope_home

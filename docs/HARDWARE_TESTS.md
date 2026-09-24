@@ -1,12 +1,22 @@
 # Hardware test matrix
 
 ARCHITECTURE_V1.md §7.3: executed at least once per platform before 1.0
-(M10) and recorded here with the date, the RoomScope version and the
-interface. Community results are accepted through the measurement issue
-template with a bundle attached.
+(M10) and recorded here with the date, the RoomScope version and build
+commit, the operating system and the interface.
 
-Nothing below is marked PASS that was not run on real hardware. This file
-is the started matrix for milestone 0.3; the cells are empty on purpose.
+Nothing below is marked PASS that was not run on real hardware: a physical
+machine, a physical interface and its actual driver, with real playback and
+capture where the check needs them. The Demo mode, the `fake` backend, the
+synthetic and scripted-PortAudio tests, and CI runners do not count. The
+cells are empty on purpose; no check has been run on real hardware yet.
+
+**Contributing a result.** Open an
+[Audio interface test report](https://github.com/jingyemingyue/RoomScope/issues/new?template=hardware.yml)
+or a [DAW compatibility report](https://github.com/jingyemingyue/RoomScope/issues/new?template=daw.yml)
+issue. Both ask for the environment report with probed sample rates
+(**Help → Environment Report for Bug Reports**, or `roomscope doctor --probe`),
+which names the version, build commit, OS, host APIs and devices. A
+maintainer copies the result into a cell below with a link to the issue.
 
 | Check | macOS | Windows | Linux |
 | --- | --- | --- | --- |
@@ -22,8 +32,9 @@ is the started matrix for milestone 0.3; the cells are empty on purpose.
 | Full Standalone measurement | | | |
 | Same signal through one DAW (Universal DAW Mode) | | | |
 
-Record a row as `PASS YYYY-MM-DD, RoomScope x.y.z, <interface name>` or
-`FAIL` with an issue link. Do not fill a cell from the fake backend.
+Record a cell as `PASS YYYY-MM-DD, RoomScope x.y.z (commit), <OS version>,
+<interface and driver>, #issue` or `FAIL ... #issue`. Do not fill a cell from
+the fake backend, a CI runner or a test.
 
 ## DAW matrix
 

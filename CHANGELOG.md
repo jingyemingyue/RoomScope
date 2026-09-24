@@ -29,14 +29,26 @@ All notable changes to RoomScope are documented here. The format follows
   audio engine) and `--coreaudio-set-rate` (set the macOS device rate and
   refuse to convert). WASAPI's auto-convert is deliberately not offered: it
   inserts the engine's resampler.
-- `roomscope doctor`: an environment report (versions of NumPy, SciPy,
-  libsndfile, PortAudio, Qt; paths; host APIs; default devices) for bug
-  reports.
+- `roomscope doctor` (`--probe`, `--json`) and **Help ▸ Environment Report
+  for Bug Reports** in every edition: the version and the build commit of a
+  desktop bundle (`build_info.json`, written by the PyInstaller spec; release
+  smoke tests require it to match the built commit), the versions of NumPy,
+  SciPy, libsndfile, PortAudio and Qt (from the module when a bundle carries
+  no package metadata), the settings that change a measurement (the output
+  folder only as set / not set), paths with the home folder as `~`, host
+  APIs and every device, and on request the sample rates each accepts
+  (nothing is played). The dialog copies the text, opens the data folder and
+  the issue-template chooser; nothing is sent automatically.
+- Issue templates for **audio interface test reports** and **DAW
+  compatibility reports**, the only source of the cells in
+  `docs/HARDWARE_TESTS.md`; the bug template asks for the install type,
+  expected and actual behaviour and the environment report. Template links
+  are absolute (relative links in issue forms resolve against the issue URL).
 - Developer and installer editions (`roomscope.edition`,
   `ROOMSCOPE_EDITION`): a source or pip install is the developer edition, a
   desktop bundle the user edition. The developer edition adds a Developer
-  menu (Audio Device Inspector with rate probing and JSON copy, Environment
-  Report, Open Data Folder) and advanced audio options in Standalone Mode
+  menu (Audio Device Inspector with rate probing and JSON copy, Open Data
+  Folder) and advanced audio options in Standalone Mode
   (latency, WASAPI exclusive, Core Audio set-rate). Settings gain *Theme*
   (system / light / dark, applied at once) and *Show developer tools*, and a
   save keeps the fields the dialog does not show.

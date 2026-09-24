@@ -199,3 +199,23 @@ def test_desktop_launch_check_requires_a_running_gui() -> None:
     exits = [sys.executable, "-c", "raise SystemExit(2)"]
     with pytest.raises(SystemExit, match="exited at once"):
         module.check_stays_open(exits, env, seconds=3.0)
+
+
+def test_smoke_checks_the_doctor_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+    import subprocess
+
+    module = _load("smoke_bundle_doctor", Path("scripts") / "smoke_bundle.py")
+    report = {"packages": {"numpy": "2.3.0"}, "build": {"commit": "abc"}}
+
+    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert argv[1:] == ["--backend", "fake", "doctor", "--json"]
+        return subprocess.CompletedProcess(argv, 0, json.dumps(report), "")
+
+    monkeypatch.setattr(module.subprocess, "run", run)
+    assert module.check_doctor(Path("roomscope"), "abc") == report
+    with pytest.raises(SystemExit, match="expected 'def'"):
+        module.check_doctor(Path("roomscope"), "def")
+    report["packages"]["numpy"] = None
+    with pytest.raises(SystemExit, match="NumPy"):
+        module.check_doctor(Path("roomscope"))

@@ -261,6 +261,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_doc = _command(sub, "doctor", _("print an environment report for bug reports and debugging"))
     p_doc.add_argument("--json", action="store_true", help=_("print the report as JSON"))
+    p_doc.add_argument(
+        "--probe",
+        action="store_true",
+        help=_("also ask every device which sample rates it accepts (nothing is played)"),
+    )
 
     p_me = _command(sub, "measure", _("Standalone Mode: play the sweep and record the microphone"))
     p_me.add_argument("--out", required=True, type=Path, help=_("session directory (created)"))
@@ -649,7 +654,7 @@ def _print_inventory(backend: Any, args: argparse.Namespace) -> int:
 def cmd_doctor(args: argparse.Namespace) -> int:
     from roomscope.diagnostics import environment_report, format_environment_report
 
-    report = environment_report(backend_name=args.backend)
+    report = environment_report(backend_name=args.backend, probe_rates=args.probe)
     if getattr(args, "json", False):
         print(json.dumps(report, indent=1, default=str))
     else:

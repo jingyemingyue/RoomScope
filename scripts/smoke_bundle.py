@@ -1,15 +1,18 @@
 """Smoke-test a desktop bundle or an on-PATH ``roomscope`` (ARCHITECTURE_V1.md §6.2).
 
-Runs ``--version``, a fake-backend Standalone measurement, and ``gui --smoke``
-offscreen, then ``gui --smoke`` through the windowed ``roomscope-gui``
-launcher when the bundle has one (Windows, Linux), and starts that launcher
-without arguments, as a double-click does, requiring the GUI to stay open.
-Nothing is sent to a loudspeaker.
+Runs ``--version``, ``doctor --json`` (the report a bug reporter pastes: it
+must name the library versions and, with ``--expect-commit``, the commit the
+bundle was built from), a fake-backend Standalone measurement, and
+``gui --smoke`` offscreen, then ``gui --smoke`` through the windowed
+``roomscope-gui`` launcher when the bundle has one (Windows, Linux), and
+starts that launcher without arguments, as a double-click does, requiring the
+GUI to stay open. Nothing is sent to a loudspeaker.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import time
@@ -77,10 +80,36 @@ def check_stays_open(
             process.wait()
 
 
-def smoke(binary: Path, out: Path, *, gui: bool = True, require_gui_launcher: bool = False) -> None:
+def check_doctor(binary: Path, expect_commit: str | None = None) -> dict[str, object]:
+    """``doctor --json`` runs, names NumPy's version and, if given, the build commit."""
+    done = subprocess.run(
+        [str(binary), "--backend", "fake", "doctor", "--json"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    report = json.loads(done.stdout)
+    if not report.get("packages", {}).get("numpy"):
+        raise SystemExit("doctor does not report the NumPy version")
+    commit = (report.get("build") or {}).get("commit")
+    if expect_commit and commit != expect_commit:
+        raise SystemExit(f"doctor reports build commit {commit!r}, expected {expect_commit!r}")
+    return report
+
+
+def smoke(
+    binary: Path,
+    out: Path,
+    *,
+    gui: bool = True,
+    require_gui_launcher: bool = False,
+    expect_commit: str | None = None,
+) -> None:
     version = subprocess.run([str(binary), "--version"], check=True, capture_output=True, text=True)
     if "roomscope" not in version.stdout.lower() and "roomscope" not in version.stderr.lower():
         raise SystemExit(f"--version did not name roomscope: {version.stdout!r}")
+    check_doctor(binary, expect_commit)
     subprocess.run(
         [
             str(binary),
@@ -128,11 +157,21 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="fail when the windowed roomscope-gui launcher is missing (Windows, Linux)",
     )
+    parser.add_argument(
+        "--expect-commit",
+        help="fail unless roomscope doctor reports this build commit (release builds)",
+    )
     args = parser.parse_args(argv)
     binary = find_binary(args.root, args.roomscope)
     out = args.out or Path("smoke-session")
     out.mkdir(parents=True, exist_ok=True)
-    smoke(binary, out, gui=not args.no_gui, require_gui_launcher=args.require_gui_launcher)
+    smoke(
+        binary,
+        out,
+        gui=not args.no_gui,
+        require_gui_launcher=args.require_gui_launcher,
+        expect_commit=args.expect_commit,
+    )
     print(f"smoke ok: {binary}")
     return 0
 

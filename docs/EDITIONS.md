@@ -9,7 +9,8 @@ translation is [EDITIONS.zh-CN.md](EDITIONS.zh-CN.md).
 | --- | --- | --- |
 | How you get it | `git clone` + `pip install -e ".[dev,gui]"`, or `pip install roomscope-<version>-py3-none-any.whl` | `RoomScope-setup.exe`, `RoomScope-macos-<arch>.dmg`, `roomscope-linux-x86_64.tar.gz` from the Releases page |
 | Detected by | not a frozen bundle (`sys.frozen` unset) | a PyInstaller bundle |
-| Developer menu (Audio Device Inspector, Environment Report, Open Data Folder) | yes | no, unless switched on |
+| Help ▸ Environment Report for Bug Reports (with sample-rate probe) | yes | yes |
+| Developer menu (Audio Device Inspector, Open Data Folder) | yes | no, unless switched on |
 | Advanced audio options in Standalone Mode (latency, WASAPI exclusive, Core Audio set-rate) | yes | no, unless switched on |
 | Everyday settings (language, theme, default profile, audio backend, output folder) | yes | yes |
 | Extending RoomScope | Python API, `roomscope.exporters` entry points, tests, `scripts/build_release.py` | — |
@@ -28,9 +29,11 @@ and `--coreaudio-set-rate` are always available.
   (nothing is played) and copies the inventory as JSON for an issue. What each
   host API does to the signal, with sources, is in
   [AUDIO_DEVICES.md](AUDIO_DEVICES.md).
-* **Bug reports.** Developer ▸ *Environment Report* (or `roomscope doctor`)
-  shows the versions of NumPy, SciPy, libsndfile, PortAudio and Qt, the paths
-  RoomScope uses and the audio devices it sees.
+* **Bug reports** (both editions). Help ▸ *Environment Report for Bug Reports*
+  (or `roomscope doctor`, `--probe` for sample rates) shows the version and
+  build commit, the versions of NumPy, SciPy, libsndfile, PortAudio and Qt,
+  the settings, the paths RoomScope uses (home folder as `~`) and the audio
+  devices it sees. Nothing is sent; the user copies it into an issue.
 * **Extending.** Exporters register under the `roomscope.exporters` entry point
   (see `roomscope.io.exporters`); the analysis is a plain Python API
   (README ▸ Python API). Contributions follow [CONTRIBUTING.md](../CONTRIBUTING.md).

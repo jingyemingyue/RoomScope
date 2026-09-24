@@ -1553,8 +1553,6 @@ msgstr "开发者(&D)"
 msgid "Audio Device &Inspector..."
 msgstr "音频设备检查器(&I)…"
 
-msgid "&Environment Report..."
-msgstr "环境报告(&E)…"
 
 msgid "Open &Data Folder"
 msgstr "打开数据文件夹(&D)"
@@ -1621,3 +1619,21 @@ msgstr "频率响应差异"
 
 msgid "Resonances"
 msgstr "共振"
+
+msgid "also ask every device which sample rates it accepts (nothing is played)"
+msgstr "同时询问每个设备接受哪些采样率（不会播放任何声音）"
+
+msgid "Paste this report into a GitHub issue so the problem can be reproduced. Nothing is sent automatically. Probing asks each device which sample rates it accepts; nothing is played. Device names can contain personal names: review the text before posting."
+msgstr "把这份报告粘贴到 GitHub issue 中，以便复现问题。RoomScope 不会自动发送任何内容。探测会询问每个设备接受哪些采样率，不会播放任何声音。设备名称可能包含个人姓名，发布前请检查文本。"
+
+msgid "The log file and settings are in this folder."
+msgstr "日志文件和设置保存在此文件夹中。"
+
+msgid "Open Issue Page"
+msgstr "打开 Issue 页面"
+
+msgid "&Environment Report for Bug Reports..."
+msgstr "用于问题报告的环境报告(&E)…"
+
+msgid "Open Data Folder"
+msgstr "打开数据文件夹"

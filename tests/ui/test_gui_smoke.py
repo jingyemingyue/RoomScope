@@ -360,6 +360,9 @@ def test_developer_menu_and_device_inspector(
     inspector.copy_json()
     report = EnvironmentReport("fake", window)
     assert "RoomScope" in report.text.toPlainText()
+    assert "not probed" in report.text.toPlainText()
+    report.refresh(probe=True)
+    assert "record 44100, 48000" in report.text.toPlainText()
     window.close()
 
 
@@ -370,6 +373,8 @@ def test_user_edition_hides_developer_tools(
     window = MainWindow()
     assert window.developer_menu is None
     assert window.standalone.advanced.isHidden()
+    # The environment report is for everyone who files a bug.
+    assert window.report_action.isEnabled()
     window.close()
 
 

@@ -192,9 +192,22 @@ Core diagnostic strings from `roomscope.core` stay English.
 | Device rate mismatch | The GUI shows the device rate next to the requested one; pick a supported rate. |
 | Loopback refused | The return must look like an electrical pulse, not a room. If the second channel is another microphone, compensation is refused and the analysis continues uncompensated. |
 
-## Bug-report bundle
+## Reporting a problem
 
-`roomscope session bundle session/ --out report.zip` zips the folder.
+**Help ▸ Environment Report for Bug Reports** shows what a maintainer needs
+first: the RoomScope version and build commit, the OS, library versions,
+settings and audio devices (*Probe sample rates* adds the rates each device
+accepts; nothing is played). *Copy* it into the issue; *Open Issue Page*
+opens the template chooser. From a terminal the same report is
+`roomscope doctor` (`--probe`, `--json`). Nothing is sent automatically;
+read the text before posting, since device names can contain personal names.
+
+`roomscope session bundle session/ --out report.zip` zips a session folder.
 `--no-audio` leaves the WAVs out if you do not want to share a recording of
 the room. Attach the zip to a measurement issue. Settings and the rotating
-log live under `$ROOMSCOPE_HOME` (`~/.roomscope` by default).
+log live under `$ROOMSCOPE_HOME` (`~/.roomscope` by default); the report's
+*Open Data Folder* button opens it.
+
+Ran RoomScope with a real interface or through a DAW? The *Audio interface
+test report* and *DAW compatibility report* templates record it; those runs
+are the only source of [HARDWARE_TESTS.md](../HARDWARE_TESTS.md).

@@ -173,7 +173,8 @@ jobs:
         run: |
           launcher=--require-gui-launcher
           [[ "$RUNNER_OS" != macOS ]] || launcher=
-          python scripts/smoke_bundle.py --root dist/roomscope --out "$RUNNER_TEMP/bundle-smoke" $launcher
+          python scripts/smoke_bundle.py --root dist/roomscope --out "$RUNNER_TEMP/bundle-smoke" \
+            --expect-commit "$GITHUB_SHA" $launcher
       - name: Smoke macOS .app executable
         if: runner.os == 'macOS'
         shell: bash
@@ -207,7 +208,7 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "installer exited with $($p.ExitCode)" }
           if (-not (Test-Path (Join-Path $dir 'roomscope-gui.exe'))) { throw 'roomscope-gui.exe not installed' }
           if (-not (Test-Path (Join-Path $dir 'THIRD_PARTY_LICENSES'))) { throw 'licenses not installed' }
-          python scripts/smoke_bundle.py --root $dir --out (Join-Path $env:RUNNER_TEMP 'installed-smoke') --require-gui-launcher
+          python scripts/smoke_bundle.py --root $dir --out (Join-Path $env:RUNNER_TEMP 'installed-smoke') --require-gui-launcher --expect-commit $env:GITHUB_SHA
           if ($LASTEXITCODE -ne 0) { throw 'installed smoke failed' }
           $u = Start-Process (Join-Path $dir 'unins000.exe') -Wait -PassThru -ArgumentList @(
             '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')

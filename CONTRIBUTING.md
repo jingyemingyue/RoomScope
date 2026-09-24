@@ -86,7 +86,19 @@ register it in `_PROFILES`, add a synthetic test in
 * `CHANGELOG.md` is updated in the same pull request.
 * Use the pull-request template; CI must be green before merge.
 
-## Reporting measurement problems
+## Reporting problems and test results
 
-Please attach: the sweep sidecar JSON, the recorded WAV (or a link), the
-`result.json`, your DAW/interface and sample rate, and what you expected.
+Every issue template asks for the environment report: **Help → Environment
+Report for Bug Reports** in the app, or `roomscope doctor` in a terminal
+(`--probe` adds the sample rates each device accepts; nothing is played). It
+names the version, the build commit, the OS, the settings and the audio
+devices, with your home folder shown as `~`.
+
+* **Bug report**: a crash, an error, or wrong behaviour.
+* **Measurement problem**: a number looks wrong. Attach the sweep sidecar
+  JSON, the recorded WAV (or a link), `result.json`, or a session bundle
+  (`roomscope session bundle <session> --out report.zip`).
+* **Audio interface test report** and **DAW compatibility report**: you ran
+  RoomScope with real hardware or through a DAW. These are the only source of
+  the PASS/FAIL cells in [docs/HARDWARE_TESTS.md](docs/HARDWARE_TESTS.md);
+  a failed run is as useful as a passed one.

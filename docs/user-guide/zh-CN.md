@@ -121,7 +121,11 @@ roomscope-env/bin/roomscope gui
 | 设备采样率不符 | 界面会在请求采样率旁边显示设备实际采样率。 |
 | loopback 被拒绝 | 回送必须像电脉冲，不能是房间响应。若第二声道是另一支话筒，补偿会被拒绝，分析在未补偿路径上继续。 |
 
-## 缺陷报告打包
+## 报告问题
+
+**帮助 ▸ 用于问题报告的环境报告** 显示维护者首先需要的信息：RoomScope 版本和构建提交、操作系统、库版本、设置和音频设备（*探测采样率* 会加上每个设备接受的采样率，不会播放任何声音）。用 *复制* 把它粘贴到 issue 中；*打开 Issue 页面* 会打开模板选择页。在终端中同样的报告是 `roomscope doctor`（`--probe`、`--json`）。RoomScope 不会自动发送任何内容；发布前请检查文本，因为设备名称可能包含个人姓名。
 
 `roomscope session bundle session/ --out report.zip` 打包会话。
-`--no-audio` 可去掉 WAV，避免分享房间录音。把 zip 附在测量类 issue 上。设置和滚动日志在 `$ROOMSCOPE_HOME`（默认 `~/.roomscope`）。
+`--no-audio` 可去掉 WAV，避免分享房间录音。把 zip 附在测量类 issue 上。设置和滚动日志在 `$ROOMSCOPE_HOME`（默认 `~/.roomscope`），报告中的 *打开数据文件夹* 按钮会打开它。
+
+用真实声卡或通过 DAW 运行过 RoomScope？请使用 *Audio interface test report* 和 *DAW compatibility report* 模板记录结果；这些真实运行是 [HARDWARE_TESTS.md](../HARDWARE_TESTS.md) 的唯一来源。

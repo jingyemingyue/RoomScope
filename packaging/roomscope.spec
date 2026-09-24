@@ -2,8 +2,11 @@
 # Builds are unsigned until the maintainer holds signing identities.
 # -*- mode: python ; coding: utf-8 -*-
 
-import sys
+import json
+import os
 import plistlib
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -13,6 +16,33 @@ VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["
 MACOS_INFO["CFBundleShortVersionString"] = VERSION
 MACOS_INFO["CFBundleVersion"] = VERSION
 
+
+def _commit():
+    """The commit being built: GitHub Actions' GITHUB_SHA, else git, else None."""
+    if os.environ.get("GITHUB_SHA"):
+        return os.environ["GITHUB_SHA"]
+    try:
+        done = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return done.stdout.strip() or None
+
+
+# roomscope doctor reports which commit a bundle came from (several draft
+# builds can carry the same version number).
+BUILD_INFO = {"version": VERSION, "commit": _commit()}
+if os.environ.get("GITHUB_RUN_ID") and os.environ.get("GITHUB_REPOSITORY"):
+    BUILD_INFO["ci_run"] = "{}/{}/actions/runs/{}".format(
+        os.environ.get("GITHUB_SERVER_URL", "https://github.com"),
+        os.environ["GITHUB_REPOSITORY"],
+        os.environ["GITHUB_RUN_ID"],
+    )
+BUILD_INFO_FILE = Path(workpath) / "build_info.json"  # noqa: F821
+BUILD_INFO_FILE.parent.mkdir(parents=True, exist_ok=True)
+BUILD_INFO_FILE.write_text(json.dumps(BUILD_INFO, indent=1), encoding="utf-8")
+
 a = Analysis(
     [str(ROOT / "src" / "roomscope" / "__main__.py")],
     pathex=[str(ROOT / "src")],
@@ -20,6 +50,7 @@ a = Analysis(
     datas=[
         (str(ROOT / "src" / "roomscope" / "schemas"), "roomscope/schemas"),
         (str(ROOT / "src" / "roomscope" / "locale"), "roomscope/locale"),
+        (str(BUILD_INFO_FILE), "roomscope"),
     ],
     hiddenimports=["roomscope.cli.main", "roomscope.ui.app"],
     hookspath=[],

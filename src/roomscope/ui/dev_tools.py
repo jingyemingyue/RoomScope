@@ -1,17 +1,18 @@
-"""Developer-edition tools: audio-device inspector and environment report.
+"""Diagnostic windows: audio-device inspector and environment report.
 
-Shown in the Developer menu of the developer edition (``roomscope.edition``).
-The inspector lists every host API and device the backend sees, probes the
-sample rates on request (nothing is played) and copies the inventory as JSON
-for a bug report; the report dialog shows ``roomscope doctor``.
+The inspector is in the Developer menu of the developer edition
+(``roomscope.edition``): it lists every host API and device the backend sees,
+probes the sample rates on request (nothing is played) and copies the
+inventory as JSON. The environment report (``roomscope doctor``) is in the
+Help menu of every edition, for bug and hardware reports.
 """
 
 from __future__ import annotations
 
 import json
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -29,6 +30,9 @@ from roomscope.audio.inventory import DeviceInventory, build_inventory
 from roomscope.errors import RoomScopeError
 from roomscope.i18n import _
 from roomscope.ui.widgets import label
+
+#: Where the Environment Report sends the user (the issue-template chooser).
+ISSUES_URL = "https://github.com/jingyemingyue/RoomScope/issues/new/choose"
 
 COLUMNS = (
     "#",
@@ -174,26 +178,67 @@ class DeviceInspector(QDialog):
 
 
 class EnvironmentReport(QDialog):
-    """``roomscope doctor`` in a window, with Copy."""
+    """``roomscope doctor`` in a window: probe, copy, and where to report.
+
+    Offered in every edition (Help menu): an installed user filing a bug needs
+    it as much as a developer. Nothing is sent anywhere; the user copies the
+    text into an issue.
+    """
 
     def __init__(self, backend_name: str | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        from roomscope.diagnostics import environment_report, format_environment_report
-
         self.setWindowTitle(_("Environment Report"))
-        self.resize(760, 520)
+        self.resize(820, 580)
+        self._backend_name = backend_name
         layout = QVBoxLayout(self)
+        layout.addWidget(
+            label(
+                _(
+                    "Paste this report into a GitHub issue so the problem can be reproduced. "
+                    "Nothing is sent automatically. Probing asks each device which sample "
+                    "rates it accepts; nothing is played. Device names can contain personal "
+                    "names: review the text before posting."
+                ),
+                "hint",
+                wrap=True,
+            )
+        )
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
         self.text.setProperty("report", True)
-        self.text.setPlainText(format_environment_report(environment_report(backend_name)))
         layout.addWidget(self.text, 1)
         row = QHBoxLayout()
-        row.addStretch(1)
+        self.probe_button = QPushButton(_("Probe sample rates"))
+        self.probe_button.clicked.connect(lambda: self.refresh(probe=True))
+        folder = QPushButton(_("Open Data Folder"))
+        folder.setToolTip(_("The log file and settings are in this folder."))
+        folder.clicked.connect(self._open_folder)
+        issue = QPushButton(_("Open Issue Page"))
+        issue.setToolTip(ISSUES_URL)
+        issue.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(ISSUES_URL)))
         copy = QPushButton(_("Copy"))
+        copy.setProperty("primary", True)
         copy.clicked.connect(self._copy)
+        row.addWidget(self.probe_button)
+        row.addWidget(folder)
+        row.addStretch(1)
+        row.addWidget(issue)
         row.addWidget(copy)
         layout.addLayout(row)
+        self.refresh(probe=False)
+
+    def refresh(self, *, probe: bool) -> None:
+        from roomscope.diagnostics import environment_report, format_environment_report
+
+        report = environment_report(self._backend_name, probe_rates=probe)
+        self.text.setPlainText(format_environment_report(report))
+
+    def _open_folder(self) -> None:
+        from roomscope.io.recent import roomscope_home
+
+        home = roomscope_home()
+        home.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(home)))
 
     def _copy(self) -> None:
         clipboard = QGuiApplication.clipboard()

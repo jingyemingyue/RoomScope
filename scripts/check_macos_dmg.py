@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import platform
 import plistlib
@@ -56,6 +57,22 @@ def main() -> None:
         executable = check_app(installed, version)
         env = os.environ.copy()
         env["QT_QPA_PLATFORM"] = "offscreen"
+        # The report a bug reporter pastes, from the copied app: library
+        # versions and (in CI) the commit the app was built from.
+        doctor = subprocess.run(
+            [str(executable), "--backend", "fake", "doctor", "--json"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=120,
+        )
+        report = json.loads(doctor.stdout)
+        assert report["packages"]["numpy"], report["packages"]
+        if os.environ.get("GITHUB_SHA"):
+            assert (report["build"] or {}).get("commit") == os.environ["GITHUB_SHA"], report[
+                "build"
+            ]
         subprocess.run([str(executable), "gui", "--smoke"], check=True, env=env, timeout=120)
         with subprocess.Popen([str(executable)], env=env) as process:
             time.sleep(6)
