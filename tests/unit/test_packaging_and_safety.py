@@ -176,6 +176,9 @@ def test_smoke_bundle_finds_explicit_binary(tmp_path: Path) -> None:
     assert module.find_gui_launcher(fake) is None
     launcher = tmp_path / "roomscope-gui.exe"
     launcher.write_text("", encoding="utf-8")
+    # A pip install's roomscope-gui script ignores "gui --smoke": not a launcher.
+    assert module.find_gui_launcher(fake) is None
+    (tmp_path / "_internal").mkdir()
     assert module.find_gui_launcher(fake) == launcher
 
 
@@ -208,7 +211,7 @@ def test_smoke_checks_the_doctor_report(monkeypatch: pytest.MonkeyPatch) -> None
 
     module = _load("smoke_bundle_doctor", Path("scripts") / "smoke_bundle.py")
     report: dict[str, Any] = {
-        "packages": {"numpy": "2.3.0"},
+        "packages": {"numpy": "2.3.0", "scipy": "1.16.0"},
         "build": {"commit": "abc"},
         "audio_callbacks": "ok",
     }
@@ -224,6 +227,7 @@ def test_smoke_checks_the_doctor_report(monkeypatch: pytest.MonkeyPatch) -> None
     report["audio_callbacks"] = "failed: MemoryError()"
     with pytest.raises(SystemExit, match="audio callbacks"):
         module.check_doctor(Path("roomscope"))
-    report["packages"]["numpy"] = None
-    with pytest.raises(SystemExit, match="NumPy"):
+    report["audio_callbacks"] = "ok"
+    report["packages"]["scipy"] = None
+    with pytest.raises(SystemExit, match="no version for: scipy"):
         module.check_doctor(Path("roomscope"))

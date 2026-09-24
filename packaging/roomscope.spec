@@ -70,6 +70,17 @@ a = Analysis(
     ],
     noarchive=False,
 )
+# Linux: use the distribution's PortAudio, ALSA and JACK libraries, as the
+# user guide says (libportaudio2). The sounddevice hook would otherwise copy
+# the build runner's libportaudio with libasound and libjack (and Berkeley DB,
+# which libjack links): a libasound built for Ubuntu looks for ALSA plugins,
+# PipeWire's among them, in Ubuntu's directory and misses them elsewhere.
+if sys.platform.startswith("linux"):
+    SYSTEM_AUDIO_LIBS = ("libportaudio.so", "libasound.so", "libjack.so", "libdb-")
+    a.binaries = [
+        entry for entry in a.binaries if not Path(entry[0]).name.startswith(SYSTEM_AUDIO_LIBS)
+    ]
+
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,

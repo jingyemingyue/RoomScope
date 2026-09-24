@@ -12,8 +12,8 @@ resonances, with a validity flag on every number.
 | System | File | Start |
 | --- | --- | --- |
 | Windows 10/11 x64 | `RoomScope-setup.exe` (installer, no admin rights) or `roomscope-windows-x64.zip` | Start menu → RoomScope / `roomscope-gui.exe` |
-| macOS 13+, Apple silicon | `RoomScope-macos-arm64.dmg` | Drag to Applications, right-click → Open the first time |
-| macOS 13+, Intel | `RoomScope-macos-x86_64.dmg` | Same |
+| macOS 14+, Apple silicon | `RoomScope-macos-arm64.dmg` | Drag to Applications and open it; when macOS blocks it, System Settings → Privacy & Security → Open Anyway |
+| macOS 14+, Intel | `RoomScope-macos-x86_64.dmg` | Same |
 | Linux x86_64 | `roomscope-linux-x86_64.tar.gz` | `roomscope/roomscope-gui` |
 | Python 3.12+ (any OS) | `roomscope-{version}-py3-none-any.whl` | `pip install "./roomscope-{version}-py3-none-any.whl[gui]"` |
 

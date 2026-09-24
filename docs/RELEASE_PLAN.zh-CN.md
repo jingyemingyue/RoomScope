@@ -43,7 +43,7 @@
 
 私有仓库消耗自己的 Actions 分钟数，macOS 运行器按十倍计。额度用完后，任务会在几秒内失败且没有分配运行器（没有步骤、没有日志）。可选做法（从省钱到省事）：
 
-1. **本地构建。** `scripts/build_release.py` 在当前机器上执行与发布工作流 bundle 任务相同的步骤，并在 `dist/` 中生成相同的文件名。每个平台运行一次：Apple 芯片 Mac（`RoomScope-macos-arm64.dmg`）、有条件时 Intel Mac（`RoomScope-macos-x86_64.dmg`）、装有 Inno Setup 6 的 Windows（`roomscope-windows-x64.zip`、`RoomScope-setup.exe`）以及 Linux x86_64（`roomscope-linux-x86_64.tar.gz`）；在其中一台上加 `--python-dist` 生成 wheel 和 sdist。运行前按脚本文档安装 `requirements/bundle.lock`、`dev` 与 `gui` 附加依赖、`pyinstaller==6.22.3` 和 `build`；版本不一致时脚本会拒绝，除非加 `--allow-unlocked`。脚本会运行测试、许可证包、`--strip --require-licenses` 门禁和冒烟测试；在 macOS 上还会做临时签名，并从 DMG 挂载、复制和启动应用。
+1. **本地构建。** `scripts/build_release.py` 在当前机器上执行与发布工作流 bundle 任务相同的步骤，并在 `dist/` 中生成相同的文件名。每个平台运行一次：Apple 芯片 Mac（`RoomScope-macos-arm64.dmg`）、有条件时 Intel Mac（`RoomScope-macos-x86_64.dmg`）、装有 Inno Setup 6 的 Windows（`roomscope-windows-x64.zip`、`RoomScope-setup.exe`）以及 Linux x86_64（`roomscope-linux-x86_64.tar.gz`）；在其中一台上加 `--python-dist` 生成 wheel 和 sdist。运行前按脚本文档安装 `requirements/bundle.lock`、`dev` 与 `gui` 附加依赖、`pyinstaller==6.22.3` 和 `build`；版本不一致时脚本会拒绝，除非加 `--allow-unlocked`。脚本会运行测试、许可证包、`--strip --require-licenses` 门禁和冒烟测试；在 macOS 上还会做临时签名，并从 DMG 挂载、复制和启动应用。在 Windows 上它只编译安装程序，不像工作流那样安装、冒烟测试和卸载（那会改变这台电脑）；发布本地构建的安装程序前请手动完成这三步。
 2. **手动发布。** 在 Releases 页面创建或编辑草稿 `v<version>`（tag 为 `main` 上发布提交的 `v<version>`，勾选 *pre-release*），粘贴说明（`packaging/release-notes-header.md` 中把 `{version}` 替换后，再接 CHANGELOG 对应段落），上传第 1 步的所有文件及每台机器的 `SHA256SUMS-*`，然后发布。PyPI 任务需要 Actions，没有它就不会上传 PyPI。
 3. **把仓库设为公开**（§5）：公开仓库使用 GitHub 托管的标准运行器是免费的，工作流即可照常运行。已于 2026-09-24 公开，此后工作流一直在 GitHub 运行器上运行。
 

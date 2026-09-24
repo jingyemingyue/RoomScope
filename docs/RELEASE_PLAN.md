@@ -115,7 +115,10 @@ step runs, no log). Three ways on, from cheapest:
    unless `--allow-unlocked`. It runs the test suite, the license bundle, the
    `--strip --require-licenses` gate and the smoke test (CLI, fake-backend
    measurement, offscreen GUI, windowed launcher); on macOS it also ad-hoc
-   signs the app and mounts, copies and launches it from the DMG.
+   signs the app and mounts, copies and launches it from the DMG. On
+   Windows it compiles the installer but does not install, smoke-test and
+   uninstall it as the workflow does (that would change the PC); do those
+   three steps by hand before publishing a locally built installer.
 2. **Publish by hand.** Create or edit the draft `v<version>` on the Releases
    page (tag `v<version>` on the release commit of `main`, *pre-release*),
    paste the notes (`packaging/release-notes-header.md` with `{version}`

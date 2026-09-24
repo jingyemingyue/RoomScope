@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import sys
 
+from roomscope import __version__
 from roomscope.cli.main import COMMANDS, main
 
 #: Windowed launcher next to the console ``roomscope`` in the Windows and Linux
@@ -36,5 +38,28 @@ def desktop_args() -> list[str] | None:
     return None
 
 
+def keep_matplotlib_cache() -> None:
+    """Keep matplotlib's font cache between launches of a desktop bundle.
+
+    PyInstaller's matplotlib runtime hook points ``MPLCONFIGDIR`` at a new
+    temporary folder on every start, so each launch rebuilt the font cache
+    (Release #14 logs: 14-17 s before the window appeared). A folder per
+    RoomScope version under ``$ROOMSCOPE_HOME`` keeps it; the entry script runs
+    after the runtime hooks and before anything imports matplotlib. If the
+    folder cannot be created the temporary one stays.
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    from roomscope.io.recent import roomscope_home
+
+    folder = roomscope_home() / "cache" / f"matplotlib-{__version__}"
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return
+    os.environ["MPLCONFIGDIR"] = str(folder)
+
+
 if __name__ == "__main__":  # pragma: no cover
+    keep_matplotlib_cache()
     raise SystemExit(main(desktop_args()))

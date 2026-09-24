@@ -10,8 +10,8 @@ translation is [COMPATIBILITY.zh-CN.md](COMPATIBILITY.zh-CN.md). Last reviewed
 | Platform | Deliverable | Verified by |
 | --- | --- | --- |
 | Windows 10/11 x64 | `RoomScope-setup.exe`, `roomscope-windows-x64.zip` | Release workflow on `windows-latest`: frozen bundle smoke (CLI, fake measurement, offscreen GUI, windowed launcher started without arguments), installer built with Inno Setup, installed per-user, smoke-tested from the install folder, uninstalled; CI test suite on Windows / Python 3.12 |
-| macOS 13+, Apple silicon | `RoomScope-macos-arm64.dmg` | Release workflow on `macos-latest`: DMG mounted, app copied, `gui --smoke`, Finder-style launch kept running, ad-hoc signature verified, `lipo` architecture arm64; CI test suite on macOS / Python 3.12 |
-| macOS 13+, Intel | `RoomScope-macos-x86_64.dmg` | Release workflow on `macos-15-intel`: the same DMG checks, architecture x86_64 |
+| macOS 14+, Apple silicon | `RoomScope-macos-arm64.dmg` | Release workflow on `macos-latest` (macOS 26): DMG mounted, app copied, `gui --smoke`, Finder-style launch kept running, ad-hoc signature verified, `lipo` architecture arm64, a hardened-runtime copy started; CI test suite on macOS / Python 3.12. macOS 14 is the minimum of the bundled NumPy / SciPy wheels (`macosx_14_0`, `LSMinimumSystemVersion` 14.0) and has not been run |
+| macOS 14+, Intel | `RoomScope-macos-x86_64.dmg` | Release workflow on `macos-15-intel` (macOS 15): the same DMG checks, architecture x86_64 |
 | Linux x86_64 (glibc of the CI runner or newer) | `roomscope-linux-x86_64.tar.gz` | Release workflow on `ubuntu-latest` and a local build (`scripts/build_release.py`): bundle gate, smoke, `roomscope-gui` launch; CI tests on Ubuntu / Python 3.12–3.14 |
 | Anything else (ARM Windows / Linux, older macOS) | wheel only | not verified; `scripts/build_release.py` refuses to name an ARM build as x86_64 |
 
@@ -27,7 +27,7 @@ builds.
 | NumPy | 1.26 | 2.5.3 |
 | SciPy | 1.12 | 1.18.1 |
 | soundfile / libsndfile | 0.12 | 0.14.0 / 1.2.2 |
-| sounddevice / PortAudio | 0.4.6 | 0.5.6 / V19.7 (bundled on Windows, macOS) |
+| sounddevice / PortAudio | 0.4.6 | 0.5.6 / V19.7 (bundled on Windows, macOS); Linux uses the system's `libportaudio2` (V19.6 on Ubuntu 24.04) |
 | matplotlib | **3.10** | 3.11.2 |
 | PySide6_Essentials | 6.6 | 6.11.2 |
 

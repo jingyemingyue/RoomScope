@@ -19,6 +19,8 @@ def check_app(app: Path, version: str) -> Path:
     assert info["CFBundleShortVersionString"] == version
     assert info["CFBundleVersion"] == version
     assert info["NSMicrophoneUsageDescription"]
+    # The bundled NumPy / SciPy wheels are built for macOS 14 (macosx_14_0).
+    assert info["LSMinimumSystemVersion"] == "14.0", info.get("LSMinimumSystemVersion")
     executable = app / "Contents" / "MacOS" / info["CFBundleExecutable"]
     assert executable.is_file(), executable
     # The app is built for the runner's architecture: arm64 on Apple silicon,
@@ -68,7 +70,7 @@ def main() -> None:
             timeout=120,
         )
         report = json.loads(doctor.stdout)
-        assert report["packages"]["numpy"], report["packages"]
+        assert all(report["packages"].values()), report["packages"]
         assert report["audio_callbacks"] == "ok", report["audio_callbacks"]
         if os.environ.get("GITHUB_SHA"):
             assert (report["build"] or {}).get("commit") == os.environ["GITHUB_SHA"], report[

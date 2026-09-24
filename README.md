@@ -32,19 +32,22 @@ figure. There is deliberately no "room score".
 
 ## Download
 
-Pre-release builds are attached to the
-[GitHub Releases](https://github.com/jingyemingyue/RoomScope/releases):
+No release has been published yet. When the maintainer publishes a
+pre-release, these files are attached to the
+[GitHub Releases](https://github.com/jingyemingyue/RoomScope/releases); until
+then, [install from source](#install-from-source).
 
 | System | File |
 | --- | --- |
 | Windows 10/11 x64 | `RoomScope-setup.exe` (installer) or `roomscope-windows-x64.zip` |
-| macOS 13+, Apple silicon | `RoomScope-macos-arm64.dmg` |
-| macOS 13+, Intel | `RoomScope-macos-x86_64.dmg` |
+| macOS 14+, Apple silicon | `RoomScope-macos-arm64.dmg` |
+| macOS 14+, Intel | `RoomScope-macos-x86_64.dmg` |
 | Linux x86_64 | `roomscope-linux-x86_64.tar.gz` |
 | Any OS with Python 3.12+ | `roomscope-<version>-py3-none-any.whl` |
 
-The bundles are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on
-first launch. How to open them, check the `SHA256SUMS-*` files and install the
+The bundles are **not signed for distribution** (macOS: ad hoc signature, not
+notarized; Windows: no Authenticode signature): macOS Gatekeeper and Windows
+SmartScreen warn on first launch. How to open them, check the `SHA256SUMS-*` files and install the
 wheel is in the [user guide](docs/user-guide/en.md#install)
 ([简体中文](docs/user-guide/zh-CN.md#安装)).
 
@@ -83,7 +86,7 @@ Both modes call exactly the same analysis pipeline
 
 ## Install from source
 
-Requires Python 3.12 or newer. **Supported for 1.0:** macOS 13+ (arm64,
+Requires Python 3.12 or newer. **Supported for 1.0:** macOS 14+ (arm64,
 x86_64), Windows 10/11 x64, Linux x86_64 with glibc of the CI runner or
 newer, Python 3.12–3.14 for the wheel. Anything else may work and is not
 tested.

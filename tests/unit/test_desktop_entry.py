@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -113,3 +115,21 @@ def test_unfrozen_python_is_never_redirected() -> None:
         patch.object(sys, "frozen", False, create=True),
     ):
         assert desktop_args() is None
+
+
+def test_bundle_keeps_the_matplotlib_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """PyInstaller's runtime hook sets a new temporary MPLCONFIGDIR per start;
+    a bundle replaces it with a folder that survives, a source install does not."""
+    from roomscope import __version__
+    from roomscope.__main__ import keep_matplotlib_cache
+
+    monkeypatch.setenv("ROOMSCOPE_HOME", str(tmp_path))
+    monkeypatch.setenv("MPLCONFIGDIR", "temporary-per-start")
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    keep_matplotlib_cache()
+    assert os.environ["MPLCONFIGDIR"] == "temporary-per-start"
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    keep_matplotlib_cache()
+    folder = tmp_path / "cache" / f"matplotlib-{__version__}"
+    assert folder.is_dir()
+    assert os.environ["MPLCONFIGDIR"] == str(folder)

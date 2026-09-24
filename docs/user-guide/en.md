@@ -17,8 +17,8 @@ downloaded (`shasum -a 256 <file>` on macOS / Linux,
 | System | File | Start RoomScope |
 | --- | --- | --- |
 | Windows 10/11 x64 | `RoomScope-setup.exe` (installer) or `roomscope-windows-x64.zip` | Start menu → RoomScope, or `roomscope-gui.exe` in the zip |
-| macOS 13+, Apple silicon | `RoomScope-macos-arm64.dmg` | Drag RoomScope to Applications, then open it |
-| macOS 13+, Intel | `RoomScope-macos-x86_64.dmg` | Drag RoomScope to Applications, then open it |
+| macOS 14+, Apple silicon | `RoomScope-macos-arm64.dmg` | Drag RoomScope to Applications, then open it |
+| macOS 14+, Intel | `RoomScope-macos-x86_64.dmg` | Drag RoomScope to Applications, then open it |
 | Linux x86_64 | `roomscope-linux-x86_64.tar.gz` | `tar xzf roomscope-linux-x86_64.tar.gz && roomscope/roomscope-gui` |
 
 The Windows and Linux bundles carry two programs: the desktop app
@@ -26,12 +26,20 @@ The Windows and Linux bundles carry two programs: the desktop app
 in a terminal). On macOS the app's executable is also the CLI when it is given
 arguments: `/Applications/RoomScope.app/Contents/MacOS/RoomScope --help`.
 
-**The bundles are unsigned** until the maintainer holds signing identities,
-so the operating system warns the first time:
+**The bundles are not signed for distribution** until the maintainer holds
+signing identities (the macOS app has an ad hoc signature and is not
+notarized; the Windows files have no Authenticode signature), so the
+operating system warns the first time:
 
-* **macOS:** right-click the app → Open, or System Settings → Privacy &
-  Security → Open Anyway after Gatekeeper blocks it. Grant microphone access
-  when asked (`NSMicrophoneUsageDescription` is in the bundle Info.plist).
+* **macOS:** open the app once; when macOS says it cannot verify it, choose
+  *Done*, then System Settings → Privacy & Security → *Open Anyway* (the
+  button appears after that first attempt) and confirm. Since macOS 15
+  Sequoia, right-click → Open no longer bypasses this check; it still works on
+  macOS 14 ([Apple](https://developer.apple.com/news/?id=saqachfa)). Grant
+  microphone access when asked (`NSMicrophoneUsageDescription` is in the
+  bundle Info.plist). The bundled NumPy and SciPy need macOS 14 or later;
+  the DMGs were built and started on macOS 15 (Intel) and 26 (Apple silicon)
+  CI runners only.
 * **Windows:** SmartScreen may warn; choose “More info” → “Run anyway”. The
   installer installs for the current user and needs no administrator rights;
   uninstall from Settings → Apps.

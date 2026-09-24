@@ -13,17 +13,17 @@ RoomScope 用来测量录音房间，让你听到房间对近距离拾音声源�
 | 系统 | 文件 | 启动方式 |
 | --- | --- | --- |
 | Windows 10/11 x64 | `RoomScope-setup.exe`（安装程序）或 `roomscope-windows-x64.zip` | 开始菜单 → RoomScope，或运行 zip 里的 `roomscope-gui.exe` |
-| macOS 13+，Apple 芯片 | `RoomScope-macos-arm64.dmg` | 把 RoomScope 拖进“应用程序”后打开 |
-| macOS 13+，Intel | `RoomScope-macos-x86_64.dmg` | 把 RoomScope 拖进“应用程序”后打开 |
+| macOS 14+，Apple 芯片 | `RoomScope-macos-arm64.dmg` | 把 RoomScope 拖进“应用程序”后打开 |
+| macOS 14+，Intel | `RoomScope-macos-x86_64.dmg` | 把 RoomScope 拖进“应用程序”后打开 |
 | Linux x86_64 | `roomscope-linux-x86_64.tar.gz` | `tar xzf roomscope-linux-x86_64.tar.gz && roomscope/roomscope-gui` |
 
 Windows 和 Linux 包含两个程序：桌面程序 `roomscope-gui` 和命令行工具 `roomscope`
 （在终端运行 `roomscope --help`）。macOS 上，应用的可执行文件带参数运行时就是命令行工具：
 `/Applications/RoomScope.app/Contents/MacOS/RoomScope --help`。
 
-在维护者持有签名证书之前，这些包都是**未签名**的，首次打开时系统会提示：
+在维护者持有签名证书之前，这些包都**没有用于分发的签名**（macOS 应用只有临时签名，未经公证；Windows 文件没有 Authenticode 签名），首次打开时系统会提示：
 
-* **macOS：** 右键 → 打开，或在“系统设置 → 隐私与安全性”里点“仍要打开”。系统询问麦克风权限时请允许。
+* **macOS：** 先打开一次应用；macOS 提示无法验证时选“完成”，然后在“系统设置 → 隐私与安全性”中点“仍要打开”（该按钮在第一次尝试后出现）并确认。从 macOS 15 Sequoia 起，右键 → 打开不再能绕过这一检查；在 macOS 14 上仍然可用（[Apple](https://developer.apple.com/news/?id=saqachfa)）。系统询问麦克风权限时请允许。打包的 NumPy 和 SciPy 需要 macOS 14 或更新版本；DMG 只在 macOS 15（Intel）和 26（Apple 芯片）的 CI 运行器上构建和启动过。
 * **Windows：** SmartScreen 可能拦截，选“更多信息”→“仍要运行”。安装程序只为当前用户安装，不需要管理员权限；可在“设置 → 应用”中卸载。
 * **Linux：** 需要系统自带的 PortAudio、OpenGL/EGL 和 XCB 库（Debian / Ubuntu：`sudo apt install libportaudio2 libegl1 libxkbcommon-x11-0 libxcb-cursor0`）。`packaging/linux/roomscope.desktop` 是可参考的桌面启动项。
 

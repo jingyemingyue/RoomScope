@@ -7,8 +7,8 @@
 | 平台 | 交付物 | 验证方式 |
 | --- | --- | --- |
 | Windows 10/11 x64 | `RoomScope-setup.exe`、`roomscope-windows-x64.zip` | `windows-latest` 上的发布工作流：冻结包冒烟测试（命令行、模拟测量、离屏界面、无参数启动窗口启动器），用 Inno Setup 构建安装程序，按用户安装后在安装目录冒烟测试，再卸载；Windows / Python 3.12 上的 CI 测试 |
-| macOS 13+，Apple 芯片 | `RoomScope-macos-arm64.dmg` | `macos-latest` 上的发布工作流：挂载 DMG、复制应用、`gui --smoke`、模拟 Finder 启动、验证临时签名、`lipo` 架构为 arm64；macOS / Python 3.12 上的 CI 测试 |
-| macOS 13+，Intel | `RoomScope-macos-x86_64.dmg` | `macos-15-intel` 上的发布工作流：同样的 DMG 检查，架构为 x86_64 |
+| macOS 14+，Apple 芯片 | `RoomScope-macos-arm64.dmg` | `macos-latest`（macOS 26）上的发布工作流：挂载 DMG、复制应用、`gui --smoke`、模拟 Finder 启动、验证临时签名、`lipo` 架构为 arm64、启动启用 hardened runtime 的副本；macOS / Python 3.12 上的 CI 测试。macOS 14 是打包的 NumPy / SciPy wheel 的最低版本（`macosx_14_0`，`LSMinimumSystemVersion` 14.0），尚未实际运行过 |
+| macOS 14+，Intel | `RoomScope-macos-x86_64.dmg` | `macos-15-intel`（macOS 15）上的发布工作流：同样的 DMG 检查，架构为 x86_64 |
 | Linux x86_64 | `roomscope-linux-x86_64.tar.gz` | `ubuntu-latest` 上的发布工作流及本地构建（`scripts/build_release.py`）；Ubuntu / Python 3.12–3.14 上的 CI 测试 |
 | 其他（ARM Windows / Linux、更旧的 macOS） | 仅 wheel | 未验证 |
 

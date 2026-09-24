@@ -29,7 +29,7 @@ RoomScope 目前是**预发布版（0.4.x）**。它的 DSP 在 Linux、macOS �
 
 | 工具 | 许可 / 收费方式 | 平台 | 主要用途 | 经由 DAW / 其他录音设备 | 激励信号 / IR 方法 | 是否报告指标有效性 |
 | --- | --- | --- | --- | --- | --- | --- |
-| **RoomScope** | Apache-2.0，免费 | Windows 10/11 x64；macOS 13+（arm64、x86_64）；Linux x86_64；Python 3.12+ wheel | 测量并解读录音位置 | 是：通用 DAW 模式（输出 WAV、读入 WAV）；另有独立模式 | 指数正弦扫频，逆滤波解卷积；可选 loopback；可导入 IR WAV（`analyze-ir`） | 是：每个指标和每个比较差值都有标记；无法支撑的数值不给出 |
+| **RoomScope** | Apache-2.0，免费 | Windows 10/11 x64；macOS 14+（arm64、x86_64）；Linux x86_64；Python 3.12+ wheel | 测量并解读录音位置 | 是：通用 DAW 模式（输出 WAV、读入 WAV）；另有独立模式 | 指数正弦扫频，逆滤波解卷积；可选 loopback；可导入 IR WAV（`analyze-ir`） | 是：每个指标和每个比较差值都有标记；无法支撑的数值不给出 |
 | REW（Room EQ Wizard） | 专有免费软件；Pro 升级收费 | Windows、macOS、Linux | 测量与分析；EQ 滤波器设计；房间模拟器 | 是：离线测量。REW 扫频在别处播放并录音，再用 *Import Sweep Recordings* 载入（需要时间基准信号） | 对数扫频；步进正弦；噪声 RTA | RT60：显示回归系数；它认为不可靠的数值以橙色斜体显示；用 Lundeby 噪声底估计标出数据不再有效的位置 |
 | Open Sound Meter | 桌面版 GPL-3.0，随意付费；iPad 版在 App Store | macOS、Windows、Linux；iPadOS | 实时调试扩声系统 | 未见说明 | 双通道 FFT：RTA、幅度、相位、脉冲响应、相干、群延迟 | 相干；混响指标未见说明 |
 | ARTA | 自 2024 年 12 月起为免费软件（2024 年 3 月停止销售） | Windows | IR、频率响应和频谱测量；ISO 3382 房间参数 | 自己驱动声卡；可导入 IR 和信号 WAV 文件；经由 DAW 播放未见说明 | 周期噪声、MLS、线性和对数扫频；单通道或双通道 | 衰减回归的相关系数 |

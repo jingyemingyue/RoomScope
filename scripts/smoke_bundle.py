@@ -1,7 +1,7 @@
 """Smoke-test a desktop bundle or an on-PATH ``roomscope`` (ARCHITECTURE_V1.md §6.2).
 
 Runs ``--version``, ``doctor --json`` (the report a bug reporter pastes: it
-must name the library versions, find that PortAudio's cffi callbacks can be
+must name every library version, find that PortAudio's cffi callbacks can be
 created, and, with ``--expect-commit``, name the commit the bundle was built
 from), a fake-backend Standalone measurement, and
 ``gui --smoke`` offscreen, then ``gui --smoke`` through the windowed
@@ -47,7 +47,14 @@ def smoke_gui_argv(binary: Path) -> list[str]:
 
 
 def find_gui_launcher(binary: Path) -> Path | None:
-    """The windowed ``roomscope-gui`` next to the console binary, if any."""
+    """The windowed ``roomscope-gui`` next to the console binary of a bundle.
+
+    Only a PyInstaller bundle (an ``_internal`` folder beside the binary) has
+    one; the ``roomscope-gui`` script of a pip install opens the GUI without
+    reading its arguments, so ``gui --smoke`` would not end.
+    """
+    if not (binary.parent / "_internal").is_dir():
+        return None
     for name in ("roomscope-gui", "roomscope-gui.exe"):
         candidate = binary.parent / name
         if candidate.is_file():
@@ -91,8 +98,10 @@ def check_doctor(binary: Path, expect_commit: str | None = None) -> dict[str, ob
         timeout=120,
     )
     report = json.loads(done.stdout)
-    if not report.get("packages", {}).get("numpy"):
-        raise SystemExit("doctor does not report the NumPy version")
+    missing = [name for name, found in report.get("packages", {}).items() if not found]
+    if missing or not report.get("packages"):
+        # A bundle carries little package metadata; doctor must still name them.
+        raise SystemExit(f"doctor reports no version for: {', '.join(missing) or 'any package'}")
     if report.get("audio_callbacks") != "ok":
         # PortAudio's cffi callback could not be created: no recording works.
         raise SystemExit(f"audio callbacks: {report.get('audio_callbacks')}")

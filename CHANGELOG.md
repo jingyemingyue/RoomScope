@@ -91,6 +91,21 @@ All notable changes to RoomScope are documented here. The format follows
   Python 3.12; with the newest releases it passes on 3.13 and 3.14.
 
 ### Fixed
+- **Desktop bundles.** Every launch of a frozen app rebuilt matplotlib's font
+  cache (PyInstaller's runtime hook sets a new temporary `MPLCONFIGDIR` per
+  start; Release #14 logs show 14-17 s before the window appeared); the cache
+  now lives in `$ROOMSCOPE_HOME/cache/matplotlib-<version>`. The Linux
+  tarball no longer carries the build runner's `libportaudio`, `libasound`,
+  `libjack` and Berkeley DB: it uses the system's PortAudio, as the user
+  guide says, so the distribution's ALSA plugins (PipeWire's among them) are
+  found. The macOS app declares `LSMinimumSystemVersion` 14.0, the minimum
+  of the bundled NumPy / SciPy wheels (`macosx_14_0`); the docs said
+  macOS 13+. The release notes and user guides give the Gatekeeper path that
+  works on macOS 15+ (Privacy & Security → Open Anyway; right-click → Open
+  no longer bypasses it). The uninstall check requires the whole install
+  folder to be gone, and the bundle smoke requires every library version in
+  `doctor` and no longer mistakes a pip install's `roomscope-gui` script for
+  the bundle's windowed launcher.
 - **A bug-report bundle could carry a file from outside the session.**
   `roomscope session bundle` followed symbolic links, so a session folder
   from someone else with a link to, say, a private key put that file into

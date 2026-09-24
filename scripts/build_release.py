@@ -1,7 +1,8 @@
 """Build this platform's release files locally, without GitHub Actions.
 
-Runs the same steps as the ``bundle`` job of ``.github/workflows/release.yml``
-on the machine it is started on, and writes the same file names into
+Runs the steps of the ``bundle`` job of ``.github/workflows/release.yml`` on
+the machine it is started on (except the ones that change that machine, see
+below), and writes the same file names into
 ``dist/``, so a maintainer can build on a Mac (Apple silicon and/or Intel), a
 Windows PC and a Linux PC and attach the results to the draft Release by
 hand (``docs/RELEASE_PLAN.md`` §3a):
@@ -10,7 +11,11 @@ hand (``docs/RELEASE_PLAN.md`` §3a):
   (CLI, fake-backend measurement, offscreen GUI, windowed launcher);
 * Linux: ``roomscope-linux-x86_64.tar.gz``;
 * Windows: ``roomscope-windows-x64.zip`` and, with Inno Setup installed,
-  ``RoomScope-setup.exe``;
+  ``RoomScope-setup.exe``. The installer is compiled but not installed,
+  smoke-tested and uninstalled as the workflow does, because that would
+  change this PC; run it by hand (``/VERYSILENT /CURRENTUSER /DIR=<folder>``,
+  ``smoke_bundle.py --root <folder>``, ``unins000.exe /VERYSILENT``) before
+  publishing a locally built installer;
 * macOS: ad-hoc signed ``RoomScope.app`` in ``RoomScope-macos-<arch>.dmg``,
   mounted and launched by ``check_macos_dmg.py``;
 * ``SHA256SUMS-<OS>-<ARCH>``; with ``--python-dist`` also the wheel and sdist.
