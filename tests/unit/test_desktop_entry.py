@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from unittest.mock import patch
 
+import pytest
+
 from roomscope.__main__ import desktop_args
 
 
@@ -53,6 +55,42 @@ def test_console_executable_keeps_cli_semantics() -> None:
         patch.object(sys, "platform", "win32"),
         patch.object(sys, "executable", r"C:\Program Files\RoomScope\roomscope.exe"),
         patch.object(sys, "argv", ["roomscope.exe"]),
+        patch.object(sys, "frozen", True, create=True),
+    ):
+        assert desktop_args() is None
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [[r"C:\Users\me\Desktop\take.wav"], ["/home/me/take.wav"], ["session-folder"]],
+)
+def test_file_dropped_on_gui_launcher_opens_gui(extra: list[str]) -> None:
+    """The windowed launcher has no console for a usage error."""
+    with (
+        patch.object(sys, "platform", "win32"),
+        patch.object(sys, "executable", r"C:\RoomScope\roomscope-gui.exe"),
+        patch.object(sys, "argv", ["roomscope-gui.exe", *extra]),
+        patch.object(sys, "frozen", True, create=True),
+    ):
+        assert desktop_args() == ["gui"]
+
+
+@pytest.mark.parametrize("extra", [["--version"], ["analyze", "--help"], ["-v", "devices"]])
+def test_gui_launcher_keeps_real_commands(extra: list[str]) -> None:
+    with (
+        patch.object(sys, "platform", "linux"),
+        patch.object(sys, "executable", "/opt/roomscope/roomscope-gui"),
+        patch.object(sys, "argv", ["roomscope-gui", *extra]),
+        patch.object(sys, "frozen", True, create=True),
+    ):
+        assert desktop_args() is None
+
+
+def test_mac_app_with_arguments_is_the_cli() -> None:
+    with (
+        patch.object(sys, "platform", "darwin"),
+        patch.object(sys, "executable", "/Applications/RoomScope.app/Contents/MacOS/RoomScope"),
+        patch.object(sys, "argv", ["RoomScope", "--version"]),
         patch.object(sys, "frozen", True, create=True),
     ):
         assert desktop_args() is None

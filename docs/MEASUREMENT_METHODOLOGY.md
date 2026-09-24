@@ -120,8 +120,10 @@ collapses the recording to an impulse; the pre-peak margin collapses and all
 the pipeline could say before 0.4.1 was that the direct sound is not
 identified.
 
-When the direct sound is not identified with high confidence and the sweep
-definition is known, `roomscope.core.playback_speed` measures the sweep rate
+When direct-sound detection confidence is low (a sweep played even 2 % off
+leaves a pre-peak margin of a few dB, while a medium margin means the
+generated sweep did deconvolve the recording) and the sweep definition is
+known, `roomscope.core.playback_speed` measures the sweep rate
 in the recording itself. An ESS passes frequency `f` at
 `t(f) = L · ln(f / f1)` [1], a straight line of slope `L` against `ln f`.
 In a short-time spectrum of the recording (Hann window of about 40 ms, 87.5 %

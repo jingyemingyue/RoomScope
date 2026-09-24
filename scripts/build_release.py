@@ -277,13 +277,18 @@ def main(argv: list[str] | None = None) -> int:
         help="build with packages that differ from requirements/bundle.lock",
     )
     parser.add_argument(
-        "--require-installer",
+        "--no-installer",
         action="store_true",
-        help="Windows: fail when Inno Setup is missing instead of shipping only the zip",
+        help="Windows: ship only the zip when Inno Setup is missing (the workflow requires it)",
     )
     args = parser.parse_args(argv)
 
     target = current_target()
+    if target.system != "macOS" and target.arch != "X64":
+        # The release ships x86_64 Linux and x64 Windows only (README); an ARM
+        # build would carry an x86_64 file name.
+        print(f"{target.system} {target.arch} is not a release platform; nothing was built")
+        return 2
     release_version = project_version()
     print(f"RoomScope {release_version}: building for {target.system} {target.arch}")
     if "dev" in release_version:
@@ -299,21 +304,25 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
     DIST.mkdir(exist_ok=True)
+    # Files of an earlier build must not be checksummed or listed as this one.
+    for name in (*target.archives, target.checksum_name):
+        (DIST / name).unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="roomscope-release-") as directory:
         steps = plan(target, args, Path(directory))
         for index, step in enumerate(steps, 1):
             if step.skipped:
                 print(f"[{index}/{len(steps)}] {step.name}: skipped ({step.skipped})")
-                if args.require_installer and step.name == "Windows installer":
+                if step.name == "Windows installer" and not args.no_installer:
+                    print("install Inno Setup 6 or pass --no-installer")
                     return 1
                 continue
             print(f"[{index}/{len(steps)}] {step.name}", flush=True)
             step.run()
 
     produced = [DIST / name for name in (*target.archives, target.checksum_name)]
-    produced += sorted(DIST.glob("roomscope-*.whl")) + sorted(
-        DIST.glob(f"roomscope-{release_version}.tar.gz")
-    )
+    if args.python_dist:
+        produced += sorted(DIST.glob(f"roomscope-{release_version}-*.whl"))
+        produced.append(DIST / f"roomscope-{release_version}.tar.gz")
     print("\nFiles for the draft Release (upload with the web page or `gh release upload`):")
     for path in produced:
         if path.is_file():

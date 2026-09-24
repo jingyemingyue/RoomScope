@@ -410,24 +410,30 @@ def _decay_unreliable_reasons(
 def _playback_speed(
     mono: FloatArray, sample_rate: int, reference: Reference
 ) -> PlaybackSpeed | None:
-    """Diagnose a sweep played at the wrong speed (needs the sweep definition)."""
+    """Diagnose a sweep played at the wrong speed (needs the sweep definition).
+
+    A diagnosis only: if it cannot be computed, the analysis goes on without it.
+    """
     if reference.settings is None:
         return None
-    return diagnose_playback_speed(mono, sample_rate, reference.settings)
+    try:
+        return diagnose_playback_speed(mono, sample_rate, reference.settings)
+    except (ValueError, FloatingPointError, np.linalg.LinAlgError):
+        return None
 
 
-def _with_playback_speed(
+def _explain_playback_speed(
     exc: InvalidAudioError, mono: FloatArray, sample_rate: int, reference: Reference
-) -> InvalidAudioError:
-    """``exc``, or a copy that also names a wrong sweep speed when there is one.
+) -> None:
+    """Append a wrong sweep speed, when there is one, to ``exc``'s message.
 
     A sweep played faster than generated is shorter than the reference and
-    seems to start late; the speed is the cause the user can fix.
+    seems to start late; the speed is the cause the user can fix. The
+    exception keeps its type and attributes.
     """
     speed = _playback_speed(mono, sample_rate, reference)
-    if speed is None:
-        return exc
-    return InvalidAudioError(f"{exc}. However, {speed.describe()}")
+    if speed is not None and exc.args:
+        exc.args = (f"{exc.args[0]}. However, {speed.describe()}", *exc.args[1:])
 
 
 def _select_mic_and_loopback(
@@ -584,7 +590,8 @@ def analyze(
     try:
         h_full = deconvolve(mono, prepared.inverse)
     except InvalidAudioError as exc:
-        raise _with_playback_speed(exc, mono, sample_rate, reference) from exc
+        _explain_playback_speed(exc, mono, sample_rate, reference)
+        raise
     located = _locate_pass(
         h_full,
         recording_length=mono.shape[0],
@@ -654,7 +661,8 @@ def analyze(
             prepared, -located.sweep_start_raw_index, sample_rate
         )
     except InvalidAudioError as exc:
-        raise _with_playback_speed(exc, mono, sample_rate, reference) from exc
+        _explain_playback_speed(exc, mono, sample_rate, reference)
+        raise
     if start_note:
         ir_notes.append(start_note)
     if located.sweep_passes > 1:
@@ -689,8 +697,11 @@ def analyze(
         )
     # A sweep played at the wrong speed (a DAW sample-rate mismatch or
     # time-stretch) is one cause of an unidentifiable direct sound that the
-    # user can fix; the check costs one short-time spectrum.
-    playback_speed = _playback_speed(mono, sample_rate, reference) if confidence != "high" else None
+    # user can fix; the check costs one short-time spectrum. Only a failed
+    # detection is checked: a sweep played even 2 % off leaves a pre-peak
+    # margin of a few dB (low), and a medium margin means the generated sweep
+    # did deconvolve the recording.
+    playback_speed = _playback_speed(mono, sample_rate, reference) if confidence == "low" else None
     if playback_speed is not None:
         ir_notes.append(playback_speed.describe())
     warnings.extend(ir_notes)

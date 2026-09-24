@@ -118,8 +118,8 @@ first version meant for a draft Release.
   (for every frequency bin the frame where the passing sweep peaks; a
   Theil-Sen line through time against ln f) and names the cause: a
   sample-rate mismatch when the played rate is within 2.5 % of a common rate,
-  otherwise a time-stretch. It runs only when the direct sound was not
-  identified with high confidence, marks the decay unreliable, is stored as
+  otherwise a time-stretch. It runs only when direct-sound detection
+  confidence is low (a medium margin means the sweep did deconvolve), marks the decay unreliable, is stored as
   `impulse_response.playback_speed` in `result.json` (optional, additive
   schema field), and is added to the "shorter than the reference" and
   "starts after the sweep began" errors. New findings

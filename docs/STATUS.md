@@ -17,8 +17,8 @@ macOS DMG next to the Apple-silicon one. A sweep the DAW played at the wrong
 speed (sample-rate mismatch or time-stretch) is diagnosed; DAW export
 containers are tested; a per-DAW guide covers ten DAWs.
 **What was run for this snapshot** (Linux x86_64, Ubuntu, CPython 3.12,
-the `dev`, `gui` and `i18n-dev` extras): the full suite, **502 passed**; the
-CI coverage gate command, **90.46 %**; `ruff check`, `ruff format --check`,
+the `dev`, `gui` and `i18n-dev` extras): the full suite, **522 passed**; the
+CI coverage gate command, **90.47 %**; `ruff check`, `ruff format --check`,
 `mypy` (strict, 70 files), `check_doc_links.py`, `check_src_safety.py`,
 `build_docs_site.py`; `uv build` of sdist and wheel; a Linux PyInstaller
 6.22.3 one-directory build with `roomscope` and `roomscope-gui` over one

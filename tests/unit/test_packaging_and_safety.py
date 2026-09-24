@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -188,3 +189,13 @@ def test_settings_refuse_deep_json_and_fall_back(tmp_path: Path, monkeypatch) ->
     loaded = load_settings()
     assert loaded.language == ""
     assert loaded.copy_recording is True
+
+
+def test_desktop_launch_check_requires_a_running_gui() -> None:
+    module = _load("smoke_bundle_launch", Path("scripts") / "smoke_bundle.py")
+    env = dict(os.environ)
+    stays = [sys.executable, "-c", "import time; time.sleep(30)"]
+    module.check_stays_open(stays, env, seconds=0.5)
+    exits = [sys.executable, "-c", "raise SystemExit(2)"]
+    with pytest.raises(SystemExit, match="exited at once"):
+        module.check_stays_open(exits, env, seconds=3.0)

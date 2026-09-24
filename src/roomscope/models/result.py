@@ -400,7 +400,9 @@ KIND_TIME_STRETCH = "time_stretch"
 class PlaybackSpeed:
     """The sweep speed measured in a recording, relative to the generated sweep."""
 
-    #: Measured sweep rate / generated sweep rate (1.0: played as generated).
+    #: Speed the sweep was played at relative to the generated sweep: the
+    #: generated ``L`` over the ``L`` measured in the recording (1.0: as
+    #: generated; 0.919: a 48 kHz file played at 44.1 kHz, 8.1 % slow).
     speed_ratio: float
     #: :data:`KIND_SAMPLE_RATE` or :data:`KIND_TIME_STRETCH`.
     kind: str
@@ -483,7 +485,7 @@ class ImpulseResponseResult:
     loopback: LoopbackResult | None = None
     #: The sweep was not played at the speed it was generated at (a DAW
     #: sample-rate mismatch or time-stretch). Only checked, and only set, when
-    #: the direct sound could not be identified with high confidence.
+    #: direct-sound detection confidence is low.
     playback_speed: PlaybackSpeed | None = None
 
     @property

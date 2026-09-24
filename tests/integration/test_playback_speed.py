@@ -149,3 +149,41 @@ def test_finding_is_translated(sweep_signal: np.ndarray) -> None:
         activate("en")
     assert "采样率" in finding.message
     assert finding.params["played_rate_hz"] == 44100
+
+
+def test_sample_rate_mismatch_without_a_rate_is_not_called_a_stretch(
+    sweep_signal: np.ndarray,
+) -> None:
+    """A stored ``sample_rate_mismatch`` without ``played_rate_hz`` (allowed by
+    the schema) falls back to the generic finding instead of blaming
+    time-stretching."""
+    from dataclasses import replace
+
+    from roomscope.models.result import PlaybackSpeed
+
+    result = analyze(
+        AudioSignal(_played(sweep_signal, 44100), 44100), Reference.from_settings(SWEEP)
+    )
+    speed = PlaybackSpeed(speed_ratio=0.919, kind=KIND_SAMPLE_RATE, generated_rate_hz=48000)
+    edited = replace(
+        result, impulse_response=replace(result.impulse_response, playback_speed=speed)
+    )
+    ids = [f.message_id for f in interpret(edited)]
+    assert "measurement.playback_time_stretch" not in ids
+    assert "measurement.playback_sample_rate" not in ids
+    assert "measurement.direct_sound" in ids
+
+
+def test_failing_diagnosis_keeps_the_original_error(
+    sweep_signal: np.ndarray, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import roomscope.core.pipeline as pipeline
+
+    def broken(*_args: object) -> None:
+        raise ValueError("diagnosis failed")
+
+    monkeypatch.setattr(pipeline, "diagnose_playback_speed", broken)
+    recording = AudioSignal(_played(sweep_signal, 96000)[: 96000 * 3], 96000)
+    with pytest.raises(InvalidAudioError) as info:
+        analyze(recording, Reference.from_settings(SWEEP))
+    assert "However" not in str(info.value)

@@ -21,6 +21,7 @@ from roomscope.interpretation.interpreter import Finding, Severity, finding
 from roomscope.models.comparison import T_JND_PERCENT, ComparisonResult, MetricDelta
 from roomscope.models.result import (
     KIND_SAMPLE_RATE,
+    KIND_TIME_STRETCH,
     AnalysisResult,
     Reflection,
     ResonanceCandidate,
@@ -360,7 +361,7 @@ class ProfileBase:
                     played_rate_hz=speed.played_rate_hz,
                 )
             )
-        elif speed is not None:
+        elif speed is not None and speed.kind == KIND_TIME_STRETCH:
             findings.append(
                 finding(
                     "measurement",
