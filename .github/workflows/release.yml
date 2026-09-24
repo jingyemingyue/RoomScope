@@ -188,15 +188,17 @@ jobs:
         shell: bash
         run: |
           plutil -lint packaging/macos/entitlements.plist packaging/macos/entitlements-adhoc.plist
-          ! grep -q get-task-allow packaging/macos/entitlements.plist
+          # Notarization rejects get-task-allow (an "if", since errexit ignores "! cmd").
+          if grep -q get-task-allow packaging/macos/entitlements.plist; then exit 1; fi
           dir="$RUNNER_TEMP/rehearsal"
           mkdir -p "$dir"
           ditto dist/RoomScope.app "$dir/RoomScope.app"
           sh packaging/macos/sign_app.sh "$dir/RoomScope.app" --runtime
           codesign -dvv "$dir/RoomScope.app" > "$dir/codesign.txt" 2>&1
+          codesign -d --entitlements - --xml "$dir/RoomScope.app" > "$dir/entitlements.xml"
           cat "$dir/codesign.txt"
           grep -q 'flags=.*runtime' "$dir/codesign.txt"
-          codesign -d --entitlements - --xml "$dir/RoomScope.app" | grep -q com.apple.security.device.audio-input
+          grep -q com.apple.security.device.audio-input "$dir/entitlements.xml"
           python scripts/smoke_bundle.py --roomscope "$dir/RoomScope.app/Contents/MacOS/RoomScope" \
             --out "$dir/smoke" --expect-commit "$GITHUB_SHA"
       - name: Windows zip

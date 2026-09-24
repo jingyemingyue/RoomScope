@@ -39,6 +39,16 @@ WizardStyle=modern
 LicenseFile=..\..\LICENSE
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName} {#MyAppVersion}
+; Authenticode, once the maintainer has a code-signing certificate (not yet):
+; sign dist\roomscope\*.exe first, then compile with
+;   iscc "--signtool=signtool=signtool.exe sign /fd sha256 /tr <timestamp URL> /td sha256 $f"
+;        /DSignToolName=signtool ...
+; so Inno Setup signs the installer and its uninstaller. Without the define
+; nothing changes (docs/RELEASE_PLAN.md §3b).
+#ifdef SignToolName
+SignTool={#SignToolName}
+SignedUninstaller=yes
+#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

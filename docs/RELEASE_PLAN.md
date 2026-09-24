@@ -186,7 +186,12 @@ stapling, Gatekeeper acceptance, and the microphone permission prompt.
 
 Windows: the installer and executables are not Authenticode-signed; SmartScreen
 warns on first run (user guide). This is a known limitation of the 0.x
-pre-releases, not an error; signing is the same §5 decision.
+pre-releases, not an error; signing is the same §5 decision. When a
+certificate exists: sign `dist\roomscope\*.exe` with `signtool sign /fd sha256
+/tr <timestamp URL> /td sha256`, then compile the installer with
+`iscc "--signtool=signtool=signtool.exe sign … $f" /DSignToolName=signtool`
+so that Inno Setup signs the installer and its uninstaller ([W1][W2][W3];
+`packaging/windows/roomscope.iss`). Not run yet.
 
 Sources for §3b (accessed 2026-09-24):
 
@@ -203,6 +208,9 @@ Sources for §3b (accessed 2026-09-24):
 * [A11] Apple, TN3147 "Migrating to the latest notarization tool": https://developer.apple.com/documentation/technotes/tn3147-migrating-to-the-latest-notarization-tool
 * [A12] Apple, "Customizing the notarization workflow": https://developer.apple.com/documentation/security/customizing-the-notarization-workflow
 * [A13] Apple Developer Forums (DTS), "Testing a Notarised Product": https://developer.apple.com/forums/thread/130560
+* [W1] Inno Setup Help, `[Setup]: SignTool`: https://jrsoftware.org/ishelp/topic_setup_signtool.htm (and `SignedUninstaller`: https://jrsoftware.org/ishelp/topic_setup_signeduninstaller.htm)
+* [W2] Inno Setup Help, Compiler Command-Line Parameters (`--signtool=<name>=<command>`): https://jrsoftware.org/ishelp/topic_compilercmdline.htm
+* [W3] Microsoft Learn, SignTool.exe: https://learn.microsoft.com/en-us/dotnet/framework/tools/signtool-exe
 
 ## 4. Gates that apply to every release
 

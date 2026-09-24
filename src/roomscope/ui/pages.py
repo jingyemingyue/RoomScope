@@ -556,8 +556,10 @@ class StandalonePage(QWidget):
         self.host_api = QComboBox()
         self.host_api.setToolTip(
             _(
-                "Input and output must use one host API (PortAudio cannot combine two). "
-                "The recommended one for this system is preselected."
+                "How RoomScope talks to your interface: WASAPI, ASIO, WDM-KS, DirectSound or "
+                "MME on Windows, Core Audio on macOS, ALSA or JACK on Linux. Input and output "
+                'must use the same one. "System default" uses the devices your system '
+                "uses; a star marks the entry recommended for each device."
             )
         )
         self.host_api.currentIndexChanged.connect(self._fill_device_lists)
@@ -583,7 +585,7 @@ class StandalonePage(QWidget):
         self.input_device.currentIndexChanged.connect(self._update_device_rate)
         self.output_device.currentIndexChanged.connect(self._update_device_rate)
         self.sample_rate.currentIndexChanged.connect(self._update_device_rate)
-        form.addRow(_("Host API"), self.host_api)
+        form.addRow(_("Audio system (host API)"), self.host_api)
         form.addRow(_("Input device"), self.input_device)
         form.addRow(_("Output device"), self.output_device)
         form.addRow(self.refresh_button)

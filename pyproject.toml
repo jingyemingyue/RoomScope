@@ -189,6 +189,9 @@ module = [
   "_cffi_backend",
   "PySide6",
   "PySide6.*",
+  # Ships with PySide6_Essentials (the gui extra); the lint job installs dev only.
+  "shiboken6",
+  "shiboken6.*",
   "sounddevice",
   "sounddevice.*",
   "soundfile",

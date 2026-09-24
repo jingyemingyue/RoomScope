@@ -1557,11 +1557,9 @@ msgstr "音频设备检查器(&I)…"
 msgid "Open &Data Folder"
 msgstr "打开数据文件夹(&D)"
 
-msgid "Input and output must use one host API (PortAudio cannot combine two). The recommended one for this system is preselected."
-msgstr "输入和输出必须使用同一个主机 API（PortAudio 无法组合两个）。已预选本系统推荐的主机 API。"
+msgid "How RoomScope talks to your interface: WASAPI, ASIO, WDM-KS, DirectSound or MME on Windows, Core Audio on macOS, ALSA or JACK on Linux. Input and output must use the same one. \"System default\" uses the devices your system uses; a star marks the entry recommended for each device."
+msgstr "RoomScope 与声卡通信的方式：Windows 上为 WASAPI、ASIO、WDM-KS、DirectSound 或 MME，macOS 上为 Core Audio，Linux 上为 ALSA 或 JACK。输入和输出必须使用同一种。“系统默认”使用系统当前的设备；星号标出每个设备的推荐条目。"
 
-msgid "Host API"
-msgstr "主机 API"
 
 msgid "Advanced audio options (developer edition)"
 msgstr "高级音频选项（开发者版）"
@@ -1652,3 +1650,6 @@ msgstr "音频设备在本次测量中报告了丢失或延迟的缓冲区，录
 
 msgid "The recording has no background noise at all: its quiet part is exact digital silence, which a microphone never records. Check that you exported the microphone track, not the test-signal track, and that no gate or noise reduction is on the microphone track. The room figures are not reliable until then."
 msgstr "这段录音完全没有背景噪声：其安静部分是精确的数字静音，而话筒永远会录到一些噪声。请确认导出的是话筒音轨而不是测试信号音轨，并确认话筒音轨上没有门限或降噪处理。在此之前，房间相关数值都不可靠。"
+
+msgid "Audio system (host API)"
+msgstr "音频系统（主机 API）"

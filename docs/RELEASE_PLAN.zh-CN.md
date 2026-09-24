@@ -73,9 +73,9 @@
 
 没有证书时 CI 无法证明的内容：Developer ID 签名、共享 Team ID 下的库验证、安全时间戳、公证、staple、Gatekeeper 放行，以及话筒权限提示。
 
-Windows：安装程序和可执行文件没有 Authenticode 签名，首次运行时 SmartScreen 会警告（见用户指南）。这是 0.x 预发布版本的已知限制，不是错误；是否签名属于同一个 §5 决定。
+Windows：安装程序和可执行文件没有 Authenticode 签名，首次运行时 SmartScreen 会警告（见用户指南）。这是 0.x 预发布版本的已知限制，不是错误；是否签名属于同一个 §5 决定。有证书后：先用 `signtool sign /fd sha256 /tr <时间戳 URL> /td sha256` 签署 `dist\roomscope\*.exe`，再用 `iscc "--signtool=signtool=signtool.exe sign … $f" /DSignToolName=signtool` 编译安装程序，让 Inno Setup 签署安装程序及其卸载程序（[W1][W2][W3]；`packaging/windows/roomscope.iss`）。尚未运行过。
 
-§3b 来源（访问于 2026-09-24）见英文版 [RELEASE_PLAN.md](RELEASE_PLAN.md) §3b 的 [A1]–[A13]。
+§3b 来源（访问于 2026-09-24）见英文版 [RELEASE_PLAN.md](RELEASE_PLAN.md) §3b 的 [A1]–[A13]、[W1]–[W3]。
 
 ## 4. 每次发布都适用的门禁
 
