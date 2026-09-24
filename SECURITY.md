@@ -2,8 +2,9 @@
 
 ## Supported versions
 
-RoomScope is pre-alpha (`0.1.0.dev1` on `main`). Only `main` is maintained.
-There is no numbered release yet.
+RoomScope is a pre-release (0.4.x, see [docs/RELEASE_PLAN.md](docs/RELEASE_PLAN.md)).
+Only `main` and the newest 0.4.x version are maintained; no version has been
+published outside the private repository yet.
 
 ## Reporting a vulnerability
 
@@ -21,6 +22,20 @@ analysis or usability problems are ordinary bugs. Please open a
 [measurement](.github/ISSUE_TEMPLATE/measurement.yml) or
 [bug](.github/ISSUE_TEMPLATE/bug.yml) issue and attach the files listed in
 [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Files from other people
+
+Session folders, bundles, `comparison.json`, `project.json`, sweep sidecars
+and WAV files are treated as untrusted data. RoomScope never unpickles or
+evaluates them, caps JSON size and nesting, is meant to turn malformed content
+into a `RoomScopeError` rather than a crash (`tests/robustness/`), and reads a
+session's `result.json` and
+`impulse_response.wav` only from inside that session's folder (a path in
+`session.json` that is absolute or leads out of the folder is refused). A
+`project.json` is different by design: it lists session folders, which may
+live anywhere, so opening someone else's project opens the session folders it
+names — look at it first. Apart from that, a way to make RoomScope read or
+write outside the files you opened is a security issue.
 
 ## Safety of Standalone Mode
 

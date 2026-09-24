@@ -5,14 +5,19 @@ into a second input. The deconvolved loopback must look like a pulse, not a
 room: a channel that decays like a microphone recording is refused and the
 analysis continues uncompensated.
 
-Compensation is regularised spectral division (Kirkeby et al. 1998; the same
-shape ``roomscope.core.sweep.design_spectral_inverse`` uses) inside the
-excitation band::
+Compensation is regularised spectral division (Kirkeby et al. 1998,
+MEASUREMENT_METHODOLOGY.md reference [22]; the same shape
+``roomscope.core.sweep.design_spectral_inverse`` uses) inside the excitation
+band::
 
     H_room = H_mic · conj(H_lb) / (|H_lb|² + ε(f))
 
-``H_lb`` is a short FIR cut around the loopback peak so that compensation
-removes the interface *response* and does not shift the acoustic time origin.
+``H_lb`` is a short FIR cut around the loopback peak. Its time origin is the
+peak: the samples before the peak are placed at negative time (the end of the
+FFT frame) and the frame is zero-padded well beyond ``len(h_mic)``, so the
+division is linear, not circular, and removes the interface *response*
+without moving the microphone's direct sound (±1 sample; a pure-delay
+interface leaves ``h_mic`` unchanged).
 The loopback peak is still the electrical time zero: ``path_delay_ms`` is the
 delay of the microphone's direct sound relative to it, and
 ``distance_upper_bound_m = c · path_delay`` is a bound (loudspeaker DSP
@@ -43,6 +48,17 @@ LOOPBACK_FIR_PRE_MS = 5.0
 LOOPBACK_FIR_POST_MS = 15.0
 #: 99 % of the energy after the peak must land inside this many milliseconds.
 MAX_ELECTRICAL_SETTLE_MS = 10.0
+#: The record must reach at least this far past the peak to be checked.
+MIN_SETTLE_RECORD_MS = 80.0
+#: The noise floor is estimated from the last quarter (at least 100 ms) of
+#: the valid deconvolved record, starting no earlier than 200 ms after the
+#: peak (median of the squared samples, divided by the median of χ²₁).
+NOISE_ESTIMATE_START_MS = 200.0
+NOISE_ESTIMATE_FRACTION = 0.25
+MIN_NOISE_ESTIMATE_MS = 100.0
+#: Frame padding for compensation, in FIR lengths on each side of ``h_mic``,
+#: so that the regularised inverse's tails never wrap into the response.
+COMPENSATION_PAD_FIR_LENGTHS = 4
 #: Late peak (5–80 ms) must sit at least this far below the direct-sound sample.
 MIN_LATE_PEAK_DROP_DB = 25.0
 LATE_PEAK_START_MS = 5.0
@@ -65,15 +81,70 @@ class LoopbackAssessment:
     settle_ms: float | None
     drop_db: float | None
     notes: tuple[str, ...] = ()
+    #: Index of the loopback peak inside ``fir``: the FIR's time origin.
+    fir_peak_index: int = 0
 
 
-def energy_settling_ms(h_full: FloatArray, peak_index: int, sample_rate: int) -> float | None:
-    """Time after the peak that holds 99 % of the remaining energy (ms)."""
-    tail = np.asarray(h_full[peak_index:], dtype=np.float64) ** 2
-    total = float(np.sum(tail))
+def _valid_stop(h_full: FloatArray, end_index: int | None) -> int:
+    if end_index is None:
+        return int(h_full.shape[0])
+    return max(0, min(int(end_index), int(h_full.shape[0])))
+
+
+def noise_power(
+    h_full: FloatArray,
+    peak_index: int,
+    sample_rate: int,
+    *,
+    end_index: int | None = None,
+) -> float:
+    """Noise power per sample of the deconvolved record, far after the peak.
+
+    Taken from the last ``NOISE_ESTIMATE_FRACTION`` (at least
+    ``MIN_NOISE_ESTIMATE_MS``) of ``[peak + NOISE_ESTIMATE_START_MS,
+    end_index)`` as the median of the squared samples divided by the median of
+    a χ²₁ variable (0.4549), i.e. the mean square of Gaussian noise.
+    ``end_index`` should be the end of the *valid* record
+    (``peak_index + located.valid_length_samples``): past it the linear
+    deconvolution only partly overlaps the recording and the noise fades,
+    which would bias the estimate low. 0.0 when the region is too short.
+    """
+    stop = _valid_stop(h_full, end_index)
+    first = peak_index + round(NOISE_ESTIMATE_START_MS * sample_rate / 1000.0)
+    minimum = round(MIN_NOISE_ESTIMATE_MS * sample_rate / 1000.0)
+    if stop - first < minimum:
+        return 0.0
+    length = max(minimum, round(NOISE_ESTIMATE_FRACTION * (stop - first)))
+    region = np.asarray(h_full[stop - length : stop], dtype=np.float64)
+    return float(np.median(region**2) / 0.454936423119572)
+
+
+def energy_settling_ms(
+    h_full: FloatArray,
+    peak_index: int,
+    sample_rate: int,
+    *,
+    end_index: int | None = None,
+) -> float | None:
+    """Time after the peak by which 99 % of the energy has arrived (ms).
+
+    The energy runs from the peak to the end of the valid record with the
+    noise power (:func:`noise_power`, same ``end_index``) subtracted from
+    every sample. A longer post-roll therefore adds noise that is taken out
+    again instead of pushing the 99 % point later (#12), while a room's decay
+    tail, however weak its first 80 ms, still counts in full. ``None`` when
+    the record ends less than ``MIN_SETTLE_RECORD_MS`` after the peak or holds
+    no energy above the noise.
+    """
+    stop = _valid_stop(h_full, end_index)
+    if stop - peak_index < round(MIN_SETTLE_RECORD_MS * sample_rate / 1000.0):
+        return None
+    tail = np.asarray(h_full[peak_index:stop], dtype=np.float64) ** 2
+    net = np.cumsum(tail - noise_power(h_full, peak_index, sample_rate, end_index=stop))
+    total = float(net[-1])
     if total <= 0.0:
         return None
-    idx = int(np.searchsorted(np.cumsum(tail), 0.99 * total))
+    idx = int(np.argmax(net >= 0.99 * total))
     return idx / sample_rate * 1000.0
 
 
@@ -90,17 +161,23 @@ def late_peak_drop_db(h_full: FloatArray, peak_index: int, sample_rate: int) -> 
     return 20.0 * math.log10(peak / max(late, 1e-300))
 
 
-def loopback_fir(h_full: FloatArray, peak_index: int, sample_rate: int) -> FloatArray:
-    """Short interface FIR around the loopback peak, copied out of ``h_full``."""
+def loopback_fir(h_full: FloatArray, peak_index: int, sample_rate: int) -> tuple[FloatArray, int]:
+    """Short interface FIR around the loopback peak, copied out of ``h_full``.
+
+    Returns ``(fir, fir_peak_index)``: ``fir[fir_peak_index]`` is the loopback
+    peak, i.e. the FIR's time origin. The samples before it (converter
+    pre-ringing) belong at negative time; :func:`compensate` places them there.
+    """
     start = max(0, peak_index - round(LOOPBACK_FIR_PRE_MS * sample_rate / 1000.0))
     stop = min(
         h_full.shape[0],
         peak_index + round(LOOPBACK_FIR_POST_MS * sample_rate / 1000.0) + 1,
     )
+    if stop - start < 16:
+        start = max(0, peak_index - 8)
+        stop = min(h_full.shape[0], peak_index + 8)
     fir = np.asarray(h_full[start:stop], dtype=np.float64)
-    if fir.shape[0] < 16:
-        return np.asarray(h_full[max(0, peak_index - 8) : peak_index + 8], dtype=np.float64)
-    return fir
+    return fir, int(peak_index - start)
 
 
 def assess_loopback(
@@ -141,7 +218,8 @@ def assess_loopback(
             drop_db=None,
             notes=tuple(notes),
         )
-    settle = energy_settling_ms(h_full, located.peak_index, sample_rate)
+    valid_end = located.peak_index + located.valid_length_samples
+    settle = energy_settling_ms(h_full, located.peak_index, sample_rate, end_index=valid_end)
     drop = late_peak_drop_db(h_full, located.peak_index, sample_rate)
     if settle is None or drop is None:
         return LoopbackAssessment(
@@ -170,7 +248,7 @@ def assess_loopback(
             drop_db=drop,
             notes=tuple(notes),
         )
-    fir = loopback_fir(h_full, located.peak_index, sample_rate)
+    fir, fir_peak = loopback_fir(h_full, located.peak_index, sample_rate)
     notes.append(
         f"loopback settled in {settle:.1f} ms (late peak {drop:.1f} dB down); "
         f"using a {fir.shape[0]}-sample interface FIR around the peak"
@@ -183,7 +261,24 @@ def assess_loopback(
         settle_ms=settle,
         drop_db=drop,
         notes=tuple(notes),
+        fir_peak_index=fir_peak,
     )
+
+
+def _two_sided_frame(fir: FloatArray, fir_peak_index: int, nfft: int) -> FloatArray:
+    """Place ``fir`` in an ``nfft`` frame with its peak at index 0.
+
+    ``fir[fir_peak_index:]`` is causal and starts the frame; the samples
+    before the peak wrap to the end of the frame, i.e. to negative time.
+    """
+    if not 0 <= fir_peak_index < fir.shape[0]:
+        raise ValueError("fir_peak_index must index into fir")
+    frame = np.zeros(nfft, dtype=np.float64)
+    causal = fir[fir_peak_index:]
+    frame[: causal.shape[0]] = causal
+    if fir_peak_index:
+        frame[nfft - fir_peak_index :] = fir[:fir_peak_index]
+    return frame
 
 
 def compensate(
@@ -191,11 +286,20 @@ def compensate(
     fir: FloatArray,
     sample_rate: int,
     excitation_band: ExcitationBand,
+    *,
+    fir_peak_index: int,
 ) -> FloatArray:
-    """Return ``h_mic`` divided by the interface FIR, regularised outside the band."""
-    nfft = int(sfft.next_fast_len(max(h_mic.shape[0], 2 * fir.shape[0]), real=True))
+    """Return ``h_mic`` divided by the interface FIR, regularised outside the band.
+
+    ``fir_peak_index`` is the FIR's time origin (see :func:`loopback_fir`):
+    dividing by a FIR whose peak is at its origin removes the interface
+    response without moving ``h_mic`` in time. The FFT frame is padded by
+    ``COMPENSATION_PAD_FIR_LENGTHS`` FIR lengths, so the division is linear.
+    """
+    pad = COMPENSATION_PAD_FIR_LENGTHS * fir.shape[0]
+    nfft = int(sfft.next_fast_len(h_mic.shape[0] + 2 * pad, real=True))
     spec_mic = sfft.rfft(h_mic, nfft)
-    spec_lb = sfft.rfft(fir, nfft)
+    spec_lb = sfft.rfft(_two_sided_frame(fir, fir_peak_index, nfft))
     freqs = np.fft.rfftfreq(nfft, 1.0 / sample_rate)
     lo = float(excitation_band.low_hz)
     hi = float(excitation_band.high_hz)

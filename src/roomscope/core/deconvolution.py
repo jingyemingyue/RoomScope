@@ -183,7 +183,14 @@ def find_sweep_passes(
     pass, outside ``excluded`` (the harmonic windows of the main pass) and at
     least ``PASS_PULSE_MARGIN_DB`` above the strongest content in the short
     window before it. Passes more than ``PASS_LEVEL_DB`` weaker are not found.
+
+    A reference shorter than two samples means there was no sweep (an
+    imported impulse response): there are no passes to find, and a
+    one-sample separation would make every loud sample a "pass" (quadratic
+    time on a long, loud file; #10).
     """
+    if reference_length < 2:
+        return (peak,)
     level = float(magnitude[peak])
     threshold = level * 10.0 ** (-PASS_LEVEL_DB / 20.0)
     separation = max(1, round(PASS_MIN_SEPARATION * reference_length))

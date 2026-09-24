@@ -36,11 +36,13 @@ def color_scheme() -> str:
         return forced
     try:
         from PySide6.QtCore import Qt
+        from PySide6.QtGui import QGuiApplication
         from PySide6.QtWidgets import QApplication
 
-        app = QApplication.instance()
-        if app is not None:
-            scheme = app.styleHints().colorScheme()
+        if QApplication.instance() is not None:
+            # styleHints() is static on QGuiApplication (typed stubs of
+            # PySide6 >= 6.9 see instance() as a QCoreApplication).
+            scheme = QGuiApplication.styleHints().colorScheme()
             if scheme == Qt.ColorScheme.Dark:
                 return "dark"
     except Exception:

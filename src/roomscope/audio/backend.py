@@ -15,10 +15,12 @@ from typing import Protocol
 import numpy as np
 
 from roomscope.errors import ConfigurationError
+from roomscope.i18n import N_
 from roomscope.models.audio import AudioSignal, FloatArray
 from roomscope.models.configuration import SUPPORTED_SAMPLE_RATES
 
-SAFETY_MESSAGE = (
+#: Shown before every Standalone measurement; front ends translate it with ``_()``.
+SAFETY_MESSAGE = N_(
     "Start with your monitor/interface output at a low level. RoomScope will play a "
     "sine sweep at a conservative digital level; raise the level gradually between "
     "measurements only if the recording is too quiet."
@@ -75,6 +77,70 @@ class AudioBackend(Protocol):
         progress: Callable[[float], None] | None = None,
         cancel: threading.Event | None = None,
     ) -> AudioSignal: ...
+
+
+@dataclass(frozen=True)
+class ChannelPlan:
+    """How Standalone Mode's hardware inputs map onto the analysed recording.
+
+    Two conventions meet here and must not be mixed: hardware channels of the
+    interface are **1-based** (what the user reads on the front panel and what
+    ``MeasurementSession.input_channel`` / ``loopback_channel`` store), columns
+    of the recorded signal are **0-based** (``AnalysisSettings.channel`` /
+    ``loopback_channel``).
+    """
+
+    #: 1-based hardware input channels to record, in recording-column order.
+    input_channels: tuple[int, ...]
+    #: 1-based hardware channel of the microphone that is analysed.
+    microphone_channel: int
+    #: 1-based hardware channel of the electrical loopback, or ``None``.
+    loopback_channel: int | None
+    #: 0-based recording column of the microphone (``AnalysisSettings.channel``).
+    analysis_channel: int
+    #: 0-based recording column of the loopback (``AnalysisSettings.loopback_channel``).
+    analysis_loopback_channel: int | None
+
+
+def plan_input_channels(
+    channels: Sequence[int], loopback_channel: int | None = None
+) -> ChannelPlan:
+    """Validate the requested inputs *before* anything is played.
+
+    ``channels`` are the 1-based hardware inputs to record (the first one that
+    is not the loopback is the analysed microphone); ``loopback_channel`` is
+    the 1-based input that carries the electrical return, recorded as an extra
+    column when it is not already listed.
+    """
+    requested = [int(ch) for ch in channels]
+    if not requested:
+        raise ConfigurationError("at least one input channel is required")
+    if any(ch < 1 for ch in requested):
+        raise ConfigurationError("input channels are 1-based and must be >= 1")
+    if len(set(requested)) != len(requested):
+        raise ConfigurationError("each input channel may be listed once")
+    if loopback_channel is not None:
+        loopback_channel = int(loopback_channel)
+        if loopback_channel < 1:
+            raise ConfigurationError("the loopback channel is 1-based and must be >= 1")
+        if loopback_channel not in requested:
+            requested.append(loopback_channel)
+    microphones = [ch for ch in requested if ch != loopback_channel]
+    if not microphones:
+        raise ConfigurationError(
+            f"input {loopback_channel} cannot be both the microphone and the loopback; "
+            "record the loopback on a different input"
+        )
+    microphone = microphones[0]
+    return ChannelPlan(
+        input_channels=tuple(requested),
+        microphone_channel=microphone,
+        loopback_channel=loopback_channel,
+        analysis_channel=requested.index(microphone),
+        analysis_loopback_channel=(
+            None if loopback_channel is None else requested.index(loopback_channel)
+        ),
+    )
 
 
 def scale_to_level(signal: FloatArray, level_dbfs: float) -> FloatArray:

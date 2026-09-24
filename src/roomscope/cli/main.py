@@ -12,11 +12,11 @@ import logging
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from roomscope import __version__
 from roomscope.cli.report import format_comparison_report, format_report
-from roomscope.errors import MeasurementCancelledError, RoomScopeError
+from roomscope.errors import ConfigurationError, MeasurementCancelledError, RoomScopeError
 from roomscope.i18n import _, activate
 from roomscope.interpretation import available_profiles
 from roomscope.logging_config import configure_logging
@@ -26,6 +26,9 @@ from roomscope.models.configuration import (
     AnalysisSettings,
     SweepSettings,
 )
+
+if TYPE_CHECKING:
+    from roomscope.audio.backend import ChannelPlan
 
 log = logging.getLogger("roomscope.cli")
 
@@ -474,7 +477,16 @@ def _run_analysis(
     sweep_settings: SweepSettings | None = None,
     mode: str = "universal_daw",
     out_dir: Path | None = None,
+    hardware: ChannelPlan | None = None,
+    output_channel: int | None = None,
 ) -> int:
+    """Analyse a recording and optionally save a session.
+
+    ``hardware`` is the Standalone channel plan; the session then records the
+    1-based interface channels. In Universal DAW Mode the DAW did the routing,
+    so the session leaves them empty and the analysed WAV column stays in
+    ``analysis_settings`` (0-based).
+    """
     from roomscope.core.pipeline import Reference, analyze
     from roomscope.interpretation import interpret
     from roomscope.io.recent import remember_session
@@ -507,8 +519,9 @@ def _run_analysis(
             analysis_settings=settings,
             sweep_path=str(reference_path) if reference_path else None,
             recording_path=str(recording_path),
-            input_channel=result.analysis_settings.get("channel_analysed"),
-            loopback_channel=settings.loopback_channel,
+            input_channel=None if hardware is None else hardware.microphone_channel,
+            output_channel=output_channel if hardware is not None else None,
+            loopback_channel=None if hardware is None else hardware.loopback_channel,
             recording_profile=profile,
         )
         session_path = save_measurement(
@@ -553,7 +566,12 @@ def cmd_devices(args: argparse.Namespace) -> int:
 
 
 def cmd_measure(args: argparse.Namespace) -> int:
-    from roomscope.audio.backend import SAFE_MAX_LEVEL_DBFS, SAFETY_MESSAGE, get_backend
+    from roomscope.audio.backend import (
+        SAFE_MAX_LEVEL_DBFS,
+        SAFETY_MESSAGE,
+        get_backend,
+        plan_input_channels,
+    )
     from roomscope.core.sweep import measurement_signal
     from roomscope.io.wav import write_sweep_file, write_wav
 
@@ -574,22 +592,17 @@ def cmd_measure(args: argparse.Namespace) -> int:
     if args.output_device is not None:
         backend.check_sample_rate(args.output_device, settings.sample_rate, kind="output")
     if args.input_channels:
-        channels = [
+        requested = [
             int(part.strip()) for part in str(args.input_channels).split(",") if part.strip()
         ]
     else:
-        channels = [int(args.input_channel)]
-    hardware_loopback = getattr(args, "measure_loopback_channel", None)
-    if hardware_loopback is not None and hardware_loopback not in channels:
-        channels.append(hardware_loopback)
-    analysis_loopback = None if hardware_loopback is None else channels.index(hardware_loopback)
-    # so _analysis_settings does not read a missing 0-based flag
-    args.loopback_channel = analysis_loopback
-    args.channel = (
-        0 if hardware_loopback is None else (0 if channels[0] != hardware_loopback else 1)
-    )
-    if args.channel >= len(channels):
-        args.channel = 0
+        requested = [int(args.input_channel)]
+    # Hardware inputs are 1-based, recording columns 0-based; validate the
+    # mapping before anything is played (#13).
+    plan = plan_input_channels(requested, getattr(args, "measure_loopback_channel", None))
+    channels = list(plan.input_channels)
+    args.loopback_channel = plan.analysis_loopback_channel
+    args.channel = plan.analysis_channel
     out_dir: Path = args.out
     out_dir.mkdir(parents=True, exist_ok=True)
     sweep_path, _sidecar = write_sweep_file(settings, out_dir / "sweep.wav")
@@ -635,6 +648,8 @@ def cmd_measure(args: argparse.Namespace) -> int:
         sweep_settings=settings,
         mode="standalone",
         out_dir=out_dir,
+        hardware=plan,
+        output_channel=int(args.output_channel),
     )
 
 
@@ -828,20 +843,33 @@ def cmd_project(args: argparse.Namespace) -> int:
         if not items:
             raise RoomScopeError(f"no sessions in {args.project}")
         loaded = [load_measurement(path) for _label, path in items]
+        # A position label is one microphone position; repeated takes there
+        # add sessions, not positions (#15). Sessions not assigned to a
+        # position are averaged but do not count as positions.
+        labelled = [label for label, _path in items if label]
+        n_mic = max(1, len(set(labelled)))
+        sources = int(args.sources)
+        if sources < 1:
+            raise ConfigurationError("--sources must be at least 1")
         averaged = average_decay(
             [item.result for item in loaded],
-            n_source_positions=args.sources,
-            n_microphone_positions=len(loaded),
+            n_source_positions=sources,
+            n_microphone_positions=n_mic,
+            n_combinations=max(1, min(len(labelled), sources * n_mic)),
             session_labels=[str(item.directory) for item in loaded],
         )
         if _use_json(args) or args.json:
             print(json.dumps(averaged.to_dict(), indent=1))
         else:
             print(
-                _("ISO 3382-2 class: {klass} ({sources} source × {mics} mic)").format(
+                _(
+                    "ISO 3382-2 class: {klass} ({sources} source × {mics} mic, "
+                    "{combos} combinations)"
+                ).format(
                     klass=averaged.iso_3382_2_class,
                     sources=averaged.n_source_positions,
                     mics=averaged.n_microphone_positions,
+                    combos=averaged.n_combinations,
                 )
             )
             print(

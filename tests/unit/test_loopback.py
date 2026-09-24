@@ -178,3 +178,141 @@ def test_path_delay_and_tape_bound(short_sweep: SweepSettings) -> None:
     assert any("exceeds the loopback path-delay bound" in n for n in result.placement.notes)
     if result.placement.source_height_m.validity is Validity.VALID:
         raise AssertionError("tape longer than the bound must not stay VALID")
+
+
+def _interface_fir(sr: int, delay_samples: int) -> np.ndarray:
+    """A linear-phase converter-like response: windowed-sinc low-pass at 0.4 fs
+    (31 taps, so it carries symmetric pre-ringing) plus a pure latency."""
+    taps = 31
+    n = np.arange(taps) - (taps - 1) / 2
+    lowpass = 0.8 * np.sinc(0.8 * n) * np.hanning(taps)
+    lowpass /= np.sum(lowpass)
+    fir = np.zeros(delay_samples + taps, dtype=np.float64)
+    fir[delay_samples:] = lowpass
+    return fir
+
+
+def test_compensation_keeps_the_direct_sound_in_place(short_sweep: SweepSettings) -> None:
+    """#12: dividing by the interface FIR must not move the acoustic time origin."""
+    sr = short_sweep.sample_rate
+    interface = _interface_fir(sr, delay_samples=37)
+    room = make_rir(sr, rt60_s=0.35, reflections=[(0.018, 0.3)], diffuse_level=0.01)
+    mic = synthetic_recording(short_sweep, np.asarray(fftconvolve(interface, room)), noise_rms=1e-6)
+    lb_ir = np.zeros(int(0.05 * sr), dtype=np.float64)
+    lb_ir[: interface.shape[0]] = interface
+    lb_raw = synthetic_recording(short_sweep, lb_ir, noise_rms=1e-7)
+    loopback = AudioSignal(_pad_to(lb_raw.samples, mic.n_samples), sr)
+    reference = Reference.from_settings(short_sweep)
+
+    plain = analyze(mic, reference)
+    fixed = analyze(mic, reference, loopback=loopback)
+    assert fixed.impulse_response.loopback is not None
+    assert fixed.impulse_response.loopback.compensation_applied is True
+    one_sample = 1.0 / sr + 1e-12
+    for field in ("sweep_start_in_recording_s", "first_sweep_start_in_recording_s"):
+        before = getattr(plain.impulse_response, field)
+        after = getattr(fixed.impulse_response, field)
+        assert abs(after - before) <= one_sample, (field, before, after)
+    # The reflection keeps its delay relative to the direct sound as well.
+    strongest = max(fixed.reflections.reflections, key=lambda r: r.relative_db)
+    assert strongest.delay_ms == pytest.approx(18.0, abs=0.2)
+
+
+def test_compensate_with_a_pure_delay_leaves_the_response_in_place(
+    short_sweep: SweepSettings,
+) -> None:
+    """A FIR that is only a delay (peak at its origin) must not shift ``h_mic``."""
+    from roomscope.core.loopback import compensate, loopback_fir
+    from roomscope.models.result import ExcitationBand
+
+    sr = short_sweep.sample_rate
+    room = make_rir(sr, rt60_s=0.3, reflections=[(0.012, 0.4)], diffuse_level=0.01)
+    rec = synthetic_recording(short_sweep, room, noise_rms=1e-7)
+    h = deconvolve(rec.samples, inverse_filter(short_sweep))
+    peak = int(np.argmax(np.abs(h)))
+    # A loopback that is the ideal pulse, 240 samples of pre-roll kept in the FIR.
+    pulse = deconvolve(measurement_signal(short_sweep), inverse_filter(short_sweep))
+    fir, origin = loopback_fir(pulse, int(np.argmax(np.abs(pulse))), sr)
+    assert origin == round(5.0 * sr / 1000.0)
+    band = ExcitationBand(
+        low_hz=short_sweep.start_hz, high_hz=short_sweep.end_hz, source="settings"
+    )
+    out = compensate(h, fir, sr, band, fir_peak_index=origin)
+    assert out.shape == h.shape
+    assert int(np.argmax(np.abs(out))) == peak
+    # Nothing wraps around: the start of the frame stays more than 80 dB down.
+    head = slice(0, peak - round(0.5 * sr))
+    assert np.max(np.abs(out[head])) < 1e-4 * np.max(np.abs(out))
+    # The old behaviour (origin at the start of the FIR) advanced the response
+    # by the FIR pre-roll; keep that failure mode visible.
+    shifted = compensate(h, fir, sr, band, fir_peak_index=0)
+    assert int(np.argmax(np.abs(shifted))) == peak - origin
+
+
+def test_settling_time_does_not_depend_on_recording_length() -> None:
+    """#12: a legitimate loopback with a modest noise floor is accepted whatever
+    the post-roll; the noise is taken out of the energy before the 99 % point
+    is found, and it is estimated inside the valid record only."""
+    results = {}
+    for post in (1.5, 8.0):
+        sweep = SweepSettings(
+            sample_rate=48000,
+            duration_s=2.0,
+            pre_silence_s=1.0,
+            post_silence_s=post,
+            level_dbfs=-12.0,
+        )
+        clean = measurement_signal(sweep)
+        rec = clean + np.random.default_rng(1).normal(0.0, 0.02, clean.shape[0])
+        h = deconvolve(rec, inverse_filter(sweep))
+        located = _locate(h, rec.shape[0], sweep)
+        end = located.peak_index + located.valid_length_samples
+        settle = energy_settling_ms(h, located.peak_index, sweep.sample_rate, end_index=end)
+        assessment = assess_loopback(located, h, sweep.sample_rate, clipped=False)
+        assert assessment.accepted, (post, assessment.reason)
+        assert settle is not None
+        assert assessment.settle_ms == settle
+        results[post] = settle
+    assert max(results.values()) <= 1.0
+    assert abs(results[1.5] - results[8.0]) <= 0.5
+
+
+@pytest.mark.parametrize(("rt60_s", "diffuse"), [(1.5, 0.002), (4.0, 0.001)])
+def test_a_reverberant_near_field_microphone_is_not_taken_for_a_cable(
+    rt60_s: float, diffuse: float
+) -> None:
+    """A close microphone in a live room has a weak first 80 ms but a long,
+    energetic tail; the whole valid tail is weighed, so it is refused as in
+    0.4.0 (review of #12)."""
+    sweep = SweepSettings(
+        sample_rate=48000, duration_s=2.0, pre_silence_s=0.5, post_silence_s=3.0, level_dbfs=-12.0
+    )
+    ir = make_rir(48000, rt60_s=rt60_s, diffuse_level=diffuse, length_s=3.0, seed=3)
+    rec = synthetic_recording(sweep, ir, noise_rms=1e-6, seed=9)
+    h = deconvolve(rec.samples, inverse_filter(sweep))
+    located = _locate(h, rec.n_samples, sweep)
+    assessment = assess_loopback(located, h, sweep.sample_rate, clipped=False)
+    assert assessment.accepted is False
+    assert assessment.settle_ms is not None and assessment.settle_ms > MAX_ELECTRICAL_SETTLE_MS
+    assert assessment.reason is not None and "room" in assessment.reason
+
+
+def test_noise_is_estimated_inside_the_valid_record() -> None:
+    """Past the valid record the linear deconvolution fades out; including it
+    would bias the noise estimate low (review of #12)."""
+    from roomscope.core.loopback import noise_power
+
+    sweep = SweepSettings(
+        sample_rate=48000, duration_s=2.0, pre_silence_s=1.0, post_silence_s=1.5, level_dbfs=-12.0
+    )
+    clean = measurement_signal(sweep)
+    rec = clean + np.random.default_rng(2).normal(0.0, 0.02, clean.shape[0])
+    h = deconvolve(rec, inverse_filter(sweep))
+    located = _locate(h, rec.shape[0], sweep)
+    end = located.peak_index + located.valid_length_samples
+    inside = noise_power(h, located.peak_index, sweep.sample_rate, end_index=end)
+    everything = noise_power(h, located.peak_index, sweep.sample_rate)
+    # The mean square of the valid region just before its end is the truth here.
+    truth = float(np.mean(h[end - 24000 : end] ** 2))
+    assert inside == pytest.approx(truth, rel=0.1)
+    assert everything < 0.5 * truth

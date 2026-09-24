@@ -8,6 +8,7 @@ import sys
 
 def run_app(argv: list[str] | None = None, *, smoke: bool = False) -> int:
     from PySide6.QtCore import Qt
+    from PySide6.QtGui import QGuiApplication
     from PySide6.QtWidgets import QApplication
 
     from roomscope.i18n import activate
@@ -21,7 +22,7 @@ def run_app(argv: list[str] | None = None, *, smoke: bool = False) -> int:
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
     app = QApplication.instance() or QApplication(argv if argv is not None else sys.argv)
-    app.setDesktopFileName("roomscope")
+    QGuiApplication.setDesktopFileName("roomscope")
     apply_application_chrome(app)
     window = MainWindow()
     window.show()

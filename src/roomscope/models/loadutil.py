@@ -46,3 +46,28 @@ def settings_payload(data: Mapping[str, Any], known: set[str], *, kind: str) -> 
     if not isinstance(data, Mapping):
         raise ConfigurationError(f"{kind} must be a JSON object")
     return drop_unknown(data, known, kind=kind)
+
+
+def record_payload(data: object, known: set[str], *, kind: str) -> dict[str, Any]:
+    """:func:`drop_unknown` for a nested record read from a file.
+
+    Raises :class:`SessionError` when ``data`` is not a JSON object.
+    """
+    if not isinstance(data, Mapping):
+        raise SessionError(f"{kind} must be a JSON object")
+    return drop_unknown(data, known, kind=kind)
+
+
+def build_record[T](cls: type[T], payload: Mapping[str, Any], *, kind: str) -> T:
+    """``cls(**payload)`` for data read from a file.
+
+    A missing required field (``TypeError``) or a value the class rejects
+    (``ValueError``) becomes :class:`SessionError`, so an untrusted file never
+    surfaces a bare Python exception (#11).
+    """
+    try:
+        return cls(**payload)
+    except SessionError:
+        raise
+    except (TypeError, ValueError) as exc:
+        raise SessionError(f"invalid {kind} in file: {exc}") from exc

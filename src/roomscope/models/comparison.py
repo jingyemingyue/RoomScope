@@ -12,7 +12,12 @@ from typing import Any
 import numpy as np
 
 from roomscope.errors import SessionError
-from roomscope.models.loadutil import drop_unknown, read_schema_version
+from roomscope.models.loadutil import (
+    build_record,
+    drop_unknown,
+    read_schema_version,
+    record_payload,
+)
 from roomscope.models.result import FloatArray, Validity
 from roomscope.version import __version__
 
@@ -65,8 +70,8 @@ class CompareSettings:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CompareSettings:
-        payload = drop_unknown(data, {f.name for f in fields(cls)}, kind="compare settings")
-        return cls(**payload)
+        payload = record_payload(data, {f.name for f in fields(cls)}, kind="compare settings")
+        return build_record(cls, payload, kind="compare settings")
 
 
 @dataclass(frozen=True)
@@ -101,13 +106,13 @@ class MetricDelta:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MetricDelta:
-        payload = drop_unknown(data, {f.name for f in fields(cls)}, kind="metric delta")
+        payload = record_payload(data, {f.name for f in fields(cls)}, kind="metric delta")
         validity = payload.get("validity", Validity.NOT_COMPARABLE)
         try:
             payload["validity"] = Validity(str(validity))
         except ValueError as exc:
             raise SessionError(f"unknown comparison validity {validity!r}") from exc
-        return cls(**payload)
+        return build_record(cls, payload, kind="metric delta")
 
 
 @dataclass(frozen=True)
@@ -135,8 +140,8 @@ class ReflectionMatch:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ReflectionMatch:
-        payload = drop_unknown(data, {f.name for f in fields(cls)}, kind="reflection match")
-        return cls(**payload)
+        payload = record_payload(data, {f.name for f in fields(cls)}, kind="reflection match")
+        return build_record(cls, payload, kind="reflection match")
 
 
 @dataclass(frozen=True)
@@ -160,8 +165,8 @@ class ResonanceMatch:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ResonanceMatch:
-        payload = drop_unknown(data, {f.name for f in fields(cls)}, kind="resonance match")
-        return cls(**payload)
+        payload = record_payload(data, {f.name for f in fields(cls)}, kind="resonance match")
+        return build_record(cls, payload, kind="resonance match")
 
 
 @dataclass(frozen=True)
@@ -187,17 +192,22 @@ class FrequencyResponseDelta:
     def from_dict(cls, data: dict[str, Any] | None) -> FrequencyResponseDelta | None:
         if data is None:
             return None
-        payload = drop_unknown(data, {f.name for f in fields(cls)}, kind="frequency-response delta")
+        payload = record_payload(
+            data, {f.name for f in fields(cls)}, kind="frequency-response delta"
+        )
         freq = payload.get("frequencies_hz") or []
         diff = payload.get("difference_db") or []
         mad = payload.get("band_mad_db") or ()
-        return cls(
-            frequencies_hz=np.asarray(freq, dtype=np.float64),
-            difference_db=np.asarray(diff, dtype=np.float64),
-            band_mad_db=tuple((str(a), float(b)) for a, b in mad),
-            smoothing_fraction=int(payload.get("smoothing_fraction", 0)),
-            reference=str(payload.get("reference", "")),
-        )
+        try:
+            return cls(
+                frequencies_hz=np.asarray(freq, dtype=np.float64),
+                difference_db=np.asarray(diff, dtype=np.float64),
+                band_mad_db=tuple((str(a), float(b)) for a, b in mad),
+                smoothing_fraction=int(payload.get("smoothing_fraction", 0)),
+                reference=str(payload.get("reference", "")),
+            )
+        except (TypeError, ValueError) as exc:
+            raise SessionError(f"invalid frequency-response delta in file: {exc}") from exc
 
 
 @dataclass(frozen=True)
@@ -251,6 +261,13 @@ class ComparisonResult:
             raise SessionError("comparison data must be a JSON object")
         version = read_schema_version(data, COMPARISON_SCHEMA_VERSION, "comparison")
         payload = drop_unknown(data, {f.name for f in fields(cls)}, kind="comparison")
+        try:
+            return cls._from_payload(payload, version)
+        except (TypeError, ValueError, IndexError, KeyError) as exc:
+            raise SessionError(f"invalid comparison file: {exc}") from exc
+
+    @classmethod
+    def _from_payload(cls, payload: dict[str, Any], version: int) -> ComparisonResult:
         common = payload.get("common_band")
         common_band = None if common is None else (float(common[0]), float(common[1]))
         notes = payload.get("notes") or ()

@@ -1,8 +1,16 @@
 """gettext setup, locale selection and ``_()``.
 
 Catalogs live in ``src/roomscope/locale/<lang>/LC_MESSAGES/roomscope.po``.
-``.mo`` files are produced by the Hatch build hook and are not committed.
-English is the source language and needs no catalog.
+``.mo`` files are compiled by the Hatch build hook into the wheel only; they
+are not committed and RoomScope never writes one at run time (an installed
+package tree or a frozen bundle may be read-only, and a write there would be
+an untracked side effect). English is the source language and needs no
+catalog.
+
+Loading: a ``.mo`` is used when it was compiled from the ``.po`` next to it
+(the compiler records the ``.po``'s SHA-256 in the ``.mo`` header); otherwise
+the ``.po`` is parsed in memory. A ``.mo`` without a ``.po`` beside it is used
+as is.
 
 Selection order (ARCHITECTURE_V1.md §5.6): ``--lang``, ``settings.language``,
 ``ROOMSCOPE_LANG``, the system locale; English when nothing matches.
@@ -11,8 +19,10 @@ Selection order (ARCHITECTURE_V1.md §5.6): ``--lang``, ``settings.language``,
 from __future__ import annotations
 
 import gettext
+import hashlib
 import locale as py_locale
 import os
+import struct
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +31,10 @@ ENV_LANG = "ROOMSCOPE_LANG"
 DEFAULT_LANG = "en"
 
 _LOCALE_DIR = Path(__file__).resolve().parent / "locale"
+#: ``.mo`` header field that names the SHA-256 of the ``.po`` it was compiled from.
+SOURCE_HASH_HEADER = "X-RoomScope-Source-SHA256"
+#: gettext's separator between a message context and its msgid.
+_CONTEXT_SEPARATOR = "\x04"
 _current = DEFAULT_LANG
 _translation: gettext.NullTranslations = gettext.NullTranslations()
 
@@ -101,6 +115,26 @@ def _(message: str) -> str:
     return _translation.gettext(message)
 
 
+def N_(message: str) -> str:  # noqa: N802 - the gettext convention for a deferred marker
+    """Mark ``message`` for extraction without translating it now.
+
+    Used for module-level constants that are translated where they are shown
+    (``_(SAFETY_MESSAGE)``), so extractors and the catalog-completeness test
+    still see the literal.
+    """
+    return message
+
+
+def pgettext(context: str, message: str) -> str:
+    """Translate a short ``message`` whose meaning depends on ``context``.
+
+    Single words that are inserted into a sentence ("long", "tail") need a
+    context so that the same English word used elsewhere can be translated
+    differently.
+    """
+    return _translation.pgettext(context, message)
+
+
 def ngettext(singular: str, plural: str, n: int) -> str:
     return _translation.ngettext(singular, plural, n)
 
@@ -111,16 +145,23 @@ def format_message(template: str, **params: Any) -> str:
 
 
 def parse_po(path: Path) -> dict[str, str]:
-    """Parse a gettext ``.po`` file into msgid → msgstr (empty msgstr skipped)."""
+    """Parse a gettext ``.po`` file into msgid → msgstr (empty msgstr skipped).
+
+    An entry with a ``msgctxt`` is keyed ``"<context>\\x04<msgid>"``, the
+    form :meth:`gettext.GNUTranslations.pgettext` looks up.
+    """
     catalog: dict[str, str] = {}
+    msgctxt = ""
     msgid = ""
     msgstr = ""
     collecting: str | None = None
 
     def _commit() -> None:
-        nonlocal msgid, msgstr
+        nonlocal msgctxt, msgid, msgstr
         if msgid and msgstr:
-            catalog[msgid] = msgstr
+            key = f"{msgctxt}{_CONTEXT_SEPARATOR}{msgid}" if msgctxt else msgid
+            catalog[key] = msgstr
+        msgctxt = ""
         msgid = ""
         msgstr = ""
 
@@ -128,8 +169,14 @@ def parse_po(path: Path) -> dict[str, str]:
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
-        if line.startswith("msgid "):
+        if line.startswith("msgctxt "):
             _commit()
+            collecting = "ctxt"
+            msgctxt = _unquote(line[8:])
+            continue
+        if line.startswith("msgid "):
+            if collecting != "ctxt":
+                _commit()
             collecting = "id"
             msgid = _unquote(line[6:])
             msgstr = ""
@@ -138,7 +185,9 @@ def parse_po(path: Path) -> dict[str, str]:
             collecting = "str"
             msgstr = _unquote(line[7:])
             continue
-        if line.startswith('"') and collecting == "id":
+        if line.startswith('"') and collecting == "ctxt":
+            msgctxt += _unquote(line)
+        elif line.startswith('"') and collecting == "id":
             msgid += _unquote(line)
         elif line.startswith('"') and collecting == "str":
             msgstr += _unquote(line)
@@ -147,10 +196,18 @@ def parse_po(path: Path) -> dict[str, str]:
     return catalog
 
 
-def write_mo(catalog: dict[str, str], path: Path) -> None:
+def source_hash(po: Path) -> str:
+    """SHA-256 of a ``.po`` file's bytes, as recorded in a compiled ``.mo``."""
+    return hashlib.sha256(po.read_bytes()).hexdigest()
+
+
+def write_mo(catalog: dict[str, str], path: Path, *, source_sha256: str | None = None) -> None:
     """Write a GNU ``.mo`` file that :class:`gettext.GNUTranslations` can read."""
     # Header (required by gettext)
-    entries = {"": "Content-Type: text/plain; charset=UTF-8\n", **catalog}
+    header = "Content-Type: text/plain; charset=UTF-8\n"
+    if source_sha256:
+        header += f"{SOURCE_HASH_HEADER}: {source_sha256}\n"
+    entries = {"": header, **catalog}
     keys = sorted(entries)
     encoded = [(key.encode("utf-8"), entries[key].encode("utf-8")) for key in keys]
     key_start = 28 + 16 * len(encoded)
@@ -165,7 +222,6 @@ def write_mo(catalog: dict[str, str], path: Path) -> None:
     for _, value in encoded:
         value_offsets.append((len(value), offset))
         offset += len(value) + 1
-    import struct
 
     count = len(encoded)
     buf = bytearray()
@@ -182,16 +238,21 @@ def write_mo(catalog: dict[str, str], path: Path) -> None:
     path.write_bytes(bytes(buf))
 
 
-def compile_catalogs(root: Path | None = None) -> list[Path]:
-    """Compile every ``roomscope.po`` under ``root`` to ``roomscope.mo``."""
+def compile_catalogs(root: Path | None = None, out_dir: Path | None = None) -> list[Path]:
+    """Compile every ``<lang>/LC_MESSAGES/roomscope.po`` under ``root``.
+
+    The ``.mo`` files go to the same relative path under ``out_dir`` (next to
+    each ``.po`` when ``out_dir`` is omitted) and record the ``.po``'s SHA-256
+    so that a stale ``.mo`` is never preferred over an edited ``.po``.
+    """
     base = root or _LOCALE_DIR
     written: list[Path] = []
     if not base.is_dir():
         return written
-    for po in base.glob(f"*/LC_MESSAGES/{DOMAIN}.po"):
-        catalog = parse_po(po)
-        mo = po.with_suffix(".mo")
-        write_mo(catalog, mo)
+    for po in sorted(base.glob(f"*/LC_MESSAGES/{DOMAIN}.po")):
+        target_root = out_dir if out_dir is not None else base
+        mo = target_root / po.relative_to(base).with_suffix(".mo")
+        write_mo(parse_po(po), mo, source_sha256=source_hash(po))
         written.append(mo)
     return written
 
@@ -216,19 +277,24 @@ def _system_language() -> str:
 
 
 def _load_translation(lang: str) -> gettext.NullTranslations:
+    """Load the catalog for ``lang`` without writing anything to disk."""
     if lang == DEFAULT_LANG:
         return gettext.NullTranslations()
     messages = _LOCALE_DIR / lang / "LC_MESSAGES"
     mo = messages / f"{DOMAIN}.mo"
     po = messages / f"{DOMAIN}.po"
-    if po.is_file() and (not mo.is_file() or po.stat().st_mtime > mo.stat().st_mtime):
-        try:
-            write_mo(parse_po(po), mo)
-        except OSError:
-            return _PoTranslations(parse_po(po))
     if mo.is_file():
-        with mo.open("rb") as handle:
-            return gettext.GNUTranslations(handle)
+        try:
+            with mo.open("rb") as handle:
+                compiled = gettext.GNUTranslations(handle)
+        except (OSError, struct.error, UnicodeDecodeError):
+            compiled = None
+        if compiled is not None:
+            if not po.is_file():
+                return compiled
+            recorded = compiled.info().get(SOURCE_HASH_HEADER.lower())
+            if recorded == source_hash(po):
+                return compiled
     if po.is_file():
         return _PoTranslations(parse_po(po))
     return gettext.NullTranslations()
@@ -246,7 +312,7 @@ def _unquote(fragment: str) -> str:
 
 
 class _PoTranslations(gettext.NullTranslations):
-    """In-memory catalog used when a ``.mo`` cannot be written."""
+    """In-memory catalog parsed from a ``.po`` (no compiled ``.mo`` matches it)."""
 
     def __init__(self, catalog: dict[str, str]) -> None:
         super().__init__()
@@ -257,3 +323,6 @@ class _PoTranslations(gettext.NullTranslations):
 
     def ngettext(self, msgid1: str, msgid2: str, n: int) -> str:
         return self.gettext(msgid1 if n == 1 else msgid2)
+
+    def pgettext(self, context: str, message: str) -> str:
+        return self._catalog.get(f"{context}{_CONTEXT_SEPARATOR}{message}", message)

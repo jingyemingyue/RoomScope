@@ -13,6 +13,15 @@ and once without.
 Library file names carry the Qt major version (``Qt6QuickTimeline.dll``,
 ``libQt6QuickTimeline.so.6``) while the module names do not
 (``QtQuickTimeline``), so names are compared with ``qt6`` folded to ``qt``.
+
+QML plugins do not carry the module name at all
+(``qml/QtQuick/VirtualKeyboard/Plugins/Pinyin/libqtvkbpinyinplugin.so``), so a
+frozen tree is also checked by directory: every file below a GPL-only QML
+module directory is an offender (and is removed by ``--strip``). RoomScope has
+no QML UI and PyInstaller collects QML only when something imports QtQml, so a
+frozen tree that still contains any file below a ``qml/`` directory fails the
+gate as well; ``--strip`` does not hide that, because it means the import
+graph changed.
 """
 
 from __future__ import annotations
@@ -34,6 +43,19 @@ GPL_ONLY_QT = (
     "QtNetworkAuth",
     "QtShaderTools",
 )
+
+# QML module directories of GPL-only Qt modules, relative to a ``qml/``
+# directory (``Qt/qml`` in a wheel, ``Contents/Resources/qml`` or
+# ``_internal/PySide6/Qt/qml`` in a frozen tree), and the module they belong to.
+GPL_ONLY_QML_DIRS: dict[tuple[str, ...], str] = {
+    ("QtCharts",): "QtCharts",
+    ("QtDataVisualization",): "QtDataVisualization",
+    ("QtGraphs",): "QtGraphs",
+    ("QtQuick3D",): "QtQuick3D",
+    ("QtQuick", "Timeline"): "QtQuickTimeline",
+    ("QtQuick", "VirtualKeyboard"): "QtVirtualKeyboard",
+    ("Qt", "labs", "lottieqt"): "QtLottie",
+}
 
 _BINARY_SUFFIXES = {".so", ".dll", ".dylib", ".pyd"}
 
@@ -77,6 +99,50 @@ def _framework_hit(path: Path) -> str | None:
     return None
 
 
+def _relative_parts(path: Path, root: Path) -> tuple[str, ...]:
+    try:
+        return path.relative_to(root).parts
+    except ValueError:
+        return path.parts
+
+
+def _qml_dir_hit(path: Path, root: Path) -> str | None:
+    """Return the GPL-only module whose QML directory contains ``path``."""
+    parts = [part.lower() for part in _relative_parts(path, root)]
+    for index, part in enumerate(parts):
+        if part != "qml":
+            continue
+        below = parts[index + 1 :]
+        for prefix, module in GPL_ONLY_QML_DIRS.items():
+            wanted = [item.lower() for item in prefix]
+            # ``below`` ends with the file name, so the file must sit inside
+            # the module directory, not be named like it.
+            if len(below) > len(wanted) and below[: len(wanted)] == wanted:
+                return module
+    return None
+
+
+def qml_trees(root: Path) -> dict[Path, int]:
+    """``qml/`` directories of a frozen tree that hold files, with their file counts.
+
+    RoomScope has no QML UI; PyInstaller collects a QML tree only when
+    something imports QtQml. Only the outermost ``qml`` directory of each
+    file is counted, so one collected tree is reported once.
+    """
+    trees: dict[Path, int] = {}
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        parts = _relative_parts(path, root)
+        # The file's own name is not a directory; only its parents count.
+        for index, part in enumerate(parts[:-1]):
+            if part.lower() == "qml":
+                tree = root.joinpath(*parts[: index + 1])
+                trees[tree] = trees.get(tree, 0) + 1
+                break
+    return trees
+
+
 def _under_essentials_qt_tree(path: Path, root: Path) -> bool:
     """Stock wheel content that Essentials ships and RoomScope never imports."""
     try:
@@ -106,6 +172,13 @@ def offending(root: Path, *, installed_essentials: bool = False) -> list[tuple[P
             # A macOS framework directory carries the module name; the files
             # inside it (the binary, Resources/…) may not.
             banned = _framework_hit(path)
+        if banned is None and not installed_essentials:
+            # QML plugins and their qmldir / .qml files are named after the
+            # plugin, not the module (``libqtvkbpinyinplugin.so``).
+            qml_module = _qml_dir_hit(path, root)
+            if qml_module is not None:
+                found.append((path, f"GPL-only Qt QML module present ({qml_module})"))
+                continue
         if banned is None:
             continue
         if installed_essentials and not _is_binary(path):
@@ -125,10 +198,14 @@ def strip(root: Path) -> list[Path]:
         if path.is_file():
             path.unlink()
             removed.append(path)
-    # Remove the now-empty framework / module directories left behind.
-    for directory in sorted((p for p in root.rglob("*") if p.is_dir()), reverse=True):
-        parts = directory.relative_to(root).parts
-        if any(_name_hits_gpl(part) for part in parts) and not any(directory.iterdir()):
+    # Remove the directories that stripping emptied (framework / QML module
+    # directories), walking up from each removed file; never touch ``root``.
+    resolved_root = root.resolve()
+    parents = {parent for path in removed for parent in path.parents}
+    for directory in sorted(parents, key=lambda item: len(item.parts), reverse=True):
+        if directory.resolve() == resolved_root or resolved_root not in directory.resolve().parents:
+            continue
+        if directory.is_dir() and not any(directory.iterdir()):
             directory.rmdir()
     return removed
 
@@ -153,6 +230,12 @@ def check(
         f"{reason}: {path}"
         for path, reason in offending(root, installed_essentials=installed_essentials)
     )
+    if not installed_essentials:
+        errors.extend(
+            f"QML tree present ({count} files; RoomScope has no QML UI, so something "
+            f"imported QtQml): {tree}"
+            for tree, count in qml_trees(root).items()
+        )
     if require_licenses:
         licenses = root / "THIRD_PARTY_LICENSES"
         if not licenses.is_dir():

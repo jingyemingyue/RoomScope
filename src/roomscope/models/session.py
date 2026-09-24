@@ -39,6 +39,12 @@ class MeasurementSession:
     microphone_type: str = ""
     microphone_calibration: str = "uncalibrated"
     audio_interface: str = ""
+    #: 1-based interface channels of a Standalone take (microphone input,
+    #: loudspeaker output; ``loopback_channel`` below is the electrical
+    #: return). ``None`` in Universal DAW Mode, where the DAW did the routing;
+    #: the analysed columns of the WAV are ``analysis_settings.channel`` /
+    #: ``analysis_settings.loopback_channel`` (0-based). Sessions written by
+    #: the CLI before v0.4.1 stored the 0-based column here instead (#13).
     input_channel: int | None = None
     output_channel: int | None = None
     loudspeaker: str = ""
@@ -58,6 +64,7 @@ class MeasurementSession:
     recording_profile: str = "generic"
     roomscope_version: str = field(default_factory=lambda: __version__)
     platform: str = field(default_factory=lambda: f"{py_platform.system()} {py_platform.release()}")
+    #: 1-based interface input of the electrical loopback (see ``input_channel``).
     loopback_channel: int | None = None
     schema_version: int = SESSION_SCHEMA_VERSION
 

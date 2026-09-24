@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from roomscope.audio.backend import DeviceInfo
+from roomscope.audio.backend import ChannelPlan, DeviceInfo, plan_input_channels
 from roomscope.audio.playrec import (
     DEFAULT_STANDALONE_LEVEL_DBFS,
     SAFE_MAX_LEVEL_DBFS,
@@ -32,7 +32,7 @@ from roomscope.audio.playrec import (
 from roomscope.core.pipeline import Reference
 from roomscope.core.sweep import measurement_signal
 from roomscope.errors import RoomScopeError
-from roomscope.i18n import _
+from roomscope.i18n import N_, _
 from roomscope.interpretation import available_profiles, interpret
 from roomscope.io.wav import load_reference, read_wav, write_sweep_file
 from roomscope.models.audio import AudioSignal
@@ -43,7 +43,7 @@ from roomscope.ui.browser import SessionBrowser
 from roomscope.ui.state import MeasurementState
 from roomscope.ui.workers import AnalysisWorker, MeasureWorker
 
-DAW_INSTRUCTIONS = (
+DAW_INSTRUCTIONS = N_(
     "1. Import the test-signal WAV on a new track of your DAW project.\n"
     "2. Route that track to the monitors (or the loudspeaker you want to test).\n"
     "3. Arm a second track with the measurement microphone and record while the test signal plays.\n"
@@ -452,6 +452,7 @@ class StandalonePage(QWidget):
         self._devices: list[DeviceInfo] = []
         self._measure_worker: MeasureWorker | None = None
         self._analysis_worker: AnalysisWorker | None = None
+        self._channel_plan: ChannelPlan | None = None
         layout = QVBoxLayout(self)
 
         self.demo_banner = QLabel(
@@ -666,17 +667,22 @@ class StandalonePage(QWidget):
         self.state.mode = "standalone"
         self.state.sweep_settings = settings
         self.state.reference = Reference.from_settings(settings)
-        channels = [int(self.input_channel.value())]
         hardware_loopback = int(self.loopback_channel.value())
-        analysis_loopback = None
-        if hardware_loopback > 0:
-            if hardware_loopback not in channels:
-                channels.append(hardware_loopback)
-            analysis_loopback = channels.index(hardware_loopback)
+        try:
+            # 1-based interface inputs → 0-based recording columns, checked
+            # before anything is played (#13).
+            plan = plan_input_channels(
+                [int(self.input_channel.value())],
+                hardware_loopback if hardware_loopback > 0 else None,
+            )
+        except RoomScopeError as exc:
+            QMessageBox.critical(self, _("Invalid settings"), str(exc))
+            return
+        self._channel_plan = plan
         place = self.placement.analysis_kwargs()
         self.state.analysis_settings = AnalysisSettings(
-            channel=0,
-            loopback_channel=analysis_loopback,
+            channel=plan.analysis_channel,
+            loopback_channel=plan.analysis_loopback_channel,
             placement_distance_m=place["placement_distance_m"],
             placement_mic_height_m=place["placement_mic_height_m"],
             placement_temperature_c=place["placement_temperature_c"],
@@ -688,7 +694,7 @@ class StandalonePage(QWidget):
             settings.sample_rate,
             input_device=self.input_device.currentData(),
             output_device=self.output_device.currentData(),
-            input_channels=channels,
+            input_channels=list(plan.input_channels),
             output_channel=int(self.output_channel.value()),
             level_dbfs=settings.level_dbfs,
             backend="fake" if self.demo_mode else None,
@@ -712,17 +718,16 @@ class StandalonePage(QWidget):
     def _on_recorded(self, recording: AudioSignal) -> None:
         self.state.recording = recording
         self.state.recording_path = None
+        plan = self._channel_plan
+        assert plan is not None
+        # The session stores the 1-based interface channels of the take.
         self.state.session = MeasurementSession(
             mode="standalone",
             room_name=self.room.text(),
             measurement_position=self.position.text(),
             microphone_name=self.mic.text(),
-            input_channel=int(self.input_channel.value()),
-            loopback_channel=(
-                None
-                if int(self.loopback_channel.value()) <= 0
-                else int(self.loopback_channel.value())
-            ),
+            input_channel=plan.microphone_channel,
+            loopback_channel=plan.loopback_channel,
             output_channel=int(self.output_channel.value()),
             sweep_settings=self.state.sweep_settings,
             analysis_settings=self.state.analysis_settings,

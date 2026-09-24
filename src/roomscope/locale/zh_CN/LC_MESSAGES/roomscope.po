@@ -2,7 +2,7 @@
 # English is the source language. Numbers stay ASCII; units are not translated.
 msgid ""
 msgstr ""
-"Project-Id-Version: roomscope 0.1.0.dev1\n"
+"Project-Id-Version: roomscope 0.4.1\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -288,19 +288,19 @@ msgid "Mains hum components at multiples of {base_hz:.0f} Hz were detected in th
 msgstr "在录音的安静段检测到 {base_hz:.0f} Hz 倍频的市电哼声。处理房间之前先检查接地、线材、调光器和电源。"
 
 msgid "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS (uncalibrated digital level, not dB SPL). Compare it with the level of the sources you record at the same gain."
-msgstr "{segment} 段的本底噪声为 {rms_dbfs:.1f} dBFS RMS（未校准的数字电平，不是 dB SPL）。请与同一增益下要录的声源电平比较。"
+msgstr "{segment}段的本底噪声为 {rms_dbfs:.1f} dBFS RMS（未校准的数字电平，不是 dB SPL）。请与同一增益下要录的声源电平比较。"
 
 msgid "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS (uncalibrated digital level, not dB SPL). Vocal tracks are often compressed, which brings this noise up; compare it with your chain's noise at the same gain."
-msgstr "{segment} 段的本底噪声为 {rms_dbfs:.1f} dBFS RMS（未校准的数字电平，不是 dB SPL）。人声轨道常被压缩，会把这层噪声抬上来；请与同一增益下链路噪声比较。"
+msgstr "{segment}段的本底噪声为 {rms_dbfs:.1f} dBFS RMS（未校准的数字电平，不是 dB SPL）。人声轨道常被压缩，会把这层噪声抬上来；请与同一增益下链路噪声比较。"
 
 msgid "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS (uncalibrated digital level, not dB SPL). Voice-over is usually quiet and close-miked, so this floor will be audible under the narration."
-msgstr "{segment} 段的本底噪声为 {rms_dbfs:.1f} dBFS RMS（未校准的数字电平，不是 dB SPL）。旁白通常轻声近麦，这层底噪会在叙述下面可闻。"
+msgstr "{segment}段的本底噪声为 {rms_dbfs:.1f} dBFS RMS（未校准的数字电平，不是 dB SPL）。旁白通常轻声近麦，这层底噪会在叙述下面可闻。"
 
 msgid "Potential low-frequency resonances around {listed}: these frequencies stand out in the response and ring longer than their surroundings. Measure one or two other positions to see whether they follow the room or the position."
-msgstr "可能的低频共振约在 {listed}：这些频率在响应中突出，并且比周围更长地响起。再测一两个位置，看它们跟房间走还是跟位置走。"
+msgstr "可能的低频共振约在 {listed}：这些频率在响应中突出，余振也比周围更长。再测一两个位置，看它们跟房间走还是跟位置走。"
 
 msgid "Potential low-frequency resonances around {listed}: these frequencies stand out in the response and ring longer than their surroundings, which colours voice and dialogue. Move the microphone or treat the affected corner, then measure again."
-msgstr "可能的低频共振约在 {listed}：这些频率在响应中突出并且比周围更长地响起，会给人声和对白染色。移动话筒或处理该角落，然后重测。"
+msgstr "可能的低频共振约在 {listed}：这些频率在响应中突出，余振也比周围更长，会给人声和对白染色。移动话筒或处理该角落，然后重测。"
 
 msgid "Tape measurements (optional)"
 msgstr "卷尺测量（可选）"
@@ -1167,8 +1167,8 @@ msgstr "{path} 中有 {n} 个位置"
 msgid "(unlisted)"
 msgstr "（未列出）"
 
-msgid "ISO 3382-2 class: {klass} ({sources} source × {mics} mic)"
-msgstr "ISO 3382-2 等级：{klass}（{sources} 个声源 × {mics} 个话筒）"
+msgid "ISO 3382-2 class: {klass} ({sources} source × {mics} mic, {combos} combinations)"
+msgstr "ISO 3382-2 等级：{klass}（{sources} 个声源 × {mics} 个话筒，{combos} 个组合）"
 
 msgid "RT60"
 msgstr "RT60"
@@ -1185,3 +1185,124 @@ msgstr "错误：{message}"
 msgid "interrupted"
 msgstr "已中断"
 
+# Words inserted into finding sentences. The finding keeps the English
+# word in its params; only the rendered sentence uses these (#14).
+msgctxt "decay length"
+msgid "short"
+msgstr "较短"
+
+msgctxt "decay length"
+msgid "noticeable"
+msgstr "偏长"
+
+msgctxt "decay length"
+msgid "long"
+msgstr "很长"
+
+msgctxt "RT60 change"
+msgid "shorter"
+msgstr "变短"
+
+msgctxt "RT60 change"
+msgid "longer"
+msgstr "变长"
+
+msgctxt "noise segment"
+msgid "pre-sweep"
+msgstr "扫描前"
+
+msgctxt "noise segment"
+msgid "tail"
+msgstr "录音末尾"
+
+msgctxt "noise segment"
+msgid "quiet"
+msgstr "安静"
+
+# Profile: acoustic_guitar
+msgid "A strong early reflection is present approximately {delay_ms:.0f} ms after the direct sound ({relative_db:.1f} dB). Acoustic guitar is vulnerable to comb filtering from early reflections; move the microphone or the instrument farther from the nearest hard surface, or treat it, then measure again."
+msgstr "直达声后约 {delay_ms:.0f} ms 有一条强早期反射（{relative_db:.1f} dB）。木吉他容易受早期反射造成的梳状滤波影响；把话筒或乐器移离最近的硬表面，或处理该表面，然后重测。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s). Acoustic guitar keeps its transients and body in a room like this."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s）。在这样的房间里，木吉他能保留瞬态和琴体的声音。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). Acoustic guitar keeps its transients and body in a room like this."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s，来自 {basis}）。在这样的房间里，木吉他能保留瞬态和琴体的声音。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s). For acoustic guitar, a decay this long clouds transients and adds boom; a position with absorption behind the performer helps."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s）。对木吉他来说，这么长的衰减会让瞬态发糊并带来轰鸣；换到演奏者身后有吸声的位置会有帮助。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). For acoustic guitar, a decay this long clouds transients and adds boom; a position with absorption behind the performer helps."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s，来自 {basis}）。对木吉他来说，这么长的衰减会让瞬态发糊并带来轰鸣；换到演奏者身后有吸声的位置会有帮助。"
+
+msgid "Low frequencies decay more slowly than the mid range ({low_max:.2f} s vs {mid_mean:.2f} s), which makes the guitar sound boomy at this position. Bass trapping or a different position helps."
+msgstr "低频比中频衰减更慢（{low_max:.2f} s 对 {mid_mean:.2f} s），在此位置会让吉他发轰。低音陷阱或换位置会有帮助。"
+
+# Profile: drums
+msgid "A very strong early reflection is present approximately {delay_ms:.0f} ms after the direct sound ({relative_db:.1f} dB). Drums mask most reflections, but a slap this strong will smear transients; move the kit or the overheads, or hang absorption at the reflection point."
+msgstr "直达声后约 {delay_ms:.0f} ms 有一条很强的早期反射（{relative_db:.1f} dB）。鼓声能掩盖大多数反射，但这么强的硬反射会把瞬态抹糊；移动鼓组或顶部话筒，或在反射点挂吸声材料。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s). The kit will stay tight in a room like this."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s）。在这样的房间里，鼓组会保持紧实。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). The kit will stay tight in a room like this."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s，来自 {basis}）。在这样的房间里，鼓组会保持紧实。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s). A room this live rings under the kit; for a tighter drum sound add absorption or move the kit."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s）。这么活的房间会在鼓组下面持续鸣响；想要更紧的鼓声，请增加吸声或移动鼓组。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). A room this live rings under the kit; for a tighter drum sound add absorption or move the kit."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s，来自 {basis}）。这么活的房间会在鼓组下面持续鸣响；想要更紧的鼓声，请增加吸声或移动鼓组。"
+
+msgid "Low frequencies decay more slowly than the mid range ({low_max:.2f} s vs {mid_mean:.2f} s), so the kick and low toms will boom at this position. Bass trapping or a different kit position helps."
+msgstr "低频比中频衰减更慢（{low_max:.2f} s 对 {mid_mean:.2f} s），在此位置底鼓和低音通鼓会发轰。低音陷阱或换一个鼓组位置会有帮助。"
+
+# Profile: room_mic
+msgid "A very strong early reflection is present approximately {delay_ms:.0f} ms after the direct sound ({relative_db:.1f} dB). For a room microphone this is a hard slap that will sit under everything; reposition the microphone or add absorption at the reflection point."
+msgstr "直达声后约 {delay_ms:.0f} ms 有一条很强的早期反射（{relative_db:.1f} dB）。对房间话筒来说，这是一条会垫在所有声音下面的硬反射；请重新摆放话筒，或在反射点增加吸声。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s). A room microphone in a room this dry records mostly direct sound; if you want ambience, the microphone needs to be farther from the source."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s）。在这么干的房间里，房间话筒录到的主要是直达声；如果想要氛围声，话筒需要离声源更远。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). A room microphone in a room this dry records mostly direct sound; if you want ambience, the microphone needs to be farther from the source."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s，来自 {basis}）。在这么干的房间里，房间话筒录到的主要是直达声；如果想要氛围声，话筒需要离声源更远。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s). For a room microphone this is a long room tone that may swamp the source; check whether the ambience stays usable, and consider absorption or a closer microphone position."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s）。对房间话筒来说，这是很长的房间声，可能会淹没声源；请确认氛围声是否仍然可用，并考虑吸声或更近的话筒位置。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). For a room microphone this is a long room tone that may swamp the source; check whether the ambience stays usable, and consider absorption or a closer microphone position."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s，来自 {basis}）。对房间话筒来说，这是很长的房间声，可能会淹没声源；请确认氛围声是否仍然可用，并考虑吸声或更近的话筒位置。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s). For a room microphone this is usable ambience; keep the microphone position and listen for how it sits under the source."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s）。对房间话筒来说，这是可用的氛围声；保持话筒位置，听听它垫在声源下面的效果。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). For a room microphone this is usable ambience; keep the microphone position and listen for how it sits under the source."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s，来自 {basis}）。对房间话筒来说，这是可用的氛围声；保持话筒位置，听听它垫在声源下面的效果。"
+
+msgid "Low frequencies decay more slowly than the mid range ({low_max:.2f} s vs {mid_mean:.2f} s), so the room sound will be bass-heavy at this position. Bass trapping or a different microphone position helps."
+msgstr "低频比中频衰减更慢（{low_max:.2f} s 对 {mid_mean:.2f} s），在此位置房间声会偏重低频。低音陷阱或换一个话筒位置会有帮助。"
+
+msgid "Background noise in the {segment} segment is {rms_dbfs:.1f} dBFS RMS (uncalibrated digital level, not dB SPL). A room microphone captures everything, so this floor is part of what you record; it is audible whenever the source pauses."
+msgstr "{segment}段的本底噪声为 {rms_dbfs:.1f} dBFS RMS（未校准的数字电平，不是 dB SPL）。房间话筒什么都会拾到，这层底噪就是录音的一部分；声源一停顿就能听到。"
+
+msgid "Potential low-frequency resonances around {listed}: these frequencies ring longer than their surroundings, so the room sound will be uneven there. Measure one or two other positions to see whether they follow the room."
+msgstr "可能的低频共振约在 {listed}：这些频率的余振比周围更长，房间声在这些频率上会不均匀。再测一两个位置，看它们是否跟房间走。"
+
+# Profile: choir
+msgid "An early reflection is present approximately {delay_ms:.0f} ms after the direct sound ({relative_db:.1f} dB). For an ensemble, early reflections smear diction; move the microphones away from the nearest hard surface or treat it, and measure again."
+msgstr "直达声后约 {delay_ms:.0f} ms 有一条早期反射（{relative_db:.1f} dB）。对合唱或小型组合来说，早期反射会让咬字发糊；把话筒移离最近的硬表面或处理该表面，然后重测。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s). An ensemble keeps its diction in a room like this."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s）。在这样的房间里，合唱或小型组合能保持清晰的咬字。"
+
+msgid "The broadband decay is short (estimated RT60 {rt:.2f} s from {basis}). An ensemble keeps its diction in a room like this."
+msgstr "宽带衰减较短（估计 RT60 {rt:.2f} s，来自 {basis}）。在这样的房间里，合唱或小型组合能保持清晰的咬字。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s). For a choir, decay this long gives ambience but blurs diction; absorption behind the ensemble or a different microphone position helps."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s）。对合唱来说，这么长的衰减能带来氛围，但会让咬字发糊；在合唱团身后吸声或换一个话筒位置会有帮助。"
+
+msgid "The broadband decay is {text} (estimated RT60 {rt:.2f} s from {basis}). For a choir, decay this long gives ambience but blurs diction; absorption behind the ensemble or a different microphone position helps."
+msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s，来自 {basis}）。对合唱来说，这么长的衰减能带来氛围，但会让咬字发糊；在合唱团身后吸声或换一个话筒位置会有帮助。"
+
+msgid "Low frequencies decay more slowly than the mid range ({low_max:.2f} s vs {mid_mean:.2f} s), which makes the ensemble bottom-heavy and muddies diction. Bass trapping or a different position helps."
+msgstr "低频比中频衰减更慢（{low_max:.2f} s 对 {mid_mean:.2f} s），会让合唱整体偏重低频、咬字发浑。低音陷阱或换位置会有帮助。"

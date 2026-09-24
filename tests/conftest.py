@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import numpy as np
 import pytest
 from scipy.signal import resample_poly
@@ -22,6 +24,25 @@ def isolate_roomscope_home(
 ) -> None:
     """Keep recent-session writes out of the real ``~/.roomscope``."""
     monkeypatch.setenv("ROOMSCOPE_HOME", str(tmp_path_factory.mktemp("roomscope_home")))
+
+
+@pytest.fixture(autouse=True)
+def pin_language(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Run every test in English regardless of the developer's locale (#14).
+
+    ``ROOMSCOPE_LANG`` and the POSIX locale variables would otherwise pick
+    the CLI / GUI language; a test that wants Chinese passes ``--lang`` or
+    calls ``activate("zh_CN")``. English is re-activated afterwards so a
+    failing test cannot leak its catalog into the next one.
+    """
+    from roomscope.i18n import activate
+
+    for name in ("ROOMSCOPE_LANG", "LC_ALL", "LC_MESSAGES", "LANGUAGE"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("LANG", "C.UTF-8")
+    activate("en")
+    yield
+    activate("en")
 
 
 DECAY_CONSTANT = 3.0 * np.log(10.0) * 2.0  # 60 dB in natural-log units: ln(10^6) = 13.8155

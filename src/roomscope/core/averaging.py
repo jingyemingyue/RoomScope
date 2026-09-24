@@ -2,7 +2,8 @@
 
 Averages EDT, T20 and T30 per band over the VALID metrics only. Decay curves
 are never averaged. The output names the ISO 3382-2 accuracy class that the
-number of source and microphone positions reaches.
+numbers of source positions, microphone positions and source–microphone
+combinations reach.
 """
 
 from __future__ import annotations
@@ -15,15 +16,25 @@ from typing import Any
 from roomscope.errors import ConfigurationError
 from roomscope.models.result import AnalysisResult, DecayMetric, Validity
 
-# ISO 3382-2:2008 Table 1, transcribed from secondary sources (see
-# MEASUREMENT_METHODOLOGY.md §3a). Confirmation status: not verified against a
-# purchased copy of the standard. The class is a label, not a claim of
-# compliance.
+# ISO 3382-2:2008, 4.3.1, Table 1 "Minimum numbers of positions and
+# measurements" (source–microphone combinations; source positions; microphone
+# positions). Read from the standard's own text in the publisher's preview
+# pages on 2026-09-24 (MEASUREMENT_METHODOLOGY.md §3a, reference [10]); v0.4.0
+# carried an unsourced transcription with 3 / 6 microphone positions for
+# engineering / precision (#15). Footnote a (an engineering result used as a
+# correction term needs one source and three microphone positions) and the
+# rotating-boom footnote are not implemented. The class is a label, not a claim
+# of compliance: the standard also sets position spacing, distances from
+# surfaces and the other clause 4 conditions, which RoomScope does not check.
 ISO_3382_2_TABLE1 = {
     "survey": {"n_source": 1, "n_microphone": 2, "n_combinations": 2},
-    "engineering": {"n_source": 2, "n_microphone": 3, "n_combinations": 6},
-    "precision": {"n_source": 2, "n_microphone": 6, "n_combinations": 12},
+    "engineering": {"n_source": 2, "n_microphone": 2, "n_combinations": 6},
+    "precision": {"n_source": 2, "n_microphone": 3, "n_combinations": 12},
 }
+ISO_3382_2_TABLE1_SOURCE = (
+    "ISO 3382-2:2008, 4.3.1, Table 1, read from the standard's preview pages "
+    "(cdn.standards.iteh.ai sample of ISO 3382-2:2008) on 2026-09-24; footnotes not implemented"
+)
 
 
 @dataclass(frozen=True)
@@ -80,42 +91,41 @@ class AveragedDecay:
     n_microphone_positions: int
     iso_3382_2_class: str
     notes: tuple[str, ...] = ()
+    #: Distinct source–microphone combinations measured (Table 1's first row).
+    n_combinations: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "n_sessions": self.n_sessions,
             "n_source_positions": self.n_source_positions,
             "n_microphone_positions": self.n_microphone_positions,
+            "n_source_microphone_combinations": self.n_combinations,
             "iso_3382_2_class": self.iso_3382_2_class,
             "notes": list(self.notes),
             "bands": [band.to_dict() for band in self.bands],
             "iso_3382_2_table1": ISO_3382_2_TABLE1,
-            "confirmation_status": (
-                "ISO 3382-2:2008 Table 1 transcribed from secondary sources; "
-                "not verified against a purchased copy of the standard"
-            ),
+            "confirmation_status": ISO_3382_2_TABLE1_SOURCE,
         }
 
 
-def iso_3382_2_class(n_source: int, n_microphone: int) -> str:
-    """Name the accuracy class reached by the position counts."""
-    combinations = n_source * n_microphone
-    if (
-        n_source >= ISO_3382_2_TABLE1["precision"]["n_source"]
-        and n_microphone >= ISO_3382_2_TABLE1["precision"]["n_microphone"]
-        and combinations >= ISO_3382_2_TABLE1["precision"]["n_combinations"]
-    ):
-        return "precision"
-    if (
-        n_source >= ISO_3382_2_TABLE1["engineering"]["n_source"]
-        and combinations >= ISO_3382_2_TABLE1["engineering"]["n_combinations"]
-    ):
-        return "engineering"
-    if (
-        n_source >= ISO_3382_2_TABLE1["survey"]["n_source"]
-        and n_microphone >= ISO_3382_2_TABLE1["survey"]["n_microphone"]
-    ):
-        return "survey"
+def iso_3382_2_class(n_source: int, n_microphone: int, n_combinations: int | None = None) -> str:
+    """Name the ISO 3382-2 Table 1 class reached by the counts.
+
+    Every row of the table must be met: source positions, microphone
+    positions and source–microphone combinations. ``n_combinations``
+    defaults to ``n_source * n_microphone`` (every source measured at every
+    microphone position) and can never exceed that product.
+    """
+    grid = n_source * n_microphone
+    combinations = grid if n_combinations is None else min(int(n_combinations), grid)
+    for name in ("precision", "engineering", "survey"):
+        row = ISO_3382_2_TABLE1[name]
+        if (
+            n_source >= row["n_source"]
+            and n_microphone >= row["n_microphone"]
+            and combinations >= row["n_combinations"]
+        ):
+            return name
     return "below_survey"
 
 
@@ -124,12 +134,19 @@ def average_decay(
     *,
     n_source_positions: int | None = None,
     n_microphone_positions: int | None = None,
+    n_combinations: int | None = None,
     session_labels: Sequence[str] | None = None,
 ) -> AveragedDecay:
     """Arithmetic mean of VALID EDT / T20 / T30 per band.
 
     ``n_source_positions`` defaults to 1 (RoomScope measures one source).
-    ``n_microphone_positions`` defaults to the number of results.
+    ``n_microphone_positions`` defaults to the number of results, i.e. it
+    assumes every result was taken at a different microphone position; a
+    caller that knows the positions (``roomscope project average``) passes
+    the number of distinct ones. ``n_combinations`` (distinct
+    source–microphone combinations) defaults to the smaller of the number of
+    results and ``n_source_positions * n_microphone_positions``: repeated
+    takes of one combination do not count twice.
     """
     if not results:
         raise ConfigurationError("average_decay needs at least one AnalysisResult")
@@ -142,14 +159,24 @@ def average_decay(
     n_mic = len(results) if n_microphone_positions is None else int(n_microphone_positions)
     if n_source < 1 or n_mic < 1:
         raise ConfigurationError("source and microphone position counts must be >= 1")
+    grid = n_source * n_mic
+    combos = min(len(results), grid) if n_combinations is None else int(n_combinations)
+    if combos < 1 or combos > min(grid, len(results)):
+        raise ConfigurationError(
+            "source-microphone combinations must be between 1 and the smaller of "
+            "sources x microphone positions and the number of results"
+        )
+    klass = iso_3382_2_class(n_source, n_mic, combos)
 
     band_labels = _band_labels(results)
     bands = tuple(_average_band(results, labels, band_label) for band_label in band_labels)
     notes = [
         "Decay curves are never averaged; only VALID T values enter the mean.",
         (
-            "ISO 3382-2 class from Table 1 transcribed from secondary sources "
-            f"({iso_3382_2_class(n_source, n_mic)})."
+            f"ISO 3382-2 class {klass}: {n_source} source position(s), {n_mic} microphone "
+            f"position(s), {combos} source-microphone combination(s) against "
+            f"{ISO_3382_2_TABLE1_SOURCE}. The class is a label; the other clause 4 "
+            "conditions (position spacing, distances from surfaces) are not checked."
         ),
     ]
     return AveragedDecay(
@@ -157,8 +184,9 @@ def average_decay(
         n_sessions=len(results),
         n_source_positions=n_source,
         n_microphone_positions=n_mic,
-        iso_3382_2_class=iso_3382_2_class(n_source, n_mic),
+        iso_3382_2_class=klass,
         notes=tuple(notes),
+        n_combinations=combos,
     )
 
 

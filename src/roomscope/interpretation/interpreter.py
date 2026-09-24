@@ -48,10 +48,17 @@ def finding(
     template: str,
     *,
     evidence: dict[str, Any] | None = None,
+    display: dict[str, str] | None = None,
     **params: Any,
 ) -> Finding:
-    """Build a :class:`Finding` whose sentence is rendered through ``_()``."""
-    message = _(template).format(**params) if params else _(template)
+    """Build a :class:`Finding` whose sentence is rendered through ``_()``.
+
+    ``params`` are stored in the finding as given (stable English values such
+    as ``"longer"``); ``display`` overrides them for the rendered sentence only,
+    so a translated word can be inserted without changing the stored value.
+    """
+    values = {**params, **(display or {})}
+    message = _(template).format(**values) if values else _(template)
     return Finding(
         topic=topic,
         severity=severity,

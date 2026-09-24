@@ -301,12 +301,30 @@ def _read_json(path: Path, *, kind: str = "session") -> dict[str, Any]:
 
 
 def _resolve_member(directory: Path, stored: str | None, default_name: str) -> Path:
+    """Resolve a file named in ``session.json`` inside the session directory.
+
+    ``result.json`` and ``impulse_response.wav`` are always written inside the
+    session folder, so a stored path that is absolute or leads out of it
+    (``../..``, or a symlink pointing elsewhere) can only come from an edited
+    or crafted file, e.g. a received bug-report bundle. It is refused rather
+    than read (#11).
+    """
     if not stored:
         return directory / default_name
     candidate = Path(stored)
-    if candidate.is_absolute():
-        return candidate
-    return directory / candidate
+    if candidate.is_absolute() or candidate.drive or candidate.root:
+        raise SessionError(
+            f"session.json names {default_name} at an absolute path ({stored}); "
+            "session files must stay inside the session folder"
+        )
+    base = directory.resolve()
+    resolved = (base / candidate).resolve()
+    if resolved != base and base not in resolved.parents:
+        raise SessionError(
+            f"session.json names {default_name} outside the session folder ({stored}); "
+            "session files must stay inside the session folder"
+        )
+    return resolved
 
 
 def save_comparison(path: str | Path, comparison: object) -> Path:

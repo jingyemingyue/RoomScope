@@ -165,6 +165,8 @@ def _band_decay_deltas(prefix: str, baseline: BandDecay, candidate: BandDecay) -
 
 
 def _compare_decay(baseline: AnalysisResult, candidate: AnalysisResult) -> tuple[MetricDelta, ...]:
+    """Broadband and per-band deltas; a band present on one side only is reported
+    as ``not_comparable`` whichever side lacks it (#9)."""
     items = _band_decay_deltas("broadband", baseline.decay.broadband, candidate.decay.broadband)
     by_label = {band.band_label: band for band in candidate.decay.bands}
     for band in baseline.decay.bands:
@@ -182,6 +184,20 @@ def _compare_decay(baseline: AnalysisResult, candidate: AnalysisResult) -> tuple
             )
             continue
         items.extend(_band_decay_deltas(f"band.{band.band_label}", band, other))
+    baseline_labels = {band.band_label for band in baseline.decay.bands}
+    for band in candidate.decay.bands:
+        if band.band_label in baseline_labels:
+            continue
+        items.append(
+            MetricDelta(
+                name=f"band.{band.band_label}",
+                baseline=None,
+                candidate=band.rt60_estimate_s,
+                validity=Validity.NOT_COMPARABLE,
+                reason="band missing from the baseline",
+                unit="s",
+            )
+        )
     return tuple(items)
 
 
@@ -194,14 +210,37 @@ def _coarser_smoothing(a: int, b: int) -> int:
 
 
 def _curve(fr: FrequencyResponseResult) -> tuple[np.ndarray, np.ndarray] | None:
+    """``(frequencies, magnitude_db)`` on the result's native grid.
+
+    DC and non-positive frequencies are dropped (the comparison works in log
+    frequency). The raw curve is preferred; the stored smoothed curve is the
+    fallback when the raw one is absent.
+    """
     freq = np.asarray(fr.frequencies_hz, dtype=np.float64)
     raw = np.asarray(fr.magnitude_db_raw, dtype=np.float64)
+    magnitude = raw
     if freq.size < 2 or raw.size != freq.size:
         smoothed = fr.magnitude_db_smoothed
         if smoothed is None or np.asarray(smoothed).size != freq.size or freq.size < 2:
             return None
-        return freq, np.asarray(smoothed, dtype=np.float64)
-    return freq, raw
+        magnitude = np.asarray(smoothed, dtype=np.float64)
+    keep = freq > 0.0
+    if np.count_nonzero(keep) < 2:
+        return None
+    return freq[keep], magnitude[keep]
+
+
+def _smoothed_on_grid(
+    curve: tuple[np.ndarray, np.ndarray], fraction: int, grid: np.ndarray
+) -> np.ndarray:
+    """Smooth ``curve`` with ``fraction`` on its native grid, then sample ``grid``.
+
+    A curve that is already the stored smoothed one is smoothed again with the
+    comparison fraction, which only widens its window.
+    """
+    freq, magnitude = curve
+    smoothed = fractional_octave_smooth(freq, magnitude, fraction)
+    return np.asarray(np.interp(np.log(grid), np.log(freq), smoothed), dtype=np.float64)
 
 
 def _compare_frequency_response(
@@ -218,15 +257,20 @@ def _compare_frequency_response(
     n_oct = math.log2(high / low)
     n = max(8, round(n_oct * settings.log_grid_points_per_octave) + 1)
     grid = low * (2.0 ** np.linspace(0.0, n_oct, n))
-    mag_a = np.interp(np.log(grid), np.log(left[0]), left[1])
-    mag_b = np.interp(np.log(grid), np.log(right[0]), right[1])
     fraction = _coarser_smoothing(
         baseline.frequency_response.smoothing_fraction,
         candidate.frequency_response.smoothing_fraction,
     )
-    if fraction > 0:
-        mag_a = fractional_octave_smooth(grid, mag_a, fraction)
-        mag_b = fractional_octave_smooth(grid, mag_b, fraction)
+    if fraction <= 0:
+        # Neither side was smoothed: average over one grid step at least, so a
+        # grid point stands for its neighbourhood instead of one raw bin.
+        fraction = settings.log_grid_points_per_octave
+    # Smooth each curve on its own (dense, linear) grid first and only then
+    # sample it on the shared log grid. Interpolating the raw spectrum first
+    # would point-sample its comb-filter ripple, which differs from take to
+    # take, and the difference would mostly be sampling noise (#9).
+    mag_a = _smoothed_on_grid(left, fraction, grid)
+    mag_b = _smoothed_on_grid(right, fraction, grid)
     diff = mag_b - mag_a
     mad: list[tuple[str, float]] = []
     for nominal in _FR_OCTAVE_HZ:

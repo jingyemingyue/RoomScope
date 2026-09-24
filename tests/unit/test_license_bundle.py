@@ -161,3 +161,88 @@ def test_installed_essentials_mode_ignores_wheel_stubs_and_stock_plugins(
     (root / "QtCharts.abi3.so").write_text("", encoding="utf-8")
     errors = gate.check(root, installed_essentials=True)
     assert any("QtCharts" in item for item in errors)
+
+
+def test_bundle_gate_matches_gpl_qml_plugins_by_directory(tmp_path: Path) -> None:
+    """#17: QML plugin names do not carry the module name; their directory does."""
+    gate = _load("check_bundle_contents")
+    tree = tmp_path / "bundle"
+    qml = tree / "_internal" / "PySide6" / "Qt" / "qml" / "QtQuick"
+    pinyin = qml / "VirtualKeyboard" / "Plugins" / "Pinyin"
+    pinyin.mkdir(parents=True)
+    (pinyin / "libqtvkbpinyinplugin.so").write_text("", encoding="utf-8")
+    (qml / "VirtualKeyboard" / "qmldir").write_text("", encoding="utf-8")
+    (qml / "VirtualKeyboard" / "libqtvkbplugin.so").write_text("", encoding="utf-8")
+    timeline = qml / "Timeline"
+    timeline.mkdir()
+    (timeline / "qmldir").write_text("", encoding="utf-8")
+    # The same module inside a macOS .app bundle.
+    styles = tree / "RoomScope.app" / "Contents" / "Resources" / "qml" / "QtQuick"
+    styles = styles / "VirtualKeyboard" / "Styles"
+    styles.mkdir(parents=True)
+    (styles / "KeyboardStyle.qml").write_text("", encoding="utf-8")
+
+    errors = gate.check(tree)
+    joined = "\n".join(errors)
+    assert "GPL-only Qt QML module present (QtVirtualKeyboard)" in joined
+    assert str(pinyin / "libqtvkbpinyinplugin.so") in joined
+    assert str(styles / "KeyboardStyle.qml") in joined
+    assert "(QtQuickTimeline)" in joined
+
+    removed = gate.strip(tree)
+    assert {path.name for path in removed} == {
+        "libqtvkbpinyinplugin.so",
+        "libqtvkbplugin.so",
+        "qmldir",
+        "KeyboardStyle.qml",
+    }
+    # Stripping empties and removes the module directories up to (and
+    # including) the now-empty qml/ directories, never the root itself.
+    assert not (tree / "_internal" / "PySide6" / "Qt" / "qml").exists()
+    assert not (tree / "RoomScope.app" / "Contents" / "Resources" / "qml").exists()
+    assert tree.is_dir()
+    assert gate.check(tree) == []
+
+
+def test_bundle_gate_rejects_any_qml_tree_in_a_frozen_bundle(tmp_path: Path) -> None:
+    """#17: RoomScope has no QML UI, so a collected QML tree means QtQml was imported."""
+    gate = _load("check_bundle_contents")
+    tree = tmp_path / "bundle"
+    controls = tree / "_internal" / "PySide6" / "Qt" / "qml" / "QtQuick" / "Controls"
+    controls.mkdir(parents=True)
+    (controls / "libqtquickcontrols2plugin.so").write_text("", encoding="utf-8")
+    (controls / "qmldir").write_text("", encoding="utf-8")
+    # A file merely *named* qml is not a QML tree.
+    (tree / "qml").write_text("", encoding="utf-8")
+
+    errors = gate.check(tree)
+    assert len(errors) == 1
+    assert "QML tree present (2 files" in errors[0]
+    assert errors[0].endswith(str(tree / "_internal" / "PySide6" / "Qt" / "qml"))
+    # --strip removes GPL-only modules only; it must not hide a QML tree.
+    assert gate.strip(tree) == []
+    assert gate.check(tree) == errors
+    # A PySide6 Essentials install legitimately carries the stock Qt/qml tree.
+    assert gate.check(tree, installed_essentials=True) == []
+
+
+def test_bundle_gate_strict_mode_covers_the_installed_essentials_qml_tree() -> None:
+    """Every virtual-keyboard / timeline QML file of the real wheel is an offender."""
+    import pytest
+
+    gate = _load("check_bundle_contents")
+    try:
+        import PySide6
+    except ImportError:
+        pytest.skip("PySide6 is not installed")
+    root = Path(next(iter(PySide6.__path__)))
+    vkb = root / "Qt" / "qml" / "QtQuick" / "VirtualKeyboard"
+    if not vkb.is_dir():
+        pytest.skip("this PySide6 build ships no virtual-keyboard QML module")
+    expected = {path for path in vkb.rglob("*") if path.is_file() and path.suffix != ".pyi"}
+    assert expected
+    reported = {path for path, _reason in gate.offending(root)}
+    assert expected <= reported
+    # The installed-Essentials mode keeps ignoring the stock tree.
+    reported_installed = {path for path, _ in gate.offending(root, installed_essentials=True)}
+    assert not (expected & reported_installed)

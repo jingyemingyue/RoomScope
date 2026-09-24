@@ -16,10 +16,43 @@ from __future__ import annotations
 import math
 from typing import Protocol, runtime_checkable
 
-from roomscope.i18n import _, current_locale
+from roomscope.i18n import _, current_locale, pgettext
 from roomscope.interpretation.interpreter import Finding, Severity, finding
 from roomscope.models.comparison import T_JND_PERCENT, ComparisonResult, MetricDelta
 from roomscope.models.result import AnalysisResult, Reflection, ResonanceCandidate, Validity
+
+
+def decay_length_text(label: str) -> str:
+    """Translated word for a decay label (``"short"``, ``"noticeable"``, ``"long"``).
+
+    Findings keep the English label in ``params``; only the sentence shows the
+    translated word.
+    """
+    words = {
+        "short": pgettext("decay length", "short"),
+        "noticeable": pgettext("decay length", "noticeable"),
+        "long": pgettext("decay length", "long"),
+    }
+    return words.get(label, label)
+
+
+def change_direction_text(direction: str) -> str:
+    """Translated word for the direction of an RT60 change (``"shorter"`` / ``"longer"``)."""
+    words = {
+        "shorter": pgettext("RT60 change", "shorter"),
+        "longer": pgettext("RT60 change", "longer"),
+    }
+    return words.get(direction, direction)
+
+
+def noise_segment_text(source: str | None) -> str:
+    """Translated name of the quiet segment the noise was measured in."""
+    words = {
+        "pre-sweep": pgettext("noise segment", "pre-sweep"),
+        "tail": pgettext("noise segment", "tail"),
+        "quiet": pgettext("noise segment", "quiet"),
+    }
+    return words.get(source or "quiet", source or "quiet")
 
 
 @runtime_checkable
@@ -125,6 +158,7 @@ class ProfileBase:
                         "delta_percent": percent,
                         "jnd_percent": T_JND_PERCENT,
                     },
+                    display={"direction": change_direction_text(direction)},
                     baseline_s=rt.baseline,
                     candidate_s=rt.candidate,
                     delta_percent=percent,
@@ -156,6 +190,7 @@ class ProfileBase:
                 "long_decay_s": self.long_decay_s,
                 "very_long_decay_s": self.very_long_decay_s,
             },
+            display={"before": decay_length_text(before), "after": decay_length_text(after)},
             before=before,
             after=after,
             baseline_s=rt.baseline,
@@ -385,7 +420,10 @@ class ProfileBase:
                 Finding(
                     topic="reverberation",
                     severity=severity,
-                    message=self.decay_message(rt, severity, text, broadband.rt60_basis),
+                    # ``text`` is shown translated; ``params["label"]`` keeps the English label.
+                    message=self.decay_message(
+                        rt, severity, decay_length_text(text), broadband.rt60_basis
+                    ),
                     evidence={"rt60_estimate_s": rt, "basis": broadband.rt60_basis},
                     message_id="reverberation.rt60",
                     params={"rt60_s": rt, "label": text, "basis": broadband.rt60_basis},
@@ -433,7 +471,9 @@ class ProfileBase:
                 Finding(
                     topic="noise",
                     severity=Severity.INFO,
-                    message=self.noise_floor_message(noise.rms_dbfs, noise.segment_source),
+                    message=self.noise_floor_message(
+                        noise.rms_dbfs, noise_segment_text(noise.segment_source)
+                    ),
                     evidence={
                         "rms_dbfs": noise.rms_dbfs,
                         "segment_source": noise.segment_source,
@@ -478,6 +518,10 @@ class ProfileBase:
         ]
 
     # ------------------------------------------------------------ messages
+    #
+    # ``decay_message`` receives ``text`` and ``noise_floor_message`` receives
+    # ``segment_source`` already translated (``decay_length_text`` /
+    # ``noise_segment_text``); a profile only inserts them into its sentence.
 
     def reflection_message(self, r: Reflection) -> str:
         return _(
