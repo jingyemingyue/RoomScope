@@ -24,7 +24,8 @@ macOS signing with a hardened-runtime rehearsal; the Linux tarball uses the
 system PortAudio; matplotlib's cache survives launches; macOS 14+ declared
 (`LSMinimumSystemVersion`); a Digital Performer section and corrected
 sources in the DAW guide, labelled "documented workflow, not yet tested in
-a DAW".
+a DAW"; translated chart text with a CJK font fallback, metric names instead
+of ids on the Compare page, and profiles listed by name.
 
 Evidence on GitHub Actions: CI #56 (`f7c92f1`) green on Ubuntu 3.12–3.14,
 macOS and Windows (551 / 552 tests; the same-file copy test ran on APFS and
@@ -45,8 +46,10 @@ discard a complete take), reproduced deterministically and fixed in
 the reworked checks (entitlements, inert Authenticode hook compiled). CI #59
 (`65febe5`) green on every job: Ubuntu 3.12 / 3.13 / 3.14 and macOS 576
 passed, Windows 575 passed and 1 skipped (a QML check that does not apply
-to that PySide6 build), coverage 90.48 %.
-Locally (Linux, Python 3.12): **576 passed**, coverage gate 90.48 %;
+to that PySide6 build), coverage 90.48 %. CI #61 and Release #18
+(`38c4878`, the chart and compare-label translations) green on every job,
+the four bundle jobs included.
+Locally (Linux, Python 3.12): **579 passed**, coverage gate 90.48 %;
 ruff, mypy strict (with and without the gui extra), doc links clean; a
 local PyInstaller 6.22.3 Linux bundle loaded `/lib/x86_64-linux-gnu`
 PortAudio, ALSA and JACK (LD_DEBUG) and passed the license gate. **Not
