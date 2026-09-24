@@ -104,6 +104,21 @@ class MainWindow(QMainWindow):
         measure_menu.addAction(standalone_action)
         measure_menu.addAction(demo_action)
 
+        from roomscope.edition import is_developer
+
+        self.developer_menu = None
+        if is_developer():
+            self.developer_menu = self.menuBar().addMenu(_("&Developer"))
+            inspector_action = QAction(_("Audio Device &Inspector..."), self)
+            inspector_action.setShortcut("Ctrl+Shift+D")
+            inspector_action.triggered.connect(self.show_device_inspector)
+            report_action = QAction(_("&Environment Report..."), self)
+            report_action.triggered.connect(self.show_environment_report)
+            folder_action = QAction(_("Open &Data Folder"), self)
+            folder_action.triggered.connect(self._open_data_folder)
+            for action in (inspector_action, report_action, folder_action):
+                self.developer_menu.addAction(action)
+
         help_menu = self.menuBar().addMenu(_("&Help"))
         about_action = QAction(_("&About RoomScope"), self)
         about_action.triggered.connect(self._about)
@@ -178,6 +193,24 @@ class MainWindow(QMainWindow):
         from roomscope.ui.settings_dialog import SettingsDialog
 
         SettingsDialog(self).exec()
+
+    def show_device_inspector(self) -> None:
+        from roomscope.ui.dev_tools import DeviceInspector
+
+        backend = "fake" if self.standalone.demo_mode else None
+        DeviceInspector(backend, self).exec()
+
+    def show_environment_report(self) -> None:
+        from roomscope.ui.dev_tools import EnvironmentReport
+
+        EnvironmentReport(None, self).exec()
+
+    def _open_data_folder(self) -> None:
+        from roomscope.io.recent import roomscope_home
+
+        home = roomscope_home()
+        home.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(home)))
 
     def _about(self) -> None:
         QMessageBox.about(self, _("About RoomScope"), ABOUT_TEXT)

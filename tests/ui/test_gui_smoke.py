@@ -342,3 +342,44 @@ def test_gui_smoke_flag_constructs_and_exits(app: QApplication) -> None:
 
     assert run_app(smoke=True) == 0
     assert main(["gui", "--smoke"]) == 0
+
+
+def test_developer_menu_and_device_inspector(
+    app: QApplication, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ROOMSCOPE_EDITION", "developer")
+    from roomscope.ui.dev_tools import DeviceInspector, EnvironmentReport
+
+    window = MainWindow()
+    assert window.developer_menu is not None
+    assert not window.standalone.advanced.isHidden() or not window.isVisible()
+    inspector = DeviceInspector("fake", window)
+    assert inspector.table.rowCount() == 1
+    inspector.refresh(probe=True)
+    assert "48000" in inspector.table.item(0, 6).text()
+    inspector.copy_json()
+    report = EnvironmentReport("fake", window)
+    assert "RoomScope" in report.text.toPlainText()
+    window.close()
+
+
+def test_user_edition_hides_developer_tools(
+    app: QApplication, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ROOMSCOPE_EDITION", "user")
+    window = MainWindow()
+    assert window.developer_menu is None
+    assert window.standalone.advanced.isHidden()
+    window.close()
+
+
+def test_standalone_host_api_filter_and_options(app: QApplication) -> None:
+    window = MainWindow()
+    window.show_mode("demo")
+    page = window.standalone
+    assert page.host_api.count() >= 1
+    # The fake interface is the recommended input and output.
+    assert page.input_device.currentText().startswith("★") or page.host_api.currentData() is None
+    options = page.stream_options()
+    assert options.is_default
+    window.close()

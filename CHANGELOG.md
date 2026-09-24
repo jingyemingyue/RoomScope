@@ -34,8 +34,15 @@ All notable changes to RoomScope are documented here. The format follows
   reports.
 - Developer and installer editions (`roomscope.edition`,
   `ROOMSCOPE_EDITION`): a source or pip install is the developer edition, a
-  desktop bundle the user edition; settings gain `theme` and
-  `developer_tools`.
+  desktop bundle the user edition. The developer edition adds a Developer
+  menu (Audio Device Inspector with rate probing and JSON copy, Environment
+  Report, Open Data Folder) and advanced audio options in Standalone Mode
+  (latency, WASAPI exclusive, Core Audio set-rate). Settings gain *Theme*
+  (system / light / dark, applied at once) and *Show developer tools*, and a
+  save keeps the fields the dialog does not show.
+- Standalone Mode lists devices per host API (the platform's preferred one
+  preselected), stars the recommended input and output, and checks host API,
+  channels and separate clocks before playing.
 
 ### Changed
 - **GUI redesign.** One design system (`ui/theme.py` tokens, a generated Qt
@@ -48,8 +55,8 @@ All notable changes to RoomScope are documented here. The format follows
   with a validity or trust chip, findings as coloured cards with translated
   severity and topic, the band table in full; the text report moved to a
   *Full report* tab. Plots share the series palette; minor grid lines follow
-  the scheme. The window has a drawn app icon. All new strings are in the
-  zh-CN catalog.
+  the scheme; spin and combo boxes use drawn chevrons. The window has a drawn
+  app icon. All new strings are in the zh-CN catalog.
 - **matplotlib>=3.10** (was >=3.8). The wheels of 3.8.0, 3.9.0 and 3.9.4
   still contain the `_ttconv` extension that DEPENDENCIES.md §6 said was gone
   from 3.8; 3.10.0 is the first without it (wheels opened 2026-09-24). With

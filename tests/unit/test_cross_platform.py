@@ -72,12 +72,13 @@ def test_bundle_inside_the_session_folder_is_refused(tmp_path: Path, result) -> 
 
 
 def test_copy_onto_the_same_file_is_a_no_op(tmp_path: Path) -> None:
-    """On a case-insensitive file system Recording.wav and recording.wav are one
-    file; a hard link emulates that on Linux."""
+    """On a case-insensitive file system (macOS, Windows) Recording.wav and
+    recording.wav are one file; on a case-sensitive one a hard link emulates it."""
     src = tmp_path / "Recording.wav"
     src.write_bytes(b"RIFF")
     dest = tmp_path / "recording.wav"
-    os.link(src, dest)
+    if not dest.exists():
+        os.link(src, dest)
     assert _copy_into(src, dest) == dest
     assert src.read_bytes() == b"RIFF"
 

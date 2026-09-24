@@ -183,6 +183,9 @@ def stylesheet(t: dict[str, str] | None = None) -> str:
     ``hint``), ``card`` on frames, ``primary`` on buttons, ``tone`` on chips.
     """
     t = t or tokens()
+    images = _arrow_images(t["muted"])
+    arrow_up = f'image: url("{images[0]}");' if images else ""
+    arrow_down = f'image: url("{images[1]}");' if images else ""
     return f"""
 QWidget {{ color: {t["text"]}; }}
 QMainWindow, QStackedWidget, QScrollArea, QScrollArea > QWidget > QWidget,
@@ -252,18 +255,12 @@ QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {{ subcontrol-origin:
     width: 18px; border: none; background: transparent; }}
 QAbstractSpinBox::up-button {{ subcontrol-position: top right; }}
 QAbstractSpinBox::down-button {{ subcontrol-position: bottom right; }}
-QAbstractSpinBox::up-arrow {{ image: none; width: 0; height: 0; border-left: 4px solid transparent;
-    border-right: 4px solid transparent; border-bottom: 5px solid {t["muted"]}; }}
-QAbstractSpinBox::down-arrow {{ image: none; width: 0; height: 0;
-    border-left: 4px solid transparent; border-right: 4px solid transparent;
-    border-top: 5px solid {t["muted"]}; }}
-QAbstractSpinBox::up-arrow:disabled, QAbstractSpinBox::down-arrow:disabled {{
-    border-top-color: {t["border"]}; border-bottom-color: {t["border"]}; }}
+QAbstractSpinBox::up-arrow {{ {arrow_up} width: 9px; height: 9px; }}
+QAbstractSpinBox::down-arrow {{ {arrow_down} width: 9px; height: 9px; }}
 QComboBox {{ padding-right: 24px; }}
 QComboBox::drop-down {{ subcontrol-origin: padding; subcontrol-position: center right;
     width: 22px; border: none; background: transparent; }}
-QComboBox::down-arrow {{ image: none; width: 0; height: 0; border-left: 4px solid transparent;
-    border-right: 4px solid transparent; border-top: 5px solid {t["muted"]}; }}
+QComboBox::down-arrow {{ {arrow_down} width: 10px; height: 10px; }}
 QComboBox QAbstractItemView {{ background: {t["surface"]}; border: 1px solid {t["border"]};
     selection-background-color: {t["accent_soft"]}; selection-color: {t["text"]}; }}
 QPlainTextEdit[report="true"] {{ font-family: "Menlo", "Consolas", "DejaVu Sans Mono",
@@ -302,6 +299,50 @@ QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
 QStatusBar {{ background: {t["surface"]}; border-top: 1px solid {t["border"]};
     color: {t["muted"]}; }}
 """
+
+
+def _arrow_images(color: str) -> tuple[str, str] | None:
+    """Up / down chevrons in ``color`` for spin and combo boxes, as PNG files.
+
+    Qt style sheets take arrow images only as files (no CSS triangles), so
+    they are drawn once per colour into the temporary directory. Without a
+    running QGuiApplication the style keeps its own arrows.
+    """
+    import tempfile
+    from pathlib import Path
+
+    try:
+        from PySide6.QtCore import QPointF, Qt
+        from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen, QPixmap
+    except ImportError:
+        return None
+    if QGuiApplication.instance() is None:
+        return None
+    folder = Path(tempfile.gettempdir()) / "roomscope-theme"
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    paths: list[str] = []
+    for direction in ("up", "down"):
+        path = folder / f"chevron-{direction}-{color.lstrip('#')}.png"
+        if not path.is_file():
+            size = 36  # drawn at 4x and scaled down by the style for crisp edges
+            pixmap = QPixmap(size, size)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            pen = QPen(QColor(color), 4.5)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(pen)
+            top, bottom = (24.0, 12.0) if direction == "up" else (12.0, 24.0)
+            painter.drawPolyline([QPointF(8.0, top), QPointF(18.0, bottom), QPointF(28.0, top)])
+            painter.end()
+            if not pixmap.save(str(path), "PNG"):
+                return None
+        paths.append(path.as_posix())
+    return paths[0], paths[1]
 
 
 def apply_application_chrome(app: Any) -> None:

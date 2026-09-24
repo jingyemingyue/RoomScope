@@ -1522,3 +1522,87 @@ msgstr "录音"
 
 msgid "play"
 msgstr "播放"
+
+msgid "Audio Device Inspector"
+msgstr "音频设备检查器"
+
+msgid "All host APIs"
+msgstr "所有主机 API"
+
+msgid "Probe sample rates"
+msgstr "探测采样率"
+
+msgid "Copy as JSON"
+msgstr "复制为 JSON"
+
+msgid "Environment Report"
+msgstr "环境报告"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "Every host API and device PortAudio reports. Probing asks each device which sample rates it accepts for one channel; nothing is played. See docs/AUDIO_DEVICES.md for what each host API does to the signal."
+msgstr "PortAudio 报告的所有主机 API 和设备。探测会询问每个设备在单声道下接受哪些采样率，不会播放任何声音。各主机 API 对信号的影响见 docs/AUDIO_DEVICES.md。"
+
+msgid "Backend {backend}; {version}; host APIs: {apis}; {n} device(s)."
+msgstr "后端 {backend}；{version}；主机 API：{apis}；{n} 个设备。"
+
+msgid "&Developer"
+msgstr "开发者(&D)"
+
+msgid "Audio Device &Inspector..."
+msgstr "音频设备检查器(&I)…"
+
+msgid "&Environment Report..."
+msgstr "环境报告(&E)…"
+
+msgid "Open &Data Folder"
+msgstr "打开数据文件夹(&D)"
+
+msgid "Input and output must use one host API (PortAudio cannot combine two). The recommended one for this system is preselected."
+msgstr "输入和输出必须使用同一个主机 API（PortAudio 无法组合两个）。已预选本系统推荐的主机 API。"
+
+msgid "Host API"
+msgstr "主机 API"
+
+msgid "Advanced audio options (developer edition)"
+msgstr "高级音频选项（开发者版）"
+
+msgid "PortAudio default (high)"
+msgstr "PortAudio 默认（高）"
+
+msgid "Low"
+msgstr "低"
+
+msgid "High"
+msgstr "高"
+
+msgid "WASAPI exclusive mode (bypasses the Windows audio engine)"
+msgstr "WASAPI 独占模式（绕过 Windows 音频引擎）"
+
+msgid "Core Audio: set the device to the requested rate, never convert"
+msgstr "Core Audio：把设备设为请求的采样率，绝不转换"
+
+msgid "Latency"
+msgstr "延迟"
+
+msgid "Two devices, two clocks"
+msgstr "两个设备，两个时钟"
+
+msgid "Measure anyway?"
+msgstr "仍要测量吗？"
+
+msgid "Follow the system"
+msgstr "跟随系统"
+
+msgid "Light"
+msgstr "浅色"
+
+msgid "Dark"
+msgstr "深色"
+
+msgid "Show developer tools (Developer menu, advanced audio options; after a restart)"
+msgstr "显示开发者工具（开发者菜单、高级音频选项；重启后生效）"
+
+msgid "Theme"
+msgstr "主题"

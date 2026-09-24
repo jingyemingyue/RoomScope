@@ -24,7 +24,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from roomscope.audio.backend import ChannelPlan, DeviceInfo, plan_input_channels
+from roomscope.audio.backend import ChannelPlan, DeviceInfo, StreamOptions, plan_input_channels
+from roomscope.audio.inventory import DeviceInventory
 from roomscope.audio.playrec import (
     DEFAULT_STANDALONE_LEVEL_DBFS,
     SAFE_MAX_LEVEL_DBFS,
@@ -525,6 +526,7 @@ class StandalonePage(QWidget):
         self._measure_worker: MeasureWorker | None = None
         self._analysis_worker: AnalysisWorker | None = None
         self._channel_plan: ChannelPlan | None = None
+        self._inventory: DeviceInventory | None = None
         layout = _scroll_page(
             self,
             PageHeader(
@@ -551,6 +553,14 @@ class StandalonePage(QWidget):
 
         devices = QGroupBox(_("Audio devices"))
         form = QFormLayout(devices)
+        self.host_api = QComboBox()
+        self.host_api.setToolTip(
+            _(
+                "Input and output must use one host API (PortAudio cannot combine two). "
+                "The recommended one for this system is preselected."
+            )
+        )
+        self.host_api.currentIndexChanged.connect(self._fill_device_lists)
         self.input_device = QComboBox()
         self.output_device = QComboBox()
         self.refresh_button = QPushButton(_("Refresh devices"))
@@ -573,6 +583,7 @@ class StandalonePage(QWidget):
         self.input_device.currentIndexChanged.connect(self._update_device_rate)
         self.output_device.currentIndexChanged.connect(self._update_device_rate)
         self.sample_rate.currentIndexChanged.connect(self._update_device_rate)
+        form.addRow(_("Host API"), self.host_api)
         form.addRow(_("Input device"), self.input_device)
         form.addRow(_("Output device"), self.output_device)
         form.addRow(self.refresh_button)
@@ -604,6 +615,26 @@ class StandalonePage(QWidget):
         self.profile = _profile_combo(state)
         form2.addRow(_("Recording profile"), self.profile)
         layout.addWidget(sweep)
+
+        from roomscope.edition import is_developer
+
+        self.advanced = QGroupBox(_("Advanced audio options (developer edition)"))
+        adv = QFormLayout(self.advanced)
+        self.latency = QComboBox()
+        self.latency.addItem(_("PortAudio default (high)"), None)
+        self.latency.addItem(_("Low"), "low")
+        self.latency.addItem(_("High"), "high")
+        self.wasapi_exclusive = QCheckBox(
+            _("WASAPI exclusive mode (bypasses the Windows audio engine)")
+        )
+        self.coreaudio_set_rate = QCheckBox(
+            _("Core Audio: set the device to the requested rate, never convert")
+        )
+        adv.addRow(_("Latency"), self.latency)
+        adv.addRow(self.wasapi_exclusive)
+        adv.addRow(self.coreaudio_set_rate)
+        self.advanced.setVisible(is_developer())
+        layout.addWidget(self.advanced)
 
         meta, self.room, self.position, self.mic = _metadata_form(state)
         layout.addWidget(meta)
@@ -638,34 +669,131 @@ class StandalonePage(QWidget):
 
     def refresh_devices(self) -> None:
         from roomscope.audio.backend import get_backend
+        from roomscope.audio.inventory import build_inventory
 
         self.demo_banner.setVisible(self.demo_mode)
-        self.input_device.clear()
-        self.output_device.clear()
-        self.input_device.addItem(_("System default"), None)
-        self.output_device.addItem(_("System default"), None)
         try:
             backend = get_backend("fake" if self.demo_mode else None)
-            devices = backend.list_devices()
+            inventory = build_inventory(backend, probe_rates=False)
         except RoomScopeError as exc:
             self._devices = []
-            self._update_device_rate()
+            self._inventory = None
+            self.host_api.clear()
+            self._fill_device_lists()
             self.status.setText(f"Audio backend unavailable: {exc}")
             self.run_button.setEnabled(False)
             return
-        self._devices = list(devices)
-        for d in devices:
-            label = f"[{d.index}] {d.name} ({d.host_api})"
-            if d.is_input:
-                self.input_device.addItem(label + f" - {d.max_input_channels} in", d.index)
-            if d.is_output:
-                self.output_device.addItem(label + f" - {d.max_output_channels} out", d.index)
-        self._update_device_rate()
+        self._inventory = inventory
+        self._devices = [probe.device for probe in inventory.devices]
+        self.host_api.blockSignals(True)
+        self.host_api.clear()
+        self.host_api.addItem(_("System default"), None)
+        used = [api for api in inventory.host_apis if api.device_count > 0]
+        for api in sorted(used, key=lambda a: (a.rank is None, a.rank or 0, a.index)):
+            self.host_api.addItem(api.name, api.name)
+        # Preselect the best-ranked host API that has devices (WASAPI before
+        # MME on Windows); a single-API system keeps "System default".
+        if len(used) > 1:
+            self.host_api.setCurrentIndex(1)
+        self.host_api.blockSignals(False)
+        self._fill_device_lists()
         self.run_button.setEnabled(True)
         if self.demo_mode:
             self.status.setText(_("Demo mode: fake backend, no loudspeaker."))
         else:
-            self.status.setText(_("{n} audio device(s) found.").format(n=len(devices)))
+            self.status.setText(_("{n} audio device(s) found.").format(n=len(self._devices)))
+
+    def _fill_device_lists(self) -> None:
+        """Devices of the chosen host API; the recommended entries are starred."""
+        api = self.host_api.currentData() if self.host_api.count() else None
+        probes = self._inventory.devices if self._inventory is not None else ()
+        for combo in (self.input_device, self.output_device):
+            combo.blockSignals(True)
+            combo.clear()
+        if api is None:
+            self.input_device.addItem(_("System default"), None)
+            self.output_device.addItem(_("System default"), None)
+        for probe in probes:
+            d = probe.device
+            if api is not None and d.host_api != api:
+                continue
+            label = f"[{d.index}] {d.name} ({d.host_api})"
+            if d.is_input:
+                star = "★ " if probe.recommended_input else ""
+                self.input_device.addItem(f"{star}{label} - {d.max_input_channels} in", d.index)
+            if d.is_output:
+                star = "★ " if probe.recommended_output else ""
+                self.output_device.addItem(f"{star}{label} - {d.max_output_channels} out", d.index)
+        for combo, attr in (
+            (self.input_device, "recommended_input"),
+            (self.output_device, "recommended_output"),
+        ):
+            for row in range(combo.count()):
+                device_index = combo.itemData(row)
+                match = next((p for p in probes if p.device.index == device_index), None)
+                if match is not None and getattr(match, attr):
+                    combo.setCurrentIndex(row)
+                    break
+            combo.blockSignals(False)
+        kind = next(
+            (
+                a.kind
+                for a in (self._inventory.host_apis if self._inventory else ())
+                if a.name == api
+            ),
+            "",
+        )
+        self.wasapi_exclusive.setEnabled(kind == "wasapi")
+        self.coreaudio_set_rate.setEnabled(kind == "coreaudio")
+        self._update_device_rate()
+
+    def stream_options(self) -> StreamOptions:
+        return StreamOptions(
+            latency=self.latency.currentData(),
+            wasapi_exclusive=self.wasapi_exclusive.isEnabled()
+            and self.wasapi_exclusive.isChecked(),
+            coreaudio_change_device_rate=self.coreaudio_set_rate.isEnabled()
+            and self.coreaudio_set_rate.isChecked(),
+        )
+
+    def _preflight(self, input_channels: list[int]) -> tuple[int | None, int | None] | None:
+        """One host API, existing channels, and a clock warning, before playing."""
+        from roomscope.audio.inventory import (
+            check_channels,
+            resolve_duplex,
+            separate_clocks_warning,
+        )
+
+        if self._inventory is None:
+            return self.input_device.currentData(), self.output_device.currentData()
+        try:
+            inp, out = resolve_duplex(
+                self._devices,
+                self._inventory.host_apis,
+                self.input_device.currentData(),
+                self.output_device.currentData(),
+            )
+            check_channels(
+                self._devices,
+                input_device=inp,
+                output_device=out,
+                input_channels=input_channels,
+                output_channel=int(self.output_channel.value()),
+            )
+        except RoomScopeError as exc:
+            QMessageBox.critical(self, _("Invalid settings"), str(exc))
+            return None
+        warning = separate_clocks_warning(self._devices, inp, out)
+        if warning:
+            answer = QMessageBox.warning(
+                self,
+                _("Two devices, two clocks"),
+                warning + "\n\n" + _("Measure anyway?"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return None
+        return inp, out
 
     def _device_for(self, combo: QComboBox, *, kind: str) -> DeviceInfo | None:
         index = combo.currentData()
@@ -760,6 +888,10 @@ class StandalonePage(QWidget):
         except RoomScopeError as exc:
             QMessageBox.critical(self, _("Invalid settings"), str(exc))
             return
+        devices = self._preflight(list(plan.input_channels))
+        if devices is None:
+            return
+        input_device, output_device = devices
         self._channel_plan = plan
         place = self.placement.analysis_kwargs()
         self.state.analysis_settings = AnalysisSettings(
@@ -774,12 +906,13 @@ class StandalonePage(QWidget):
         self._measure_worker = MeasureWorker(
             measurement_signal(settings),
             settings.sample_rate,
-            input_device=self.input_device.currentData(),
-            output_device=self.output_device.currentData(),
+            input_device=input_device,
+            output_device=output_device,
             input_channels=list(plan.input_channels),
             output_channel=int(self.output_channel.value()),
             level_dbfs=settings.level_dbfs,
             backend="fake" if self.demo_mode else None,
+            options=self.stream_options(),
         )
         self._measure_worker.succeeded.connect(self._on_recorded)
         self._measure_worker.failed.connect(self._on_failure)
