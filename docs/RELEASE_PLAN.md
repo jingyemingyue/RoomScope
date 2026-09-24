@@ -54,17 +54,14 @@ The pipeline is `.github/workflows/release.yml`
 ([source](../.github/workflows/release.yml)). It is driven by the version
 in `pyproject.toml`, and the maintainer keeps the last word.
 
-> **Pending maintainer step (2026-09-24).** The GitHub connector used to
-> prepare v0.4.0 has no `workflow` permission, so the version-driven
-> `release.yml` described below could not be pushed from that session. It
-> was delivered to the maintainer as a file. Until the maintainer commits
-> it to `.github/workflows/release.yml`, the previous tag-only workflow is
-> in place, and its bundle job will *fail* the new GPL gate on Linux and
-> Windows (its shell strip step does not remove `libQt6QuickTimeline.so.6`
-> / `Qt6QuickTimeline.dll`; the new `--strip` mode does). Install the new
-> workflow first, then either trigger it by hand (Actions → Release →
-> Run workflow, which opens the draft for the version `main` carries:
-> v0.4.1 once the 0.4.1 pull request is merged) or push that tag yourself.
+> **Workflow status (2026-09-24).** The version-driven `.github/workflows/release.yml`
+> is included in PR #18. Its PR validation run builds and smoke-tests the
+> Linux, macOS and Windows bundles without opening a draft or publishing to
+> PyPI. The workflow becomes active on `main` when the PR is merged; the
+> merge changes `pyproject.toml` to 0.4.1 and is intended to create the
+> first v0.4.1 draft after the release jobs pass. Check the merged commit's
+> CI and the draft assets before publishing. Do not push a tag while the
+> older tag-only workflow is still on `main`.
 
 1. **Prepare the release commit on `main`.** Set `project.version` in
    `pyproject.toml` to the new version (no `.dev` suffix). Move the

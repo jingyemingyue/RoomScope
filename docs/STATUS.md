@@ -4,6 +4,22 @@ Snapshot: 2026-09-17, v0.1.0.dev1 (foundation). Everything below was
 verified by actually running it on macOS (Apple silicon, Python 3.12.14).
 Nothing is marked PASS that was not run.
 
+Snapshot 23: 2026-09-24 — **v0.4.1 workflow verification on PR #18**,
+commit `ec9a6b7406e5788830dbe68931899671df0d94d4`.
+GitHub Actions CI #43 completed successfully (Ubuntu Python 3.12/3.13/3.14,
+macOS Python 3.12, Windows Python 3.12; lint, mypy, schemas, package and
+installed-Essentials license gate). Release workflow PR run #1 also completed
+successfully: lint/type check, 470 Linux tests and the 85 % coverage gate,
+sdist/wheel, SBOM, and **Linux, macOS and Windows frozen bundles** built from
+the pinned runtime lock; each passed the `--strip --require-licenses`
+bundle gate and a fake-backend/offscreen-GUI smoke test. The macOS `.app`
+executable was smoke-tested separately. The workflow uploaded the three
+archives, checksums, wheel/sdist and SBOM as **CI artifacts**. Draft Release
+and PyPI jobs were skipped on this PR. Windows produced a zip; `iscc` was
+not installed, so no Windows setup EXE was produced. No bundle was installed
+on a person's desktop and no hardware-matrix cell was executed. The PR
+remains unmerged at this snapshot.
+
 Snapshot 22: 2026-09-24 — **v0.4.1, review follow-ups #9–#17** (branch
 `v0.4.1-review-followups`, one pull request; see CHANGELOG `[0.4.1]`). Each
 issue got a synthetic test that was checked to fail on 0.4.0 and pass

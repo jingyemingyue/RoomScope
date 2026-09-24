@@ -25,7 +25,12 @@
 
 流水线是 `.github/workflows/release.yml`，由 `pyproject.toml` 里的版本号驱动，最后一步始终由维护者点击。
 
-> **待维护者完成（2026-09-24）**：准备 v0.4.0 的会话所用的 GitHub 连接器没有 `workflow` 权限，下面描述的新 `release.yml` 推不上去，已作为文件交给维护者。在维护者把它提交到 `.github/workflows/release.yml` 之前，仓库里还是旧的“只认 tag”工作流，而且旧工作流的打包任务会在 Linux / Windows 上被新的 GPL 门禁拦下（旧的 shell 剥离步骤删不掉 `libQt6QuickTimeline.so.6` / `Qt6QuickTimeline.dll`，新的 `--strip` 能）。先装新工作流，然后要么手动触发（Actions → Release → Run workflow，会为 `main` 当前的版本开草稿：0.4.1 的 PR 合并后就是 v0.4.1），要么自己推这个 tag。手推 tag 走同一条路：构建、门禁、给该 tag 开草稿。
+> **工作流状态（2026-09-24）**：按版本号发布的 `.github/workflows/release.yml`
+> 已加入 PR #18。PR 验证运行会在 Linux、macOS、Windows 上构建安装包并执行
+> 门禁及冒烟测试，不创建草稿 Release，也不上传 PyPI。PR 合并后，新工作流才
+> 在 `main` 生效；合并带来 `pyproject.toml` 的 0.4.1 版本变更，发布任务
+> 通过后应生成第一个 v0.4.1 草稿。发布前核对合并提交的 CI 和草稿附件。
+> 在旧的只认 tag 的工作流仍位于 `main` 时，不要推送 tag。
 
 1. **在 `main` 上准备发布提交**：把 `project.version` 改成新版本（不带 `.dev`），把 CHANGELOG 的 `[Unreleased]` 挪到 `## [版本] - 日期` 下，在 `docs/STATUS.md` 加一条写明“实际跑了什么”的快照，依赖版本有变时复查 DEPENDENCIES.md §3–§4。提交并推送。
 2. **CI 自动开草稿**：`pyproject.toml` 在 `main` 上变了、且还没有 `v<版本>` 这个 tag，工作流就会跑 lint/类型检查/测试，构建 sdist 和 wheel，在三个系统上构建未签名安装包（许可证包 → PyInstaller → 剥掉 GPL-only Qt 模块和 ASIO DLL → 门禁 → 冒烟测试 → 打包 → 校验和），生成 SBOM，然后开一个名为 `v<版本>` 的**草稿** Release，把 CHANGELOG 对应段落作正文、所有压缩包作附件。**此时还没有 tag。** 带 `.dev` 的版本不会开草稿。
