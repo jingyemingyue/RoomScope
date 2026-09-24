@@ -37,7 +37,10 @@ adds is measured as if it were the room.
   round-trip latency; only a loopback gives electrical time zero
   ([MEASUREMENT_METHODOLOGY.md](MEASUREMENT_METHODOLOGY.md) §2a). An output
   underflow inserts a gap, an input overflow discards samples [9]; RoomScope
-  counts these flags and warns (`audio/portaudio.py`).
+  counts these flags and keeps them with the take: they appear in the
+  result's warnings and as a "measure again" finding (`audio/portaudio.py`,
+  `AudioSignal.device_warnings`). The take is analysed, not refused, until
+  real interfaces show whether some host APIs report them spuriously.
 
 ## 2. Host APIs per platform
 

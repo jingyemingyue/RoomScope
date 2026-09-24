@@ -391,9 +391,10 @@ algebra and the refusals, not the acoustics of any real surface.
   conditions are not checked). Decay curves are never averaged.
 * Direct sound = strongest deconvolved sample; a reflection stronger than the
   direct sound would be mis-identified (confidence margin does not catch it).
-* PortAudio buffer under/overflows are logged, not refused; whether a real
-  interface reports them, and whether Stop and an unplugged device behave
-  as the scripted stand-in does, is unverified (hardware matrix).
+* PortAudio buffer under/overflows are reported (result warning and a
+  "measure again" finding), not refused; whether a real interface reports
+  them, and whether Stop and an unplugged device behave as the scripted
+  stand-in does, is unverified (hardware matrix).
 * Loopback validation and compensation have synthetic evidence only.
 * An imported impulse response that starts at its peak cannot be checked
   for being an IR and is analysed with direct-sound confidence "low".

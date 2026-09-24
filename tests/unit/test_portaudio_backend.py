@@ -236,12 +236,21 @@ def test_a_failing_final_progress_report_keeps_the_take(
     assert any("progress callback failed" in r.getMessage() for r in caplog.records)
 
 
-def test_buffer_problems_are_logged(script: _Script, caplog: pytest.LogCaptureFixture) -> None:
+def test_buffer_problems_are_logged_and_kept_with_the_take(
+    script: _Script, caplog: pytest.LogCaptureFixture
+) -> None:
     script.status = {2: "input overflow", 7: "input overflow"}
     with caplog.at_level(logging.WARNING, logger="roomscope.audio.portaudio"):
-        _take()
+        recording = _take()
     assert any("2 buffer problem(s)" in r.getMessage() for r in caplog.records)
     assert any("input overflow" in r.getMessage() for r in caplog.records)
+    # Not only a log line: the analysis and the GUI see it (a finding).
+    (warning,) = recording.device_warnings
+    assert "2 buffer problem(s)" in warning and "input overflow" in warning
+
+
+def test_a_clean_take_has_no_device_warnings(script: _Script) -> None:
+    assert _take().device_warnings == ()
 
 
 @pytest.mark.parametrize(

@@ -12,6 +12,7 @@ import logging
 import os
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -516,6 +517,7 @@ def _run_analysis(
     out_dir: Path | None = None,
     hardware: ChannelPlan | None = None,
     output_channel: int | None = None,
+    device_warnings: tuple[str, ...] = (),
 ) -> int:
     """Analyse a recording and optionally save a session.
 
@@ -532,6 +534,10 @@ def _run_analysis(
     from roomscope.models.session import MeasurementSession
 
     recording = read_wav(recording_path)
+    if device_warnings:
+        # Written to a WAV and read back, the take has lost what the device
+        # reported while recording it.
+        recording = replace(recording, device_warnings=device_warnings)
     if sweep_settings is not None:
         reference = Reference.from_settings(sweep_settings)
     else:
@@ -772,6 +778,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
         out_dir=out_dir,
         hardware=plan,
         output_channel=int(args.output_channel),
+        device_warnings=recording.device_warnings,
     )
 
 

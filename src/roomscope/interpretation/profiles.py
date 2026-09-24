@@ -389,6 +389,19 @@ class ProfileBase:
                 )
             )
         for warning in result.warnings:
+            if "buffer problem" in warning:
+                findings.append(
+                    finding(
+                        "measurement",
+                        Severity.WARNING,
+                        "measurement.dropouts",
+                        "The audio device reported dropped or late buffers during the take, so "
+                        "samples may be missing and the result may be smeared. Close other audio "
+                        "programs, choose a higher latency or buffer size, and measure again.",
+                        evidence={"warning": warning},
+                        warning=warning,
+                    )
+                )
             if "clipping" in warning:
                 findings.append(
                     finding(

@@ -32,7 +32,9 @@
 * **延迟稳定、没有丢样。** 解卷积得到的时间原点包含往返延迟；只有 loopback 能给出
   电气时间零点（[MEASUREMENT_METHODOLOGY.md](MEASUREMENT_METHODOLOGY.md)
   §2a）。输出下溢会插入空隙，输入上溢会丢弃样本 [9]；RoomScope 会统计这些标志并
-  给出警告（`audio/portaudio.py`）。
+  随测量保存：它们出现在结果的警告中，并生成一条“请重新测量”的提示
+  （`audio/portaudio.py`、`AudioSignal.device_warnings`）。在真实声卡证明某些主机 API
+  是否会误报之前，这类测量仍会被分析，而不是直接拒绝。
 
 ## 2. 各平台的主机 API
 

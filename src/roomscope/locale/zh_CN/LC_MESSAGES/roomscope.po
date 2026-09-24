@@ -1646,3 +1646,6 @@ msgstr "无法获取音频设备列表；通用 DAW 模式仍然可用。"
 
 msgid "Audio backend unavailable: {error}"
 msgstr "音频后端不可用：{error}"
+
+msgid "The audio device reported dropped or late buffers during the take, so samples may be missing and the result may be smeared. Close other audio programs, choose a higher latency or buffer size, and measure again."
+msgstr "音频设备在本次测量中报告了丢失或延迟的缓冲区，录音中可能缺少采样，结果可能因此被抹平。请关闭其他音频程序，选择更高的延迟或缓冲区大小，然后重新测量。"

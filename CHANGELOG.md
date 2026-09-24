@@ -80,6 +80,12 @@ All notable changes to RoomScope are documented here. The format follows
   Python 3.12; with the newest releases it passes on 3.13 and 3.14.
 
 ### Fixed
+- **Buffer under/overflows reached only the log.** A Standalone take whose
+  device reported an input overflow (samples dropped) or output underflow (a
+  gap in the sweep) was analysed with no sign of it in the GUI. The flags
+  now travel with the take (`AudioSignal.device_warnings`) into the result's
+  warnings and a translated "measure again" finding
+  (`measurement.dropouts`), in the GUI and `roomscope measure` alike.
 - **Standalone pre-flight checked the wrong device.** The GUI and
   `roomscope measure` asked for the sample rate before resolving which host
   API the take would use: with one side left at "system default", the GUI

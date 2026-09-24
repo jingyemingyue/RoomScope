@@ -576,7 +576,7 @@ def analyze(
     """
     settings = settings or AnalysisSettings()
     sample_rate = recording.sample_rate
-    warnings: list[str] = []
+    warnings: list[str] = list(recording.device_warnings)
 
     mono, channel, channel_warning, lb_samples, lb_channel = _select_mic_and_loopback(
         recording, settings, loopback

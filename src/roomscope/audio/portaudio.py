@@ -213,13 +213,16 @@ class PortAudioBackend:
             raise AudioDeviceError(
                 f"the audio stream ended after {position[0]} of {frames_total} frames"
             )
+        device_warnings: tuple[str, ...] = ()
         if xruns:
-            log.warning(
-                "the audio device reported %d buffer problem(s) during the take (%s); "
-                "the recording may contain dropouts, measure again if the result looks wrong",
-                len(xruns),
-                "; ".join(sorted(set(xruns))),
+            # PortAudio's status flags: an input overflow drops recorded
+            # samples, an output underflow inserts a gap in the sweep. Either
+            # breaks the sweep's timing that deconvolution relies on.
+            device_warnings = (
+                f"the audio device reported {len(xruns)} buffer problem(s) during the take "
+                f"({'; '.join(sorted(set(xruns)))}); the recording may contain dropouts",
             )
+            log.warning("%s; measure again if the result looks wrong", device_warnings[0])
         try:
             report(1.0)
         except Exception:
@@ -231,4 +234,5 @@ class PortAudioBackend:
             samples=np.ascontiguousarray(samples),
             sample_rate=sample_rate,
             source="standalone",
+            device_warnings=device_warnings,
         )
