@@ -98,7 +98,13 @@ class AudioBackend(Protocol):
     def list_devices(self) -> list[DeviceInfo]: ...
 
     def check_sample_rate(
-        self, device: int, sample_rate: int, *, kind: str, channels: int | None = None
+        self,
+        device: int,
+        sample_rate: int,
+        *,
+        kind: str,
+        channels: int | None = None,
+        options: StreamOptions | None = None,
     ) -> None: ...
 
     def play_and_record(

@@ -88,9 +88,16 @@ class WindowsBackend:
         return _devices()
 
     def check_sample_rate(
-        self, device: int, sample_rate: int, *, kind: str, channels: int | None = None
+        self,
+        device: int,
+        sample_rate: int,
+        *,
+        kind: str,
+        channels: int | None = None,
+        options: StreamOptions | None = None,
     ) -> None:
         assert channels == 1  # probed for one channel, not the device maximum
+        assert options is None  # probing asks with PortAudio's defaults
         self.checked.append((device, sample_rate, kind))
         if sample_rate not in RAW[device][5]:
             raise AudioDeviceError(f"{sample_rate} not supported")
@@ -183,14 +190,22 @@ class StreamCheckBackend:
 
     name: str = "portaudio"
     checked: list[tuple[int, int, str, int | None]] = field(default_factory=list)
+    options: list[StreamOptions | None] = field(default_factory=list)
 
     def list_devices(self) -> list[DeviceInfo]:
         return _devices()
 
     def check_sample_rate(
-        self, device: int, sample_rate: int, *, kind: str, channels: int | None = None
+        self,
+        device: int,
+        sample_rate: int,
+        *,
+        kind: str,
+        channels: int | None = None,
+        options: StreamOptions | None = None,
     ) -> None:
         self.checked.append((device, sample_rate, kind, channels))
+        self.options.append(options)
         if sample_rate not in RAW[device][5]:
             raise AudioDeviceError(f"{kind} device {device} refuses {sample_rate} Hz")
 
@@ -262,6 +277,59 @@ def test_preflight_checks_the_devices_the_stream_will_open(windows: WindowsBacke
         sample_rate=48000,
     )
     assert plan.clock_warning is not None and "separate sample clocks" in plan.clock_warning
+    # The stream's host-API options reach the rate check (WASAPI exclusive).
+    exclusive = StreamOptions(wasapi_exclusive=True)
+    preflight(
+        backend,
+        inventory,
+        input_device=5,
+        output_device=6,
+        input_channels=[1],
+        output_channel=1,
+        sample_rate=48000,
+        options=exclusive,
+    )
+    assert backend.options[-2:] == [exclusive, exclusive]
+
+
+def test_exclusive_mode_rate_is_checked_in_exclusive_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review finding: --wasapi-exclusive at 96 kHz was refused by a shared-mode
+    check (shared mode accepts only the engine rate), before the exclusive
+    stream that would have run at 96 kHz was ever opened."""
+    from roomscope.audio import devices, portaudio
+
+    class SharedOrExclusiveSd(_FakeSd):
+        @staticmethod
+        def check_input_settings(**kwargs: Any) -> None:
+            exclusive = isinstance(kwargs["extra_settings"], _Settings)
+            if kwargs["samplerate"] != 48000 and not exclusive:
+                raise RuntimeError("Invalid sample rate [PaErrorCode -9997]")
+
+        check_output_settings = check_input_settings
+
+    monkeypatch.setattr(devices, "sounddevice_module", lambda: SharedOrExclusiveSd)
+    monkeypatch.setattr(portaudio, "sounddevice_module", lambda: SharedOrExclusiveSd)
+    backend = portaudio.PortAudioBackend()
+    with pytest.raises(AudioDeviceError, match="does not support 96000 Hz"):
+        backend.check_sample_rate(5, 96000, kind="input", channels=1)
+    backend.check_sample_rate(
+        5, 96000, kind="input", channels=1, options=StreamOptions(wasapi_exclusive=True)
+    )
+
+
+def test_fake_backend_default_devices_resolve(tmp_path: Any) -> None:
+    """Review finding: with only one fake device chosen, the other side had no
+    host-API default and roomscope measure refused the take."""
+    from roomscope.audio.fake import FakeBackend
+    from roomscope.cli.main import main
+
+    inventory = build_inventory(FakeBackend(), probe_rates=False)
+    devices = [probe.device for probe in inventory.devices]
+    assert resolve_duplex(devices, inventory.host_apis, 0, None) == (0, 0)
+    assert resolve_duplex(devices, inventory.host_apis, None, 0) == (0, 0)
+    measure = ["--backend", "fake", "measure", "--input-device", "0", "--out", str(tmp_path)]
+    code = main([*measure, "--duration", "1", "--post-silence", "1"])
+    assert code == 0
 
 
 def test_separate_clocks_are_warned() -> None:

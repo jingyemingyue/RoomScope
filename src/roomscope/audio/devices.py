@@ -72,7 +72,12 @@ def _latency(info: Any, key: str) -> float | None:
 
 
 def check_sample_rate(
-    device_index: int, sample_rate: int, *, kind: str, channels: int | None = None
+    device_index: int,
+    sample_rate: int,
+    *,
+    kind: str,
+    channels: int | None = None,
+    extra_settings: Any = None,
 ) -> None:
     """Raise :class:`AudioDeviceError` if the device cannot run at ``sample_rate``.
 
@@ -82,9 +87,19 @@ def check_sample_rate(
     sd = sounddevice_module()
     try:
         if kind == "input":
-            sd.check_input_settings(device=device_index, samplerate=sample_rate, channels=channels)
+            sd.check_input_settings(
+                device=device_index,
+                samplerate=sample_rate,
+                channels=channels,
+                extra_settings=extra_settings,
+            )
         else:
-            sd.check_output_settings(device=device_index, samplerate=sample_rate, channels=channels)
+            sd.check_output_settings(
+                device=device_index,
+                samplerate=sample_rate,
+                channels=channels,
+                extra_settings=extra_settings,
+            )
     except Exception as exc:
         raise AudioDeviceError(
             f"{kind} device {device_index} does not support {sample_rate} Hz: {exc}"

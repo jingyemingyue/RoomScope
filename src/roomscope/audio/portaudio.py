@@ -78,9 +78,20 @@ class PortAudioBackend:
         return list_devices()
 
     def check_sample_rate(
-        self, device: int, sample_rate: int, *, kind: str, channels: int | None = None
+        self,
+        device: int,
+        sample_rate: int,
+        *,
+        kind: str,
+        channels: int | None = None,
+        options: StreamOptions | None = None,
     ) -> None:
-        check_sample_rate(device, sample_rate, kind=kind, channels=channels)
+        # Ask with the stream's host-API settings: WASAPI exclusive mode accepts
+        # rates the shared-mode engine refuses (docs/AUDIO_DEVICES.md).
+        extra = None
+        if options is not None and not options.is_default:
+            extra = host_api_settings(sounddevice_module(), device, kind, options)
+        check_sample_rate(device, sample_rate, kind=kind, channels=channels, extra_settings=extra)
 
     def play_and_record(
         self,

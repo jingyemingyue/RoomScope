@@ -27,8 +27,9 @@ then the steps in the DAWs most studios use. The Chinese translation is
 2. **No time-stretching.** Warp, Flex Time, Follow Tempo, elastic audio and
    stretch modes must be off for the test-signal clip, and the tempo must not
    change after import. RoomScope reports *"the DAW time-stretched it"* when
-   the sweep runs more than about 1 % off speed and the sidecar is used; a
-   smaller stretch still spoils the measurement (low direct-sound confidence,
+   the sweep runs off speed by more than the estimate's own spread (about
+   1.3 % for the default 10 s sweep, 2.4 % for 3 s, 5.5 % for 1 s) and the
+   sidecar is used; a smaller stretch still spoils the measurement (low direct-sound confidence,
    unreliable decay) without a named cause, so check the clip rather than
    rely on the report.
 3. **A clean playback path.** Bypass every plug-in on the test-signal track,
@@ -366,7 +367,7 @@ Clip *Stretch to Tempo* option off for the sweep [CW3].
 | *"the recording contains N sweep passes"* | Loop / cycle recording, or the sweep placed twice | Record one pass |
 | *"recording is silent"* | Wrong input or a muted track | Check the input and which track you exported |
 | *"the recording has no background noise at all"* (an RT60 of a few hundredths of a second, no reflections) | The test-signal track was exported instead of the microphone, or a gate / noise reduction is on the microphone track | Export the microphone track, dry |
-| *"direct-sound detection confidence is low"* with none of the above | Wrong reference sweep, a small time-stretch (under about 1 %) or Warp / Flex left on, a very noisy room, or a loudspeaker far into distortion | Use the sweep you played; check stretching; lower the playback level |
+| *"direct-sound detection confidence is low"* with none of the above | Wrong reference sweep, a small time-stretch (below the spread above) or Warp / Flex left on, a very noisy room, or a loudspeaker far into distortion | Use the sweep you played; check stretching; lower the playback level |
 
 ## Sources
 

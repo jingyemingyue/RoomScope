@@ -54,11 +54,18 @@ COMMON_SAMPLE_RATES_HZ: tuple[int, ...] = (
     192000,
 )
 #: A played rate within this fraction of a common sample rate is named as one.
-#: Ratios between common rates differ by at least 8 %; a long reverberation
-#: biases the estimate of a short sweep by up to about 2 %.
+#: Ratios between common rates differ by at least 8 %; a DAW stretch of a few
+#: percent (a tempo 5 % off) must not be named as a sample rate.
 SAMPLE_RATE_MATCH_TOLERANCE = 0.025
-#: Speeds within this fraction of 1 are "as generated" (estimation noise).
-SPEED_TOLERANCE = 0.01
+#: The estimate of a correctly played sweep scatters around 1, with either
+#: sign, more for a short sweep in a reverberant room. Worst case over 72
+#: synthetic rooms per sweep length (RT60 1-4 s, diffuse level 0.05-0.3,
+#: ``tests/conftest.make_rir``): 8.2 % at 0.5 s, 4.5 % at 1 s, 1.9 % at 3 s,
+#: 1.4 % at 5 s, 0.9 % at 10 s. :func:`speed_tolerance` stays about 20 % above
+#: that; speeds within it of 1 are "as generated".
+SPEED_TOLERANCE = 0.0125
+SPEED_SPREAD_AT_1_S = 0.055
+SPEED_SPREAD_EXPONENT = 0.75
 #: A frequency bin is used when its loudest frame is this far (dB) above the
 #: bin's median over time: the passing sweep, not noise, made that maximum.
 FRAME_DOMINANCE_DB = 20.0
@@ -138,6 +145,12 @@ def measure_sweep_speed(
     return settings.sweep_rate / measured_rate
 
 
+def speed_tolerance(duration_s: float) -> float:
+    """How far from 1 a measured speed may be and still count as "as generated"."""
+    spread = SPEED_SPREAD_AT_1_S / float(max(duration_s, 1e-3)) ** SPEED_SPREAD_EXPONENT
+    return max(SPEED_TOLERANCE, float(spread))
+
+
 def diagnose_playback_speed(
     recording: FloatArray, sample_rate: int, settings: SweepSettings
 ) -> PlaybackSpeed | None:
@@ -145,10 +158,12 @@ def diagnose_playback_speed(
 
     ``settings`` is the sweep as generated (its ``sample_rate`` is the rate of
     the file the user played). ``None`` when the measured speed is within
-    :data:`SPEED_TOLERANCE` of 1 or no sweep track can be measured.
+    :func:`speed_tolerance` of 1 for this sweep length (a short sweep in a
+    reverberant room is not named as stretched) or no sweep track can be
+    measured.
     """
     speed = measure_sweep_speed(recording, sample_rate, settings)
-    if speed is None or abs(speed - 1.0) <= SPEED_TOLERANCE:
+    if speed is None or abs(speed - 1.0) <= speed_tolerance(settings.duration_s):
         return None
     generated = settings.sample_rate
     played = speed * generated

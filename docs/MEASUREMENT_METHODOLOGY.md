@@ -133,16 +133,20 @@ is loudest in the frame where the sweep passed it — reverberation only adds
 later and weaker energy — and bins whose maximum is at least 20 dB above
 their median over time are kept. A Theil–Sen line [23, 24] through
 `(ln f, t)` of at least 12 such bins spanning at least 1.5 octaves gives the
-measured `L'`, and `speed = L / L'`. A speed within 1 % of 1 is "as
-generated". Otherwise, when `speed × generated rate` is within 2.5 % of a
-common sample rate (22.05 to 192 kHz; ratios between them differ by at
-least 8 %), the result names a sample-rate mismatch and the rate the file
-was played at, else a time-stretch.
+measured `L'`, and `speed = L / L'`. A speed within the estimate's own
+spread of 1 is "as generated": `max(1.25 %, 5.5 % / T^0.75)` for a sweep of
+`T` seconds (9.3 % at 0.5 s, 5.5 % at 1 s, 2.4 % at 3 s, 1.6 % at 5 s,
+1.25 % from about 9 s). Otherwise, when `speed × generated rate` is within
+2.5 % of a common sample rate (22.05 to 192 kHz; ratios between them differ
+by at least 8 %), the result names a sample-rate mismatch and the rate the
+file was played at, else a time-stretch.
 
-On synthetic rooms (RT60 0.3–1.5 s, 2 and 10 s sweeps) the measured speed of
-a correctly played sweep is within 0.2 % of 1; a long reverberation with a
-2 s sweep biases the estimate by up to about 2 %, which is why the tolerance
-for naming a sample rate is 2.5 %. The estimate is a diagnosis only: it
+The spread was measured on correctly played sweeps in synthetic rooms (RT60
+1–4 s, diffuse level 0.05–0.3, 72 rooms per sweep length): worst case 8.2 %
+at 0.5 s, 4.5 % at 1 s, 1.9 % at 3 s, 1.4 % at 5 s and 0.9 % at 10 s, with
+either sign; the tolerance stays about 20 % above it
+(`tests/integration/test_playback_speed.py`). A smaller stretch is not
+named. The estimate is a diagnosis only: it
 explains a failed measurement, marks the decay unreliable and is stored in
 `impulse_response.playback_speed`, but RoomScope never re-analyses with the
 measured speed. Tests: `tests/integration/test_playback_speed.py`.

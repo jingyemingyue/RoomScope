@@ -724,6 +724,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
         input_channels=channels,
         output_channel=int(args.output_channel),
         sample_rate=settings.sample_rate,
+        options=options,
     )
     args.input_device, args.output_device = device_plan.input_device, device_plan.output_device
     if device_plan.clock_warning:

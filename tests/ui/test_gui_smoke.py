@@ -315,7 +315,8 @@ def test_standalone_shows_requested_and_device_rate(app: QApplication) -> None:
     assert "48000" in label
     assert "requested" in label
     # The same pre-flight as roomscope measure: resolved devices, real channels.
-    assert page._preflight([1], 48000) == (0, 0)  # the demo interface, preselected
+    # "System default" stays selected: PortAudio's default devices are used.
+    assert page._preflight([1], 48000) == (None, None)
     window.close()
 
 
@@ -388,4 +389,49 @@ def test_standalone_host_api_filter_and_options(app: QApplication) -> None:
     assert page.input_device.currentText().startswith("★") or page.host_api.currentData() is None
     options = page.stream_options()
     assert options.is_default
+    window.close()
+
+
+def test_standalone_preselects_the_system_default_devices(
+    app: QApplication, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding: on a Mac every Core Audio device is its own starred
+    entry, so the page preselected the lowest index, a virtual BlackHole
+    device, instead of the microphone and speakers the system uses."""
+    from roomscope.audio import backend as backend_module
+    from roomscope.audio import inventory as inventory_module
+    from roomscope.audio.backend import DeviceInfo
+
+    devices = [
+        DeviceInfo(0, "BlackHole 2ch", "Core Audio", 2, 2, 48000.0, False, False),
+        DeviceInfo(1, "MacBook Pro Microphone", "Core Audio", 1, 0, 48000.0, True, False),
+        DeviceInfo(2, "MacBook Pro Speakers", "Core Audio", 0, 2, 48000.0, False, True),
+    ]
+
+    class Mac:
+        name = "test"
+
+        def list_devices(self) -> list[DeviceInfo]:
+            return devices
+
+        def check_sample_rate(self, *args: object, **kwargs: object) -> None:
+            return None
+
+    real_build = inventory_module.build_inventory
+    monkeypatch.setattr(backend_module, "get_backend", lambda name=None: Mac())
+    monkeypatch.setattr(
+        inventory_module,
+        "build_inventory",
+        lambda backend, **kwargs: real_build(backend, probe_rates=False, platform="darwin"),
+    )
+    window = MainWindow()
+    page = window.standalone
+    page.refresh_devices()
+    assert page.host_api.currentData() is None
+    assert page.input_device.currentData() is None
+    assert page.output_device.currentData() is None
+    # Choosing the host API preselects its default devices, not the first star.
+    page.host_api.setCurrentIndex(page.host_api.findData("Core Audio"))
+    assert page.input_device.currentData() == 1
+    assert page.output_device.currentData() == 2
     window.close()

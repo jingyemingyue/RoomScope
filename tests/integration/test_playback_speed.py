@@ -187,3 +187,35 @@ def test_failing_diagnosis_keeps_the_original_error(
     with pytest.raises(InvalidAudioError) as info:
         analyze(recording, Reference.from_settings(SWEEP))
     assert "However" not in str(info.value)
+
+
+@pytest.mark.parametrize(("duration_s", "rt60_s", "seed"), [(1.0, 2.5, 6), (3.0, 4.0, 2)])
+def test_short_sweep_in_a_reverberant_room_is_not_called_stretched(
+    duration_s: float, rt60_s: float, seed: int
+) -> None:
+    """Review finding: a correctly played 1 s sweep with RT60 2.5 s measured
+    about 4 % off and was diagnosed as a time-stretch. These are the worst
+    cases of the spread measured for the tolerance."""
+    from roomscope.core.pipeline import synthetic_recording
+    from tests.conftest import make_rir
+
+    settings = SweepSettings(sample_rate=48000, duration_s=duration_s, post_silence_s=rt60_s)
+    ir = make_rir(
+        48000,
+        rt60_s=rt60_s,
+        diffuse_level=0.3 if duration_s > 2 else 0.1,
+        length_s=rt60_s * 1.2,
+        seed=seed,
+    )
+    recording = synthetic_recording(settings, ir, noise_rms=3e-4, gain=0.3, seed=seed).samples
+    speed = measure_sweep_speed(recording, 48000, settings)
+    assert speed is not None and abs(speed - 1.0) > 0.0125  # outside the old 1 % band
+    assert diagnose_playback_speed(recording, 48000, settings) is None
+
+
+def test_the_tolerance_keeps_a_sample_rate_mismatch_detectable() -> None:
+    from roomscope.core.playback_speed import speed_tolerance
+
+    assert speed_tolerance(10.0) == pytest.approx(0.0125)
+    assert speed_tolerance(3.0) < 0.03  # the +/-3 % stretch tests above still fire
+    assert speed_tolerance(1.0) < 1 - 44100 / 48000  # 44.1 vs 48 kHz is named from 1 s

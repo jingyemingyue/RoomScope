@@ -60,7 +60,9 @@ RoomScope never talks to the DAW. It reads what DAWs export (Broadcast WAV,
 RF64, Wave64, AIFF, CAF, FLAC; 16/24/32-bit PCM or 32-bit float; mono or
 multi-channel) and, when the sweep's sidecar file is used, names the usual
 cause when the DAW played the sweep at the wrong speed (a project at another
-sample rate, or a Warp / Flex / Follow Tempo stretch of more than about 1 %).
+sample rate, or a Warp / Flex / Follow Tempo stretch larger than the
+estimate's own spread: about 1.3 % for the default 10 s sweep, more for
+shorter sweeps).
 Step-by-step notes, written from each vendor's documentation, cover Pro
 Tools, Logic Pro / GarageBand, Cubase / Nuendo, Fender Studio Pro (Studio
 One), Ableton Live, REAPER, FL Studio, Bitwig, Digital Performer and

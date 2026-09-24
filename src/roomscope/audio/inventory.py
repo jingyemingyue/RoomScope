@@ -28,7 +28,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
-from roomscope.audio.backend import AudioBackend, DeviceInfo
+from roomscope.audio.backend import AudioBackend, DeviceInfo, StreamOptions
 from roomscope.errors import RoomScopeError
 from roomscope.models.configuration import SUPPORTED_SAMPLE_RATES
 
@@ -334,12 +334,18 @@ def _host_apis(
     raw = _query_host_apis(backend)
     if raw is None:
         names = sorted({device.host_api for device in devices})
+        # Without PortAudio's table (the fake backend), a host API's default
+        # devices are its devices marked as the system defaults.
         raw = [
             {
                 "name": name,
                 "devices": [d.index for d in devices if d.host_api == name],
-                "default_input_device": -1,
-                "default_output_device": -1,
+                "default_input_device": next(
+                    (d.index for d in devices if d.host_api == name and d.is_default_input), -1
+                ),
+                "default_output_device": next(
+                    (d.index for d in devices if d.host_api == name and d.is_default_output), -1
+                ),
             }
             for name in names
         ]
@@ -517,6 +523,7 @@ def preflight(
     input_channels: Sequence[int],
     output_channel: int,
     sample_rate: int,
+    options: StreamOptions | None = None,
 ) -> DevicePlan:
     """Everything the GUI and the CLI check before a Standalone take plays a sample.
 
@@ -524,7 +531,9 @@ def preflight(
     both directions on one host API (:func:`resolve_duplex`), the channels
     exist (:func:`check_channels`), each device accepts ``sample_rate`` with
     the channel count the stream opens (``max(input_channels)`` in,
-    ``output_channel`` out; ``Pa_IsFormatSupported``, nothing is played), and
+    ``output_channel`` out) and the stream's host-API ``options`` (WASAPI
+    exclusive accepts rates shared mode refuses; ``Pa_IsFormatSupported``,
+    nothing is played), and
     a warning for separate clocks. A ``None`` device is PortAudio's default.
     Raises :class:`~roomscope.errors.ConfigurationError` for the device or
     channel choice and :class:`~roomscope.errors.AudioDeviceError` for a rate
@@ -549,5 +558,7 @@ def preflight(
             else next((d for d in devices if getattr(d, default_attr)), None)
         )
         if device is not None:
-            backend.check_sample_rate(device.index, sample_rate, kind=kind, channels=channels)
+            backend.check_sample_rate(
+                device.index, sample_rate, kind=kind, channels=channels, options=options
+            )
     return DevicePlan(inp, out, separate_clocks_warning(devices, inp, out))

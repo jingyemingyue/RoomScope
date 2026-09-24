@@ -704,7 +704,14 @@ class StandalonePage(QWidget):
             self.status.setText(_("{n} audio device(s) found.").format(n=len(self._devices)))
 
     def _fill_device_lists(self) -> None:
-        """Devices of the chosen host API; the recommended entries are starred."""
+        """Devices of the chosen host API; the recommended entries are starred.
+
+        The preselection is the system's choice, not RoomScope's: "System
+        default" under "System default", else the host API's own default
+        device, and the first starred entry only when the host API has none.
+        A star is a hint (on macOS every Core Audio device, virtual ones
+        included, is its own recommended entry).
+        """
         api = self.host_api.currentData() if self.host_api.count() else None
         probes = self._inventory.devices if self._inventory is not None else ()
         for combo in (self.input_device, self.output_device):
@@ -724,16 +731,28 @@ class StandalonePage(QWidget):
             if d.is_output:
                 star = "★ " if probe.recommended_output else ""
                 self.output_device.addItem(f"{star}{label} - {d.max_output_channels} out", d.index)
-        for combo, attr in (
-            (self.input_device, "recommended_input"),
-            (self.output_device, "recommended_output"),
+        chosen = next(
+            (a for a in (self._inventory.host_apis if self._inventory else ()) if a.name == api),
+            None,
+        )
+        for combo, default, attr in (
+            (self.input_device, chosen.default_input if chosen else None, "recommended_input"),
+            (self.output_device, chosen.default_output if chosen else None, "recommended_output"),
         ):
-            for row in range(combo.count()):
-                device_index = combo.itemData(row)
-                match = next((p for p in probes if p.device.index == device_index), None)
-                if match is not None and getattr(match, attr):
-                    combo.setCurrentIndex(row)
-                    break
+            row = combo.findData(default) if default is not None else -1
+            if row < 0 and api is not None:
+                row = next(
+                    (
+                        r
+                        for r in range(combo.count())
+                        if any(
+                            p.device.index == combo.itemData(r) and getattr(p, attr) for p in probes
+                        )
+                    ),
+                    -1,
+                )
+            if row >= 0:
+                combo.setCurrentIndex(row)
             combo.blockSignals(False)
         kind = next(
             (
@@ -779,6 +798,7 @@ class StandalonePage(QWidget):
                 input_channels=input_channels,
                 output_channel=int(self.output_channel.value()),
                 sample_rate=sample_rate,
+                options=self.stream_options(),
             )
         except AudioDeviceError as exc:
             QMessageBox.critical(self, _("Sample rate not supported"), str(exc))
