@@ -57,16 +57,23 @@ bundled licenses.
 
 ## Universal DAW Mode
 
-1. `roomscope sweep --out sweep.wav` (or the GUI “Universal DAW Mode” generate
-   button). Keep the `.roomscope-sweep.json` sidecar next to the WAV.
-2. Import the WAV on a new DAW track. Route it to the monitors.
-3. Arm a second track with the measurement microphone. Do not trim the bounce.
+1. `roomscope sweep --sample-rate <project rate> --out sweep.wav` (or the GUI
+   “Universal DAW Mode” generate button, with the project's sample rate).
+   Keep the `.roomscope-sweep.json` sidecar next to the WAV.
+2. Import the WAV on a new DAW track, with time-stretching (Warp, Flex,
+   Follow Tempo) off and no plug-in on its path. Route it to one loudspeaker.
+3. Arm a second track with the measurement microphone, input monitoring off,
+   and record while the sweep plays. Export the recorded track whole, without
+   trimming or normalising.
 4. Optional loopback: bounce a two-channel export (microphone + electrical
    return) and pass `--channel 0 --loopback-channel 1`.
 5. `roomscope analyze --recording take.wav --sweep sweep.wav --out session/`
    or drop the files in the GUI.
 
-Per-DAW notes from users belong in issues labelled `good first issue`.
+**Step-by-step notes for Pro Tools, Logic Pro / GarageBand, Cubase / Nuendo,
+Studio One, Ableton Live, REAPER, FL Studio, Bitwig Studio and Audacity, and
+what each report message means in DAW terms:
+[daw-setup.md](daw-setup.md).**
 
 ## Standalone Mode and the loopback cable
 

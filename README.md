@@ -55,6 +55,11 @@ wheel is in the [user guide](docs/user-guide/en.md#install)
 Works with any DAW that can import, play, record and export WAV files
 (Cubase / Nuendo, Pro Tools, Logic Pro, Studio One, Ableton Live, REAPER,
 FL Studio, Bitwig, Digital Performer, ...). RoomScope never talks to the DAW.
+It reads what DAWs export (Broadcast WAV, RF64, Wave64, AIFF, CAF, FLAC;
+16/24/32-bit PCM or 32-bit float; mono or multi-channel) and tells you when the
+DAW played the sweep at the wrong speed (a project at another sample rate, or
+Warp / Flex / Follow Tempo stretching). Step-by-step notes for each DAW:
+[docs/user-guide/daw-setup.md](docs/user-guide/daw-setup.md).
 
 1. **Generate Test Signal** – RoomScope writes a sweep WAV (plus a small JSON
    sidecar with the exact sweep definition).
@@ -215,6 +220,7 @@ for r in result.reflections.reflections:
 | [docs/STATUS.md](docs/STATUS.md) | Implemented / tested / known limitations / next milestone |
 | [docs/user-guide/en.md](docs/user-guide/en.md) | User guide (English): install, measure, read, compare, bundle |
 | [docs/user-guide/zh-CN.md](docs/user-guide/zh-CN.md) | 用户指南（简体中文） |
+| [docs/user-guide/daw-setup.md](docs/user-guide/daw-setup.md) | Step-by-step DAW notes (Pro Tools, Logic, Cubase, Studio One, Live, REAPER, FL Studio, Bitwig, Audacity); [中文](docs/user-guide/daw-setup.zh-CN.md) |
 | [docs/PROJECT_BRIEF.zh-CN.md](docs/PROJECT_BRIEF.zh-CN.md) | Original project brief (Chinese) |
 
 ## Contributing

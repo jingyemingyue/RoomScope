@@ -25,6 +25,39 @@ is the started matrix for milestone 0.3; the cells are empty on purpose.
 Record a row as `PASS YYYY-MM-DD, RoomScope x.y.z, <interface name>` or
 `FAIL` with an issue link. Do not fill a cell from the fake backend.
 
+## DAW matrix
+
+One Universal DAW Mode measurement per DAW, following
+[user-guide/daw-setup.md](user-guide/daw-setup.md) as written: the sweep
+generated at the project rate, recorded and exported with the listed menus,
+analysed with `direct_sound_confidence` high. A cell also checks that the
+notes are right for that DAW version; correct the guide in the same pull
+request when they are not. Two negative checks per DAW confirm the diagnosis:
+a 48 kHz sweep in a 44.1 kHz project (expect the sample-rate finding) and,
+where the DAW stretches, the sweep with stretching on (expect the
+time-stretch finding).
+
+| DAW (version) | macOS | Windows | Linux | Sample-rate finding | Time-stretch finding |
+| --- | --- | --- | --- | --- | --- |
+| Pro Tools | | | n/a | | |
+| Logic Pro | | n/a | n/a | | |
+| GarageBand | | n/a | n/a | | n/a |
+| Cubase / Nuendo | | | n/a | | |
+| Studio One | | | | | |
+| Ableton Live | | | n/a | | |
+| REAPER | | | | | |
+| FL Studio | | | n/a | | |
+| Bitwig Studio | | | | | |
+| Audacity | | | | | n/a |
+
+What the automated tests show instead: `tests/integration/test_daw_exports.py`
+analyses the same take written as Broadcast WAV (with `bext`, `iXML` and
+`JUNK` chunks), WAVE_FORMAT_EXTENSIBLE, RF64, Wave64, AIFF, CAF and FLAC at
+16 / 24 / 32-bit PCM and 32-bit float, and stereo bounces of a mono
+microphone; `tests/integration/test_playback_speed.py` plays a synthetic sweep
+unconverted at 44.1 / 88.2 / 96 kHz and time-stretched by ±3 % and checks
+the diagnosis. None of them runs a DAW, so none fills a cell above.
+
 What the automated tests do and do not show: `tests/unit/test_audio_backend.py`
 runs the synthetic `fake` backend, and `tests/unit/test_portaudio_backend.py`
 drives `PortAudioBackend`'s real callback code through a scripted stand-in

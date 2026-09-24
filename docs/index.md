@@ -13,6 +13,7 @@ The generator uses only the standard library. Open `site/index.html`.
 
 - [User guide (English)](user-guide/en.md)
 - [用户指南（中文）](user-guide/zh-CN.md)
+- [Measuring through your DAW](user-guide/daw-setup.md) · [用 DAW 测量](user-guide/daw-setup.zh-CN.md)
 - [Validation campaign protocol](VALIDATION.md)
 - [Hardware test matrix](HARDWARE_TESTS.md)
 

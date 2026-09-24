@@ -557,8 +557,8 @@ msgstr "尚未写出测试信号。"
 msgid "Step 2 - Record Through Your DAW"
 msgstr "步骤 2 — 在 DAW 中录音"
 
-msgid "1. Import the test-signal WAV on a new track of your DAW project.\n2. Route that track to the monitors (or the loudspeaker you want to test).\n3. Arm a second track with the measurement microphone and record while the test signal plays.\n4. Export / bounce the recorded track as a WAV file at the project sample rate.\n   Do not trim it - RoomScope finds the sweep automatically.\nStart with a low monitor level; the sweep should be clearly audible but not loud."
-msgstr "1. 把测试信号 WAV 导入 DAW 项目的新轨道。\n2. 将该轨道路由到监听（或要测的扬声器）。\n3. 用测量话筒武装第二条轨道，在测试信号播放时录音。\n4. 按工程采样率导出/bounce 为 WAV。\n   不要裁切——RoomScope 会自动找到扫描。\n先把监听开低；扫描应清楚可闻，但不要很大声。"
+msgid "1. Generate the test signal at your DAW project's sample rate (Step 1).\n2. Import it on a new track. Switch time-stretching off for that clip (Warp, Flex, Follow Tempo, elastic audio) and bypass plug-ins on its track and on the master bus, including room-correction plug-ins.\n3. Route that track to the one loudspeaker you want to test.\n4. Arm a second track with the measurement microphone (input monitoring off) and record while the test signal plays.\n5. Export the recorded track as WAV, AIFF, CAF or FLAC at the project sample rate, without normalising.\n   Do not trim it - RoomScope finds the sweep automatically.\nStart with a low monitor level; the sweep should be clearly audible but not loud.\nThe user guide has step-by-step notes for Pro Tools, Logic Pro, Cubase, Studio One, Ableton Live, REAPER, FL Studio and Bitwig Studio."
+msgstr "1. 按 DAW 工程的采样率生成测试信号（步骤 1）。\n2. 把它导入新轨道。关闭该片段的时间伸缩（Warp、Flex、Follow Tempo、Elastic Audio），并旁通该轨道和主输出总线上的插件，包括房间校正插件。\n3. 将该轨道只路由到要测的那一只扬声器。\n4. 用测量话筒武装第二条轨道（关闭输入监听），在测试信号播放时录音。\n5. 按工程采样率把录音轨导出为 WAV、AIFF、CAF 或 FLAC，不要做标准化。\n   不要裁切——RoomScope 会自动找到扫描。\n先把监听开低；扫描应清楚可闻，但不要很大声。\n用户指南里有 Pro Tools、Logic Pro、Cubase、Studio One、Ableton Live、REAPER、FL Studio 和 Bitwig Studio 的分步说明。"
 
 msgid "Step 3 - Import Recording"
 msgstr "步骤 3 — 导入录音"
@@ -614,8 +614,8 @@ msgstr "参考：{name}"
 msgid "Choose recording"
 msgstr "选择录音"
 
-msgid "Audio files (*.wav *.flac *.aif *.aiff)"
-msgstr "音频文件 (*.wav *.flac *.aif *.aiff)"
+msgid "Audio files (*.wav *.wave *.bwf *.rf64 *.w64 *.aif *.aiff *.aifc *.caf *.flac);;All files (*)"
+msgstr "音频文件 (*.wav *.wave *.bwf *.rf64 *.w64 *.aif *.aiff *.aifc *.caf *.flac);;所有文件 (*)"
 
 msgid "Cannot read recording"
 msgstr "无法读取录音"

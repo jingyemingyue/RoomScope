@@ -44,12 +44,14 @@ from roomscope.ui.state import MeasurementState
 from roomscope.ui.workers import AnalysisWorker, MeasureWorker
 
 DAW_INSTRUCTIONS = N_(
-    "1. Import the test-signal WAV on a new track of your DAW project.\n"
-    "2. Route that track to the monitors (or the loudspeaker you want to test).\n"
-    "3. Arm a second track with the measurement microphone and record while the test signal plays.\n"
-    "4. Export / bounce the recorded track as a WAV file at the project sample rate.\n"
+    "1. Generate the test signal at your DAW project's sample rate (Step 1).\n"
+    "2. Import it on a new track. Switch time-stretching off for that clip (Warp, Flex, Follow Tempo, elastic audio) and bypass plug-ins on its track and on the master bus, including room-correction plug-ins.\n"
+    "3. Route that track to the one loudspeaker you want to test.\n"
+    "4. Arm a second track with the measurement microphone (input monitoring off) and record while the test signal plays.\n"
+    "5. Export the recorded track as WAV, AIFF, CAF or FLAC at the project sample rate, without normalising.\n"
     "   Do not trim it - RoomScope finds the sweep automatically.\n"
-    "Start with a low monitor level; the sweep should be clearly audible but not loud."
+    "Start with a low monitor level; the sweep should be clearly audible but not loud.\n"
+    "The user guide has step-by-step notes for Pro Tools, Logic Pro, Cubase, Studio One, Ableton Live, REAPER, FL Studio and Bitwig Studio."
 )
 
 
@@ -327,7 +329,13 @@ class DawModePage(QWidget):
             self,
             _("Choose recording"),
             "",
-            _("Audio files (*.wav *.flac *.aif *.aiff)"),
+            # Every container libsndfile reads that a DAW exports: Broadcast WAV,
+            # RF64 and Wave64 for long takes, AIFF(-C) from Logic Pro / Pro Tools,
+            # CAF from Logic Pro's recordings, FLAC.
+            _(
+                "Audio files (*.wav *.wave *.bwf *.rf64 *.w64 *.aif *.aiff *.aifc *.caf *.flac);;"
+                "All files (*)"
+            ),
         )
         if path:
             self.set_recording(Path(path))

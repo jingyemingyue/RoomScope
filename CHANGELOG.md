@@ -10,10 +10,12 @@ All notable changes to RoomScope are documented here. The format follows
 ## [0.4.1] - 2026-09-24
 
 Patch release: closes the review follow-ups #9–#17, each with a synthetic
-test that fails on 0.4.0. No new feature, no dependency change at run time.
-Still no hardware result, still unsigned, still private. 0.4.0 was never
-tagged; because #17 had to be fixed before any bundle is published
-(RELEASE_PLAN.md §4), 0.4.1 is the first version meant for a draft Release.
+test that fails on 0.4.0, and makes the desktop bundles and the DAW workflow
+usable by someone other than the maintainer (Packaging, DAW workflow). No new
+measurement, no dependency change at run time. Still no hardware result,
+still unsigned, still private. 0.4.0 was never tagged; because #17 had to be
+fixed before any bundle is published (RELEASE_PLAN.md §4), 0.4.1 is the
+first version meant for a draft Release.
 
 ### Fixed
 - **Bundle gate (#17).** `scripts/check_bundle_contents.py` matches GPL-only
@@ -105,6 +107,42 @@ tagged; because #17 had to be fixed before any bundle is published
   as a failure) and says what the automated backend tests do not show.
 - Coverage of `core` + `models` (branch coverage, the CI gate's measure) is
   90.20 % (87.74 % on 0.4.0); the run is recorded in `docs/STATUS.md`.
+
+### DAW workflow
+- **Wrong sweep speed is diagnosed.** A DAW that plays the test signal at the
+  wrong speed (a 48 kHz file in a 44.1 kHz project without conversion, a
+  project exported at another rate, Warp / Flex Time / Follow Tempo / elastic
+  audio) made the analysis report only "direct-sound detection confidence is
+  low" or "recording is shorter than the reference sweep".
+  `roomscope.core.playback_speed` measures the sweep rate in the recording
+  (for every frequency bin the frame where the passing sweep peaks; a
+  Theil-Sen line through time against ln f) and names the cause: a
+  sample-rate mismatch when the played rate is within 2.5 % of a common rate,
+  otherwise a time-stretch. It runs only when the direct sound was not
+  identified with high confidence, marks the decay unreliable, is stored as
+  `impulse_response.playback_speed` in `result.json` (optional, additive
+  schema field), and is added to the "shorter than the reference" and
+  "starts after the sweep began" errors. New findings
+  `measurement.playback_sample_rate` / `measurement.playback_time_stretch`
+  replace the generic direct-sound finding; both are translated. Synthetic
+  tests: a sweep played unconverted at 44.1 / 88.2 / 96 kHz, a 44.1 kHz
+  project exported at 48 kHz, ±3 % stretches, a sweep-less noise file.
+- **DAW export formats.** New tests analyse the same take as Broadcast WAV
+  with `bext` / `iXML` / `JUNK` chunks (Pro Tools), WAVE_FORMAT_EXTENSIBLE,
+  RF64, Wave64, AIFF, CAF (Logic Pro recordings) and FLAC, at 16 / 24 /
+  32-bit PCM and 32-bit float, and stereo bounces of a mono microphone. The
+  GUI's recording dialog lists all of those extensions (it offered only
+  `.wav .flac .aif .aiff`, so Logic's CAF files and `.w64` exports were
+  hidden) plus *All files*.
+- **Per-DAW guide.** `docs/user-guide/daw-setup.md` (and zh-CN): the rules
+  every DAW must follow (sweep at the project rate, no time-stretching, no
+  plug-in or room correction on the playback path, one loudspeaker, input
+  monitoring off, one pass, whole export without normalising), step-by-step
+  notes for Pro Tools, Logic Pro / GarageBand, Cubase / Nuendo, Studio One,
+  Ableton Live, REAPER, FL Studio, Bitwig Studio and Audacity, and a table
+  from each report message to its DAW cause. The notes come from the DAWs'
+  documentation; `docs/HARDWARE_TESTS.md` gains an empty per-DAW matrix for
+  checking them. The GUI's Step 2 text names those rules.
 
 ### Packaging
 - **macOS app opens the GUI.** `RoomScope.app` has its own windowed

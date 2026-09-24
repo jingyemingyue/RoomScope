@@ -41,11 +41,13 @@ roomscope-env/bin/roomscope gui
 
 ## 通用 DAW 模式
 
-1. `roomscope sweep --out sweep.wav`（或界面里的生成按钮）。把 `.roomscope-sweep.json` 和 WAV 放在一起。
-2. 把 WAV 导入 DAW 新轨道，路由到监听。
-3. 用测量话筒录第二条轨道。导出时不要裁切。
+1. `roomscope sweep --sample-rate <工程采样率> --out sweep.wav`（或界面里的生成按钮，选择工程采样率）。把 `.roomscope-sweep.json` 和 WAV 放在一起。
+2. 把 WAV 导入 DAW 新轨道，关闭时间伸缩（Warp、Flex、Follow Tempo），回放链路上不要有插件。路由到一只扬声器。
+3. 用测量话筒武装第二条轨道，关闭输入监听，在扫描播放时录音。完整导出录音轨，不要裁切或标准化。
 4. 可选 loopback：导出双声道（话筒 + 电回送），使用 `--channel 0 --loopback-channel 1`。
 5. `roomscope analyze --recording take.wav --sweep sweep.wav --out session/`，或在界面里打开这些文件。
+
+**Pro Tools、Logic Pro / GarageBand、Cubase / Nuendo、Studio One、Ableton Live、REAPER、FL Studio、Bitwig Studio 和 Audacity 的分步说明，以及报告中各条提示对应的 DAW 原因：[daw-setup.zh-CN.md](daw-setup.zh-CN.md)。**
 
 ## 独立模式与 loopback 线
 
