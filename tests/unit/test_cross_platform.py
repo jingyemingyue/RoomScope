@@ -71,16 +71,83 @@ def test_bundle_inside_the_session_folder_is_refused(tmp_path: Path, result) -> 
     assert not (out / "session.zip").exists()
 
 
-def test_copy_onto_the_same_file_is_a_no_op(tmp_path: Path) -> None:
-    """On a case-insensitive file system (macOS, Windows) Recording.wav and
-    recording.wav are one file; on a case-sensitive one a hard link emulates it."""
+PAYLOAD = b"RIFF\x24\x00\x00\x00WAVE"
+
+
+def _state(path: Path) -> tuple[int, int, int, bytes]:
+    """Identity and content of a file: inode / file ID, size, mtime, bytes."""
+    stat = path.stat()
+    return stat.st_ino, stat.st_size, stat.st_mtime_ns, path.read_bytes()
+
+
+def _case_insensitive(directory: Path) -> bool:
+    """True when ``directory`` is on a case-insensitive file system
+    (APFS / HFS+ and NTFS by default; ext4 is case-sensitive)."""
+    probe = directory / "CaseProbe.tmp"
+    probe.write_bytes(b"")
+    try:
+        return (directory / "caseprobe.tmp").exists()
+    finally:
+        probe.unlink()
+
+
+@pytest.mark.parametrize("alias", ["identical path", "hard link"])
+def test_copy_onto_the_same_file_is_a_no_op(tmp_path: Path, alias: str) -> None:
+    """When source and destination are one file, ``_copy_into`` returns without
+    touching it. ``shutil.copy2`` would raise SameFileError, which the session
+    store used to report as "cannot copy". Hard links exist on ext4, APFS and
+    NTFS, so both cases run on Linux, macOS and Windows."""
     src = tmp_path / "Recording.wav"
-    src.write_bytes(b"RIFF")
-    dest = tmp_path / "recording.wav"
-    if not dest.exists():
-        os.link(src, dest)
+    src.write_bytes(PAYLOAD)
+    if alias == "identical path":
+        dest = tmp_path / "Recording.wav"
+    else:
+        dest = tmp_path / "take.wav"
+        try:
+            os.link(src, dest)
+        except OSError as exc:  # e.g. FAT / exFAT, which have no hard links
+            pytest.skip(f"this file system has no hard links: {exc}")
+    assert os.path.samefile(src, dest)
+    before = _state(src)
     assert _copy_into(src, dest) == dest
-    assert src.read_bytes() == b"RIFF"
+    assert _state(src) == before
+    assert _state(dest) == before
+
+
+def test_copy_to_a_name_that_differs_only_in_case(tmp_path: Path) -> None:
+    """A DAW export "Recording.wav" copied into its own folder as "recording.wav".
+
+    On a case-insensitive file system (macOS, Windows) the two names are one
+    file and the copy must be a no-op; on a case-sensitive one (Linux) they are
+    two files and the copy must produce an identical second file. The test
+    asks the file system which case applies, so it checks something real on
+    every platform.
+    """
+    src = tmp_path / "Recording.wav"
+    src.write_bytes(PAYLOAD)
+    dest = tmp_path / "recording.wav"
+    before = _state(src)
+    assert _copy_into(src, dest) == dest
+    if _case_insensitive(tmp_path):
+        assert os.path.samefile(src, dest)
+        assert _state(src) == before
+    else:
+        assert not os.path.samefile(src, dest)
+        assert src.read_bytes() == dest.read_bytes() == PAYLOAD
+        assert _state(src) == before
+
+
+def test_copy_over_a_different_file_replaces_it(tmp_path: Path) -> None:
+    """Negative control: the same-file shortcut must not swallow a real copy."""
+    src = tmp_path / "take.wav"
+    src.write_bytes(PAYLOAD)
+    dest = tmp_path / "session" / "recording.wav"
+    dest.parent.mkdir()
+    dest.write_bytes(b"an older recording")
+    assert not os.path.samefile(src, dest)
+    assert _copy_into(src, dest) == dest
+    assert dest.read_bytes() == PAYLOAD
+    assert src.read_bytes() == PAYLOAD
 
 
 @pytest.mark.parametrize(
