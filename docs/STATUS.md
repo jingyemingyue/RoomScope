@@ -4,6 +4,56 @@ Snapshot: 2026-09-17, v0.1.0.dev1 (foundation). Everything below was
 verified by actually running it on macOS (Apple silicon, Python 3.12.14).
 Nothing is marked PASS that was not run.
 
+Snapshot 26: 2026-09-24 — **software readiness for community testing**
+(branch `claude/publication-ready-level-n3hkor`, CHANGELOG `[0.4.1]`). A
+seven-part review of the branch against `main` (packaging, Windows
+installer, macOS app and DMG, DAW guide, claims, code, community), each
+finding checked by an independent verifier, reported 35 findings: 31
+confirmed (several found by more than one reviewer) and all fixed, 4
+refuted as not defects (three of those were improved anyway). Since snapshot 25: Help ▸ Environment Report for every
+edition (`roomscope doctor --probe`: build commit, settings, home folder as
+`~`, probed rates, an audio-callback self-check); issue forms for audio
+interface and DAW reports; one Standalone pre-flight shared by the GUI and
+`roomscope measure` (rate asked of the devices the stream opens, with its
+channels and host-API options); the GUI keeps the system's default devices;
+device buffer under/overflows reach the result as a finding; a recording
+of exact digital silence (the sweep track exported instead of the
+microphone) is flagged; the speed diagnosis follows the estimate's measured
+spread; session bundles leave out links out of the folder; inside-out
+macOS signing with a hardened-runtime rehearsal; the Linux tarball uses the
+system PortAudio; matplotlib's cache survives launches; macOS 14+ declared
+(`LSMinimumSystemVersion`); a Digital Performer section and corrected
+sources in the DAW guide, labelled "documented workflow, not yet tested in
+a DAW".
+
+Evidence on GitHub Actions: CI #56 (`f7c92f1`) green on Ubuntu 3.12–3.14,
+macOS and Windows (551 / 552 tests; the same-file copy test ran on APFS and
+NTFS). CI #57 (`ad969b0`) failed only in "Lint and type-check" (mypy: no
+`shiboken6` without the gui extra), fixed in `e1bc2e5`. Release #15
+(`ad969b0`) passed all four bundle jobs: macOS 26.6.2 arm64 and macOS
+15.7.9 x86_64 (inside-out ad hoc signature valid; hardened-runtime copy
+`flags=0x10002(adhoc,runtime)` started, `doctor` found every library
+version, the built commit and working audio callbacks; DMG mounted, copied
+and launched with `LSMinimumSystemVersion` 14.0; the font cache built once
+per job instead of at every launch), Windows (installer compiled,
+installed, installed copy smoke-tested, uninstaller removed the whole
+folder) and Linux (system PortAudio, bundle gate, smoke). CI #58
+(`e1bc2e5`) failed once on macOS in a progress-callback test: a real race
+(a poll between the last block and PortAudio's finished callback could
+discard a complete take), reproduced deterministically and fixed in
+`65febe5`. Release #16 (`e1bc2e5`) passed all four bundle jobs again with
+the reworked checks (entitlements, inert Authenticode hook compiled). CI #59
+(`65febe5`) green on every job: Ubuntu 3.12 / 3.13 / 3.14 and macOS 576
+passed, Windows 575 passed and 1 skipped (a QML check that does not apply
+to that PySide6 build), coverage 90.48 %.
+Locally (Linux, Python 3.12): **576 passed**, coverage gate 90.48 %;
+ruff, mypy strict (with and without the gui extra), doc links clean; a
+local PyInstaller 6.22.3 Linux bundle loaded `/lib/x86_64-linux-gnu`
+PortAudio, ALSA and JACK (LD_DEBUG) and passed the license gate. **Not
+run:** any real audio interface or DAW; the hardware and DAW matrices in
+HARDWARE_TESTS.md stay empty; nothing was signed with a Developer ID or
+Authenticode certificate or notarized.
+
 Snapshot 25: 2026-09-24 — **first all-platform green CI run on this
 branch** (the repository is public, so hosted runners are available; `main`
 had green CI runs before, e.g. #43). On this branch, CI run #54 (commit `2b54157`) passed every job: Ubuntu
