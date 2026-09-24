@@ -49,6 +49,9 @@ class _Script:
     stall_after_blocks: int | None = None
     #: PortAudio status string per block index.
     status: dict[int, str] = field(default_factory=dict)
+    #: Delay between the last callback and the finished callback (PortAudio
+    #: drains the output buffers first).
+    finish_delay_s: float = 0.0
     outputs: list[np.ndarray] = field(default_factory=list)
     stream_thread: list[int] = field(default_factory=list)
     aborted: list[bool] = field(default_factory=list)
@@ -118,6 +121,7 @@ def _fake_sounddevice(script: _Script) -> SimpleNamespace:
                         break
                     time.sleep(script.block_sleep_s)
             finally:
+                time.sleep(script.finish_delay_s)
                 self.finished_callback()
 
         def __enter__(self) -> Stream:
@@ -234,6 +238,38 @@ def test_a_failing_final_progress_report_keeps_the_take(
         recording = _take(progress=progress)
     assert recording.n_samples == 60 * CALLBACK_BLOCK
     assert any("progress callback failed" in r.getMessage() for r in caplog.records)
+
+
+def test_progress_at_100_percent_before_the_stream_finishes_keeps_the_take(
+    script: _Script, caplog: pytest.LogCaptureFixture
+) -> None:
+    """CI #58 (macOS): the last block sets the position to 100 % before
+    PortAudio calls the finished callback (it drains the output first). A poll
+    in that gap reported 1.0 inside the stream loop, the failing progress
+    callback escaped and the complete take was discarded."""
+    from roomscope.audio.portaudio import PROGRESS_POLL_S
+
+    script.finish_delay_s = 4 * PROGRESS_POLL_S
+    calls: list[float] = []
+
+    def progress(fraction: float) -> None:
+        calls.append(fraction)
+        if fraction >= 1.0:
+            raise RuntimeError("window already closed")
+
+    with caplog.at_level(logging.WARNING, logger="roomscope.audio.portaudio"):
+        recording = _take(progress=progress)
+    assert recording.n_samples == 60 * CALLBACK_BLOCK
+    assert 1.0 in calls
+    failures = [r for r in caplog.records if "progress callback failed" in r.getMessage()]
+    assert len(failures) == 1  # logged once, not at every poll
+
+
+def test_a_progress_callback_failing_mid_take_does_not_stop_it(script: _Script) -> None:
+    def progress(fraction: float) -> None:
+        raise RuntimeError("the display went away")
+
+    assert _take(progress=progress).n_samples == 60 * CALLBACK_BLOCK
 
 
 def test_buffer_problems_are_logged_and_kept_with_the_take(

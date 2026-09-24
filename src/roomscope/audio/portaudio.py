@@ -164,9 +164,20 @@ class PortAudioBackend:
         def on_finished() -> None:
             finished.set()
 
+        progress_failed: list[bool] = []
+
         def report(fraction: float) -> None:
-            if progress is not None:
+            # A front end that cannot show progress (a window already closed)
+            # must neither stop nor discard the take. The last block reaches
+            # 100 % before PortAudio calls the finished callback (it drains
+            # the output first), so 1.0 can be reported inside the loop too.
+            if progress is None or progress_failed:
+                return
+            try:
                 progress(min(1.0, fraction))
+            except Exception:
+                progress_failed.append(True)
+                log.warning("the progress callback failed; the take goes on", exc_info=True)
 
         # Only an explicit option changes what is passed to PortAudio, so the
         # default take is opened exactly as before.
@@ -234,12 +245,7 @@ class PortAudioBackend:
                 f"({'; '.join(sorted(set(xruns)))}); the recording may contain dropouts",
             )
             log.warning("%s; measure again if the result looks wrong", device_warnings[0])
-        try:
-            report(1.0)
-        except Exception:
-            # The take itself is complete; a front end that cannot show 100 %
-            # must not throw it away.
-            log.warning("the progress callback failed after a complete take", exc_info=True)
+        report(1.0)
         samples = recorded[:, 0] if len(input_channels) == 1 else recorded
         return AudioSignal(
             samples=np.ascontiguousarray(samples),

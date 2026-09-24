@@ -114,6 +114,14 @@ been published.
   90.20 % (87.74 % on 0.4.0); the run is recorded in `docs/STATUS.md`.
 
 ### Fixed
+- **A complete take could be discarded by its progress display.** The last
+  block reaches 100 % before PortAudio calls the finished callback (it
+  drains the output first); a progress poll in that gap called the front
+  end inside the stream loop, and a failing callback (a window already
+  closed) escaped as "playback/recording failed" (seen once on CI #58,
+  macOS). Progress failures are now logged once and never stop or discard a
+  take; a scripted stand-in with a finish delay reproduces it
+  deterministically.
 - **Standalone device choice (review findings).** The page preselected the
   lowest-numbered starred device instead of the system's: on a Mac, where
   every Core Audio device is its own starred entry, a virtual device such as
