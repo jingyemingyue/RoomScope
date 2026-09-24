@@ -36,6 +36,7 @@ from roomscope.core.sweep import measurement_signal
 from roomscope.errors import AudioDeviceError, RoomScopeError
 from roomscope.i18n import N_, _
 from roomscope.interpretation import available_profiles, interpret
+from roomscope.interpretation.profiles import profile_title
 from roomscope.io.wav import load_reference, read_wav, write_sweep_file
 from roomscope.models.audio import AudioSignal
 from roomscope.models.configuration import SUPPORTED_SAMPLE_RATES, AnalysisSettings, SweepSettings
@@ -183,8 +184,8 @@ def _metadata_form(state: MeasurementState) -> tuple[QGroupBox, QLineEdit, QLine
 def _profile_combo(state: MeasurementState) -> QComboBox:
     combo = QComboBox()
     for name in available_profiles():
-        combo.addItem(name, name)
-    combo.setCurrentText(state.profile)
+        combo.addItem(profile_title(name), name)
+    combo.setCurrentIndex(max(combo.findData(state.profile), 0))
     return combo
 
 

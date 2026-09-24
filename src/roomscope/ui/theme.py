@@ -156,10 +156,37 @@ def tone_color(tone: str) -> tuple[str, str]:
     return t["muted"], t["surface_alt"]
 
 
+#: Fonts with Chinese glyphs that ship with macOS, Windows or common Linux
+#: distributions. matplotlib (>= 3.6) takes a glyph missing from the first
+#: family in ``font.family`` from the next one, so chart titles and labels in
+#: the zh-CN catalog are not drawn as empty boxes by DejaVu Sans.
+CJK_FALLBACK_FONTS = (
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Arial Unicode MS",
+    "Microsoft YaHei",
+    "SimHei",
+    "Noto Sans CJK SC",
+    "Source Han Sans SC",
+    "WenQuanYi Zen Hei",
+    "Droid Sans Fallback",
+)
+
+
+def font_families() -> list[str]:
+    """DejaVu Sans, then the installed fonts of :data:`CJK_FALLBACK_FONTS`."""
+    from matplotlib import font_manager
+
+    installed = {entry.name for entry in font_manager.fontManager.ttflist}
+    return ["DejaVu Sans", *(name for name in CJK_FALLBACK_FONTS if name in installed)]
+
+
 def configure_matplotlib() -> None:
     """Series colours, quiet spines and readable sizes for every RoomScope plot."""
     from cycler import cycler
     from matplotlib import rcParams
+
+    rcParams["font.family"] = font_families()
 
     rcParams["axes.prop_cycle"] = cycler(color=list(PLOT_SERIES))
     rcParams["axes.spines.top"] = False

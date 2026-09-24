@@ -759,7 +759,7 @@ msgid "RT60 estimate"
 msgstr "RT60 估计"
 
 msgid "Reverberation (extrapolated to 60 dB). 'insufficient range' means the decay is not clean enough for that metric."
-msgstr "混响（外推到 60 dB）。“insufficient range”表示衰减对该指标不够干净。"
+msgstr "混响（外推到 60 dB）。“动态范围不足”表示衰减对该指标不够干净。"
 
 msgid "Save Session..."
 msgstr "保存会话…"
@@ -1422,13 +1422,13 @@ msgid "pre-peak margin {margin:.1f} dB"
 msgstr "峰前余量 {margin:.1f} dB"
 
 msgid "INTERPRETATION ({profile} PROFILE)"
-msgstr "解读（{profile} 配置）"
+msgstr "解读（{profile}配置）"
 
 msgid "No findings."
 msgstr "没有发现。"
 
 msgid "{profile} profile"
-msgstr "{profile} 配置"
+msgstr "{profile}配置"
 
 msgid "broadband, estimated from {basis}"
 msgstr "宽带，由 {basis} 估算"
@@ -1653,3 +1653,108 @@ msgstr "这段录音完全没有背景噪声：其安静部分是精确的数字
 
 msgid "Audio system (host API)"
 msgstr "音频系统（主机 API）"
+
+msgid "Background noise, RMS"
+msgstr "本底噪声，RMS"
+
+msgid "Loopback path delay"
+msgstr "loopback 路径延迟"
+
+msgid "Broadband"
+msgstr "宽带"
+
+msgid "outside the sweep's range"
+msgstr "超出扫描范围"
+
+msgid "not comparable"
+msgstr "不可比较"
+
+msgid "Time after direct sound (ms)"
+msgstr "直达声之后的时间（ms）"
+
+msgid "Time after direct sound (s)"
+msgstr "直达声之后的时间（s）"
+
+msgid "Amplitude (relative)"
+msgstr "幅度（相对）"
+
+msgid "Impulse response, first 100 ms"
+msgstr "脉冲响应，前 100 ms"
+
+msgid "Envelope (dB re direct)"
+msgstr "包络（dB，相对直达声）"
+
+msgid "Energy-time curve"
+msgstr "能量-时间曲线"
+
+msgid "raw"
+msgstr "原始"
+
+msgid "1/{fraction}-octave smoothed"
+msgstr "1/{fraction} 倍频程平滑"
+
+msgid "interface (loopback)"
+msgstr "音频接口（loopback）"
+
+msgid "Frequency (Hz)"
+msgstr "频率（Hz）"
+
+msgid "Magnitude (dB, relative)"
+msgstr "幅度（dB，相对）"
+
+msgid "Frequency response ({window:.2f} s window)"
+msgstr "频率响应（{window:.2f} s 窗）"
+
+msgid "Time (s)"
+msgstr "时间（s）"
+
+msgid "Schroeder decay (dB)"
+msgstr "Schroeder 衰减（dB）"
+
+msgid "Energy decay curves (Lundeby-truncated)"
+msgstr "能量衰减曲线（Lundeby 截断）"
+
+msgid "No quiet segment available"
+msgstr "没有可用的安静段"
+
+msgid "PSD (dB re FS^2/Hz)"
+msgstr "功率谱密度（dB re FS^2/Hz）"
+
+msgid "Background noise: {rms:.1f} dBFS RMS ({segment}), uncalibrated"
+msgstr "本底噪声：{rms:.1f} dBFS RMS（{segment}段），未校准"
+
+msgid "envelope"
+msgstr "包络"
+
+msgid "candidate reflections"
+msgstr "候选反射"
+
+msgid "threshold"
+msgstr "阈值"
+
+msgid "Level re direct sound (dB)"
+msgstr "相对直达声的电平（dB）"
+
+msgid "Early reflections (direct-sound confidence: {confidence})"
+msgstr "早期反射（直达声置信度：{confidence}）"
+
+msgid "General"
+msgstr "通用"
+
+msgid "Vocals"
+msgstr "人声"
+
+msgid "Voice-over"
+msgstr "配音与旁白"
+
+msgid "Acoustic guitar"
+msgstr "原声吉他"
+
+msgid "Drums"
+msgstr "鼓"
+
+msgid "Room microphone"
+msgstr "房间话筒"
+
+msgid "Choir / ensemble"
+msgstr "合唱 / 小型合奏"

@@ -102,7 +102,8 @@ def test_reopen_saved_session(
     )
     page.set_recording(rec_path)
     page.room.setText("Booth A")
-    page.profile.setCurrentText("vocal")
+    page.profile.setCurrentIndex(page.profile.findData("vocal"))
+    assert page.profile.currentText() == "Vocals"
     page.start_analysis(blocking=True)
     app.processEvents()
     out = tmp_path / "session"
@@ -435,3 +436,44 @@ def test_standalone_preselects_the_system_default_devices(
     assert page.input_device.currentData() == 1
     assert page.output_device.currentData() == 2
     window.close()
+
+
+def test_charts_draw_chinese_text_with_an_installed_cjk_font() -> None:
+    """Chart titles are translated; DejaVu Sans alone has no Chinese glyphs
+    and matplotlib drew them as empty boxes (seen in the zh-CN compare page)."""
+    import warnings
+
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    from roomscope.ui.theme import CJK_FALLBACK_FONTS, configure_matplotlib, font_families
+
+    families = font_families()
+    assert families[0] == "DejaVu Sans"
+    if len(families) == 1:
+        pytest.skip(f"none of {CJK_FALLBACK_FONTS} is installed on this machine")
+    configure_matplotlib()
+    figure = Figure()
+    FigureCanvasAgg(figure)  # a bare Figure's canvas does not render
+    figure.add_subplot(111).set_title("频率响应差异（候选 − 基线）")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        figure.canvas.draw()
+    assert not [w for w in caught if "missing from font" in str(w.message)]
+
+
+def test_compare_metrics_have_readable_names() -> None:
+    """The compare table showed ids such as ``band.63 Hz.t20`` and ``not_comparable``."""
+    from roomscope.models.result import Validity
+    from roomscope.ui.compare_view import metric_label, status_text
+    from roomscope.ui.results import validity_text
+
+    assert metric_label("broadband.t30", "s") == "Broadband T30 (s)"
+    assert metric_label("band.63 Hz.rt60_estimate", "s") == "63 Hz RT60 estimate (s)"
+    assert metric_label("band.63 Hz") == "63 Hz"
+    assert metric_label("noise.rms_dbfs", "dBFS") == "Background noise, RMS (dBFS)"
+    assert metric_label("loopback.path_delay_ms", "ms") == "Loopback path delay (ms)"
+    assert metric_label("something.new") == "something.new"
+    assert status_text("appeared") == "appeared"
+    assert validity_text(Validity.NOT_COMPARABLE) == ("not comparable", "warn")
+    assert validity_text(Validity.OUTSIDE_EXCITATION)[0] == "outside the sweep's range"

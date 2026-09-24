@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from roomscope.i18n import _, activate, available_locales
 from roomscope.interpretation import available_profiles
+from roomscope.interpretation.profiles import profile_title
 from roomscope.settings import load_settings, save_settings
 
 
@@ -40,8 +41,9 @@ class SettingsDialog(QDialog):
         self.language.setCurrentIndex(max(index, 0))
         self.profile = QComboBox()
         for name in available_profiles():
-            self.profile.addItem(name)
-        self.profile.setCurrentText(self._settings.default_profile or "generic")
+            self.profile.addItem(profile_title(name), name)
+        profile_index = self.profile.findData(self._settings.default_profile or "generic")
+        self.profile.setCurrentIndex(max(profile_index, 0))
         self.backend = QComboBox()
         self.backend.addItem(_("Default (PortAudio)"), "")
         self.backend.addItem("portaudio", "portaudio")
@@ -91,7 +93,7 @@ class SettingsDialog(QDialog):
         settings = replace(
             self._settings,
             language=str(self.language.currentData() or ""),
-            default_profile=self.profile.currentText() or "generic",
+            default_profile=str(self.profile.currentData() or "generic"),
             audio_backend=str(self.backend.currentData() or ""),
             output_dir=self.output_dir.text().strip(),
             copy_recording=self.copy_recording.isChecked(),

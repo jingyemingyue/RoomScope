@@ -43,6 +43,34 @@ def decay_length_text(label: str) -> str:
     return words.get(label, label)
 
 
+def confidence_text(confidence: str) -> str:
+    """Translated direct-sound confidence (``"high"``, ``"medium"``, ``"low"``)."""
+    words = {"high": _("high"), "medium": _("medium"), "low": _("low")}
+    return words.get(confidence, confidence)
+
+
+def band_text(label: str) -> str:
+    """Translated band label: the broadband row has a name, octave bands are numbers."""
+    return _("Broadband") if label == "broadband" else label
+
+
+def profile_title(name: str) -> str:
+    """Translated display name of a profile.
+
+    Files, JSON and the command line keep the profile id (``--profile room_mic``).
+    """
+    titles = {
+        "generic": _("General"),
+        "vocal": _("Vocals"),
+        "voiceover": _("Voice-over"),
+        "acoustic_guitar": _("Acoustic guitar"),
+        "drums": _("Drums"),
+        "room_mic": _("Room microphone"),
+        "choir": _("Choir / ensemble"),
+    }
+    return titles.get(name, name)
+
+
 def change_direction_text(direction: str) -> str:
     """Translated word for the direction of an RT60 change (``"shorter"`` / ``"longer"``)."""
     words = {

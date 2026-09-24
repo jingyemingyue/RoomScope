@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from roomscope.i18n import _
 from roomscope.interpretation import Finding
-from roomscope.interpretation.profiles import noise_segment_text
+from roomscope.interpretation.profiles import band_text, confidence_text, noise_segment_text
 from roomscope.models.comparison import ComparisonResult
 from roomscope.models.result import (
     AnalysisResult,
@@ -98,7 +98,7 @@ def format_report(
         ).format(
             seconds=ir.samples.shape[0] / result.sample_rate,
             decay=ir.valid_length_s,
-            confidence=ir.direct_sound_confidence,
+            confidence=confidence_text(ir.direct_sound_confidence),
             margin=margin,
         )
     )
@@ -141,7 +141,7 @@ def format_report(
         )
         note = band.filter_warning.split(":")[0] if band.filter_warning else ""
         lines.append(
-            f"{band.band_label:>10}  {_metric(band.edt):>8}  {_metric(band.t20):>8}  {_metric(band.t30):>8}  "
+            f"{band_text(band.band_label):>10}  {_metric(band.edt):>8}  {_metric(band.t20):>8}  {_metric(band.t30):>8}  "
             f"{rt60:>10}  {band.peak_to_noise_db:8.1f}  {note}"
         )
     lines.append("")

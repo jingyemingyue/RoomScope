@@ -35,7 +35,11 @@ from roomscope.io.recent import remember_session
 from roomscope.io.session_store import save_measurement
 from roomscope.io.wav import write_wav
 from roomscope.interpretation import Finding
-from roomscope.interpretation.profiles import noise_segment_text
+from roomscope.interpretation.profiles import (
+    confidence_text,
+    noise_segment_text,
+    profile_title,
+)
 from roomscope.models.result import AnalysisResult, PlacementResult, Validity
 from roomscope.ui.plots import (
     decay_table_rows,
@@ -55,6 +59,8 @@ VALIDITY_DISPLAY = {
     Validity.UNRELIABLE: ("unreliable", "warn"),
     Validity.INSUFFICIENT_RANGE: ("insufficient range", "warn"),
     Validity.NOT_COMPUTED: ("not computed", "neutral"),
+    Validity.OUTSIDE_EXCITATION: ("outside the sweep's range", "neutral"),
+    Validity.NOT_COMPARABLE: ("not comparable", "warn"),
 }
 CONFIDENCE_TONE = {"high": "good", "medium": "info", "low": "bad"}
 
@@ -165,7 +171,16 @@ class _PlotTab(QWidget):
         layout.addWidget(self.canvas)
 
     def redraw(self) -> None:
+        # The plot functions lay the figure out once, for the size it has then;
+        # the tight layout engine repeats that at every draw, so the axis labels
+        # still fit once the tab is shown or the window is resized.
+        self.figure.set_layout_engine("tight")
         self.canvas.draw_idle()
+
+
+def validity_text(validity: Validity) -> tuple[str, str]:
+    """The translated word and colour tone shown for a validity."""
+    return _validity_text(validity)
 
 
 def _validity_text(validity: Validity) -> tuple[str, str]:
@@ -175,6 +190,8 @@ def _validity_text(validity: Validity) -> tuple[str, str]:
         "unreliable": _("unreliable"),
         "insufficient range": _("insufficient range"),
         "not computed": _("not computed"),
+        "outside the sweep's range": _("outside the sweep's range"),
+        "not comparable": _("not comparable"),
     }
     return words.get(word, word), tone
 
@@ -194,10 +211,6 @@ def _topic_text(topic: str) -> str:
         "measurement": _("measurement"),
         "comparison": _("comparison"),
     }.get(topic, topic)
-
-
-def _confidence_text(confidence: str) -> str:
-    return {"high": _("high"), "medium": _("medium"), "low": _("low")}.get(confidence, confidence)
 
 
 class _Overview(QWidget):
@@ -326,7 +339,7 @@ class _Overview(QWidget):
         )
         if ir.playback_speed is not None:
             self.direct.show_value(
-                _confidence_text(ir.direct_sound_confidence),
+                confidence_text(ir.direct_sound_confidence),
                 _("sweep played at {percent:.1f} % speed").format(
                     percent=ir.playback_speed.speed_ratio * 100.0
                 ),
@@ -336,7 +349,7 @@ class _Overview(QWidget):
         else:
             confidence = ir.direct_sound_confidence
             self.direct.show_value(
-                _confidence_text(confidence),
+                confidence_text(confidence),
                 margin,
                 _("confidence"),
                 CONFIDENCE_TONE.get(confidence, "neutral"),
@@ -348,7 +361,7 @@ class _Overview(QWidget):
             if widget is not None:
                 widget.deleteLater()
         self.findings_title.setText(
-            _("INTERPRETATION ({profile} PROFILE)").format(profile=profile.upper())
+            _("INTERPRETATION ({profile} PROFILE)").format(profile=profile_title(profile).upper())
         )
         for finding in findings:
             self.findings.addWidget(
@@ -369,9 +382,9 @@ class _Overview(QWidget):
             for c, value in enumerate(row):
                 item = QTableWidgetItem(value)
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                if c > 0 and (value.startswith("(") or "insufficient" in value):
+                if c > 0 and (value.startswith("(") or value == _("insufficient range")):
                     item.setForeground(QColor(colours["warn"]))
-                elif c > 0 and value in {"n/a", "-"}:
+                elif c > 0 and value in {_("n/a"), "-"}:
                     item.setForeground(QColor(colours["muted"]))
                 if r == 0:
                     font = item.font()
@@ -452,7 +465,7 @@ class ResultsPage(QWidget):
             for part in (session.room_name, session.measurement_position, session.microphone_name)
             if part
         ]
-        parts.append(_("{profile} profile").format(profile=self.state.profile))
+        parts.append(_("{profile} profile").format(profile=profile_title(self.state.profile)))
         parts.append(f"{result.sample_rate} Hz")
         self.header.subtitle.setText("  ·  ".join(parts))
         self.header.subtitle.setVisible(True)

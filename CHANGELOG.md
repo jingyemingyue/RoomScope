@@ -98,6 +98,16 @@ been published.
 - Compare page: page header, a session-picker card and the results in tabs
   (metrics, frequency-response difference, early reflections, resonances,
   full report); the difference chart follows the scheme.
+- **Readable, translated results and comparisons.** Chart titles, axis
+  labels and legends are translated; charts in Chinese use an installed CJK
+  font (PingFang SC, Microsoft YaHei, Noto Sans CJK SC and others) after
+  DejaVu Sans, where they drew empty boxes before. The compare table names
+  metrics ("63 Hz T20 (s)", "Background noise, RMS (dBFS)") instead of ids
+  and translates validity and match status; the metric id and the reason
+  for a missing delta are tooltips. Profiles are listed by name ("Room
+  microphone"); files and `--profile` keep the id. Plots are laid out again
+  when resized, so axis labels are no longer clipped. The text report
+  translates the direct-sound confidence and the broadband row.
 - **matplotlib>=3.10** (was >=3.8). The wheels of 3.8.0, 3.9.0 and 3.9.4
   still contain the `_ttconv` extension that DEPENDENCIES.md §6 said was gone
   from 3.8; 3.10.0 is the first without it (wheels opened 2026-09-24). With
