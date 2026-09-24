@@ -15,13 +15,14 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QFileDialog,
     QHBoxLayout,
-    QLabel,
+    QHeaderView,
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -36,6 +37,7 @@ from roomscope.io.session_store import load_measurement, save_comparison
 from roomscope.models.comparison import CompareSettings, ComparisonResult, ResonanceMatch
 from roomscope.ui.browser import SessionBrowser
 from roomscope.ui.theme import style_figure
+from roomscope.ui.widgets import Card, PageHeader, label, primary
 
 
 def _decay_flags(match: ResonanceMatch) -> str:
@@ -53,12 +55,31 @@ class ComparePage(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._comparison: ComparisonResult | None = None
+        self.setProperty("page", True)
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(_("Compare two sessions. Select two rows, or pick each path.")))
-        self.browser = SessionBrowser(multi_select=True)
-        self.browser.open_session.connect(self._fill_next_path)
-        layout.addWidget(self.browser, 1)
+        layout.setContentsMargins(28, 20, 28, 14)
+        layout.setSpacing(10)
 
+        header = PageHeader(
+            _("Compare two sessions"),
+            _(
+                "Every difference carries a validity: RoomScope says when two takes cannot "
+                "be compared rather than printing a delta."
+            ),
+        )
+        back = QPushButton(_("Back"))
+        back.clicked.connect(self.back.emit)
+        header.action_row.addWidget(back)
+        layout.addWidget(header)
+
+        picker = Card()
+        picker.body.addWidget(
+            label(_("Compare two sessions. Select two rows, or pick each path."), "hint", wrap=True)
+        )
+        self.browser = SessionBrowser(multi_select=True)
+        self.browser.list.setMinimumHeight(90)
+        self.browser.open_session.connect(self._fill_next_path)
+        picker.body.addWidget(self.browser, 1)
         paths = QHBoxLayout()
         self.baseline_path = QLineEdit()
         self.baseline_path.setPlaceholderText(_("Baseline session"))
@@ -72,8 +93,8 @@ class ComparePage(QWidget):
         paths.addWidget(pick_a)
         paths.addWidget(self.candidate_path)
         paths.addWidget(pick_b)
-        layout.addLayout(paths)
-
+        picker.body.addLayout(paths)
+        buttons = QHBoxLayout()
         self.same_gain = QCheckBox(_("Input gain unchanged"))
         self.same_gain.setToolTip(
             _(
@@ -81,30 +102,33 @@ class ComparePage(QWidget):
                 "may have changed."
             )
         )
-        layout.addWidget(self.same_gain)
-
-        buttons = QHBoxLayout()
-        run = QPushButton(_("Compare"))
-        run.clicked.connect(self.run_compare)
+        buttons.addWidget(self.same_gain)
+        buttons.addStretch(1)
         save = QPushButton(_("Save comparison.json..."))
         save.clicked.connect(self._save)
-        back = QPushButton(_("Back"))
-        back.clicked.connect(self.back.emit)
-        buttons.addWidget(run)
+        run = primary(QPushButton(_("Compare")))
+        run.setShortcut("Ctrl+Return")
+        run.clicked.connect(self.run_compare)
         buttons.addWidget(save)
-        buttons.addStretch(1)
-        buttons.addWidget(back)
-        layout.addLayout(buttons)
+        buttons.addWidget(run)
+        picker.body.addLayout(buttons)
+        layout.addWidget(picker)
 
-        self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(
+        def table(columns: list[str]) -> QTableWidget:
+            widget = QTableWidget(0, len(columns))
+            widget.setHorizontalHeaderLabels(columns)
+            widget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+            widget.verticalHeader().setVisible(False)
+            widget.setAlternatingRowColors(True)
+            widget.setShowGrid(False)
+            widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            return widget
+
+        self.tabs = QTabWidget()
+        self.table = table(
             [_("Metric"), _("Baseline"), _("Candidate"), _("Delta"), "%", _("Validity")]
         )
-        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        layout.addWidget(self.table, 1)
-
-        self.reflections = QTableWidget(0, 4)
-        self.reflections.setHorizontalHeaderLabels(
+        self.reflections = table(
             [
                 _("Status"),
                 _("Baseline (ms / dB)"),
@@ -112,11 +136,7 @@ class ComparePage(QWidget):
                 _("Δ level (dB)"),
             ]
         )
-        self.reflections.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        layout.addWidget(self.reflections, 1)
-
-        self.resonances = QTableWidget(0, 4)
-        self.resonances.setHorizontalHeaderLabels(
+        self.resonances = table(
             [
                 _("Status"),
                 _("Baseline (Hz)"),
@@ -124,21 +144,24 @@ class ComparePage(QWidget):
                 _("Decay distinguishable"),
             ]
         )
-        self.resonances.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        layout.addWidget(self.resonances, 1)
-
+        chart = QWidget()
+        chart_layout = QVBoxLayout(chart)
         self.figure = Figure(figsize=(7.0, 3.2), dpi=100)
         self.canvas = FigureCanvasQTAgg(self.figure)
-        layout.addWidget(self.canvas)
-        self.band_mad = QLabel("")
-        self.band_mad.setWordWrap(True)
-        layout.addWidget(self.band_mad)
-
+        style_figure(self.figure)
+        chart_layout.addWidget(self.canvas, 1)
+        self.band_mad = label("", "hint", wrap=True)
+        chart_layout.addWidget(self.band_mad)
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
-        layout.addWidget(self.text, 1)
-        self.status = QLabel("")
-        self.status.setWordWrap(True)
+        self.text.setProperty("report", True)
+        self.tabs.addTab(self.table, _("Metrics"))
+        self.tabs.addTab(chart, _("Frequency response difference"))
+        self.tabs.addTab(self.reflections, _("Early Reflections"))
+        self.tabs.addTab(self.resonances, _("Resonances"))
+        self.tabs.addTab(self.text, _("Full report"))
+        layout.addWidget(self.tabs, 2)
+        self.status = label("", "hint", wrap=True)
         layout.addWidget(self.status)
 
     def set_paths(self, baseline: Path, candidate: Path) -> None:

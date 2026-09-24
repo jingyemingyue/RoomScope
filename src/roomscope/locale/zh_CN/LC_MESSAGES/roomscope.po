@@ -1606,3 +1606,18 @@ msgstr "显示开发者工具（开发者菜单、高级音频选项；重启后
 
 msgid "Theme"
 msgstr "主题"
+
+msgid "Compare two sessions"
+msgstr "比较两个会话"
+
+msgid "Every difference carries a validity: RoomScope says when two takes cannot be compared rather than printing a delta."
+msgstr "每个差值都带有有效性：两次测量无法比较时，RoomScope 会明确说明，而不是给出一个差值。"
+
+msgid "Metrics"
+msgstr "指标"
+
+msgid "Frequency response difference"
+msgstr "频率响应差异"
+
+msgid "Resonances"
+msgstr "共振"

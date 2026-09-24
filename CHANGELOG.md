@@ -57,6 +57,9 @@ All notable changes to RoomScope are documented here. The format follows
   *Full report* tab. Plots share the series palette; minor grid lines follow
   the scheme; spin and combo boxes use drawn chevrons. The window has a drawn
   app icon. All new strings are in the zh-CN catalog.
+- Compare page: page header, a session-picker card and the results in tabs
+  (metrics, frequency-response difference, early reflections, resonances,
+  full report); the difference chart follows the scheme.
 - **matplotlib>=3.10** (was >=3.8). The wheels of 3.8.0, 3.9.0 and 3.9.4
   still contain the `_ttconv` extension that DEPENDENCIES.md §6 said was gone
   from 3.8; 3.10.0 is the first without it (wheels opened 2026-09-24). With

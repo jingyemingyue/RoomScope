@@ -4,6 +4,28 @@ Snapshot: 2026-09-17, v0.1.0.dev1 (foundation). Everything below was
 verified by actually running it on macOS (Apple silicon, Python 3.12.14).
 Nothing is marked PASS that was not run.
 
+Snapshot 25: 2026-09-24 — **first all-platform green run on GitHub
+Actions** (the repository is public, so hosted runners are available). On
+this branch, CI run #54 (commit `2b54157`) passed every job: Ubuntu
+Python 3.12 / 3.13 / 3.14, macOS Python 3.12, Windows Python 3.12 (pytest,
+fake-backend Standalone flow, example script), lint + mypy + doc links +
+docs site + source safety, JSON schemas, sdist / wheel, license bundle and
+installed-Essentials gate. The run before it (#53) had failed on macOS and
+Windows only in `test_copy_onto_the_same_file_is_a_no_op`, whose Linux
+emulation (a hard link) cannot be created where the file system is
+case-insensitive: real evidence for the audit finding, fixed in the test.
+Release run #13 (commit `d0895b8`, `workflow_dispatch`, no draft) passed
+all four bundle jobs: Linux, macOS arm64, **macOS x86_64 on `macos-15-intel`**
+(the Intel DMG built, mounted, copied and launched for the first time) and
+Windows (installer built, installed, smoke-tested, uninstalled), plus sdist /
+wheel and the SBOM. Since snapshot 24: GUI redesign, audio device inventory
+and host-API-safe Standalone takes, `roomscope doctor`, developer / installer
+editions, sourced DAW guide, `docs/AUDIO_DEVICES.md`, `docs/COMPARISON.md`,
+`docs/COMPATIBILITY.md`, matplotlib>=3.10 and the cross-platform fixes
+(CHANGELOG `[Unreleased]`). Locally (Linux, Python 3.12): **549 passed**,
+coverage gate 90.47 %. **Not run:** any real audio interface or DAW; the
+hardware and DAW matrices in HARDWARE_TESTS.md stay empty.
+
 Snapshot 24: 2026-09-24 — **v0.4.1 release readiness: desktop launch on
 three platforms, Windows installer, Intel macOS, DAW workflow** (branch
 `claude/publication-ready-level-n3hkor`; see CHANGELOG `[0.4.1]` DAW
