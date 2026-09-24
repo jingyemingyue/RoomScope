@@ -240,7 +240,7 @@ class DawModePage(QWidget):
         # Step 3
         step3 = QGroupBox(_("Step 3 - Import Recording"))
         form3 = QFormLayout(step3)
-        self.recording_button = QPushButton(_("Choose Recording WAV..."))
+        self.recording_button = QPushButton(_("Choose Recording..."))
         self.recording_button.clicked.connect(self._choose_recording)
         self.recording_label = QLabel(_("No recording selected."))
         self.recording_label.setWordWrap(True)

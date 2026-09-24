@@ -563,8 +563,8 @@ msgstr "1. 按 DAW 工程的采样率生成测试信号（步骤 1）。\n2. 把
 msgid "Step 3 - Import Recording"
 msgstr "步骤 3 — 导入录音"
 
-msgid "Choose Recording WAV..."
-msgstr "选择录音 WAV…"
+msgid "Choose Recording..."
+msgstr "选择录音…"
 
 msgid "No recording selected."
 msgstr "尚未选择录音。"
