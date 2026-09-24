@@ -116,8 +116,13 @@ the wheels, and must be checked again at packaging time:
 
 ## 6. Items marked UNKNOWN / NEEDS REVIEW
 
-matplotlib's historical `ttconv` converter is **resolved**: it is not present
-in matplotlib 3.8+, which RoomScope requires; fonttools is used instead.
+matplotlib's historical `ttconv` converter is **resolved**: matplotlib 3.10.0
+is the first release whose wheels do not contain the `_ttconv` extension
+(the cp312 wheels of 3.8.0, 3.9.0 and 3.9.4 still ship
+`matplotlib/_ttconv.*.so`; checked 2026-09-24 by opening the wheels), so
+RoomScope requires matplotlib>=3.10; fonttools is used instead. Until
+2026-09-24 this section said "3.8+", which was wrong: an environment with
+matplotlib 3.8 or 3.9 contained ttconv.
 `scripts/audit_wheel_contents.py` lists bundled shared libraries and license
 files of the installed distributions (and of a downloaded `.whl`).
 

@@ -9,13 +9,189 @@ All notable changes to RoomScope are documented here. The format follows
 
 ## [0.4.1] - 2026-09-24
 
-Patch release: closes the review follow-ups #9–#17, each with a synthetic
-test that fails on 0.4.0. No new feature, no dependency change at run time.
-Still no hardware result, still unsigned, still private. 0.4.0 was never
-tagged; because #17 had to be fixed before any bundle is published
-(RELEASE_PLAN.md §4), 0.4.1 is the first version meant for a draft Release.
+First version meant for a draft pre-release (0.4.0 was never tagged, because
+#17 had to be fixed before any bundle is published, RELEASE_PLAN.md §4). It
+closes the review follow-ups #9–#17, each with a synthetic test that fails on
+0.4.0; makes the desktop bundles and the DAW workflow usable by someone other
+than the maintainer; and adds what the software-readiness phase needs before
+community hardware tests (RELEASE_PLAN.md §2): the audio device inventory and
+pre-flight, `roomscope doctor` and the environment report, the GUI redesign,
+and issue templates for hardware and DAW reports. Run-time dependency floor:
+**matplotlib ≥ 3.10** (was ≥ 3.8). Still no hardware or DAW result. The
+bundles are not signed for distribution (macOS: ad hoc, not notarized;
+Windows: no Authenticode). The repository is public; this version has not
+been published.
+
+### Added
+- **Audio device inventory** (`roomscope.audio.inventory`, `roomscope devices
+  --probe | --host-apis | --json`): every host API and device PortAudio sees,
+  the sample rates each accepts for one channel (`Pa_IsFormatSupported`;
+  nothing is played), PortAudio's default latencies, the entries that are one
+  physical device across host APIs (MME's 31-character names included), and
+  the recommended entry per device and direction (a direct path first — ALSA
+  `hw:`, WDM-KS, ASIO, JACK — then the platform's host-API order). Each
+  host API carries its measurement-relevant behaviour, from
+  `docs/AUDIO_DEVICES.md` (+ zh-CN; 38 references: PortAudio v19.7 source,
+  python-sounddevice, Microsoft, Apple, ALSA / PipeWire / JACK documentation,
+  Farina 2007, Müller & Massarani 2001, Torras-Rosell & Jacobsen 2011, Novák
+  et al. 2015 and others).
+- **Basic support for every device path in Standalone Mode**: one host API
+  per take (PortAudio refuses mixed host APIs, `paBadIODeviceCombination`;
+  an unset side takes the same host API's default device instead of MME's),
+  channels checked against the device before anything is played, a warning
+  when playback and recording are separate devices on separate clocks, and
+  `roomscope measure --latency low|high`, `--wasapi-exclusive` (no Windows
+  audio engine) and `--coreaudio-set-rate` (set the macOS device rate and
+  refuse to convert). WASAPI's auto-convert is deliberately not offered: it
+  inserts the engine's resampler.
+- `roomscope doctor` (`--probe`, `--json`) and **Help ▸ Environment Report
+  for Bug Reports** in every edition: the version and the build commit of a
+  desktop bundle (`build_info.json`, written by the PyInstaller spec; release
+  smoke tests require it to match the built commit), the versions of NumPy,
+  SciPy, libsndfile, PortAudio and Qt (from the module when a bundle carries
+  no package metadata), the settings that change a measurement (the output
+  folder only as set / not set), paths with the home folder as `~`, host
+  APIs and every device, and on request the sample rates each accepts
+  (nothing is played). The dialog copies the text, opens the data folder and
+  the issue-template chooser; nothing is sent automatically.
+- Issue templates for **audio interface test reports** and **DAW
+  compatibility reports**, the only source of the cells in
+  `docs/HARDWARE_TESTS.md`; the bug template asks for the install type,
+  expected and actual behaviour and the environment report. Template links
+  are absolute (relative links in issue forms resolve against the issue URL).
+- Developer and installer editions (`roomscope.edition`,
+  `ROOMSCOPE_EDITION`): a source or pip install is the developer edition, a
+  desktop bundle the user edition. The developer edition adds a Developer
+  menu (Audio Device Inspector with rate probing and JSON copy, Open Data
+  Folder) and advanced audio options in Standalone Mode
+  (latency, WASAPI exclusive, Core Audio set-rate). Settings gain *Theme*
+  (system / light / dark, applied at once) and *Show developer tools*, and a
+  save keeps the fields the dialog does not show.
+- Standalone Mode lists devices per host API (the platform's preferred one
+  preselected), stars the recommended input and output, and checks host API,
+  channels and separate clocks before playing.
+
+### Changed
+- **macOS signing prepared for a Developer ID** (none exists yet; releases
+  stay ad hoc signed, not notarized). `packaging/macos/sign_app.sh` signs
+  inside out (loose Mach-O files, nested frameworks deepest first, then the
+  app) instead of `codesign --deep`, which Apple advises against for
+  signing; `--identity` adds the hardened runtime, secure timestamps and
+  `entitlements.plist` for a future Developer ID build. The release job
+  rehearses that layout on arm64 and x86_64 with an ad hoc hardened-runtime
+  copy (`entitlements-adhoc.plist`) that must start and create PortAudio's
+  cffi callbacks; `roomscope doctor` reports whether callbacks work (a
+  hardened runtime without `allow-unsigned-executable-memory`, or SELinux,
+  would stop every recording). Steps and sources: `docs/RELEASE_PLAN.md` §3b.
+- **GUI redesign.** One design system (`ui/theme.py` tokens, a generated Qt
+  style sheet, Fusion on every OS so Windows, macOS and Linux render alike,
+  light and dark schemes) and shared widgets (`ui/widgets.py`). Home: mode
+  cards and the product's three principles; the session list shows room,
+  position and local time. DAW and Standalone pages: page header, scrolling
+  step cards, primary actions, safety and demo banners. Results: key figures
+  (RT60, background noise, early reflections, direct-sound confidence) each
+  with a validity or trust chip, findings as coloured cards with translated
+  severity and topic, the band table in full; the text report moved to a
+  *Full report* tab. Plots share the series palette; minor grid lines follow
+  the scheme; spin and combo boxes use drawn chevrons. The window has a drawn
+  app icon. All new strings are in the zh-CN catalog.
+- Compare page: page header, a session-picker card and the results in tabs
+  (metrics, frequency-response difference, early reflections, resonances,
+  full report); the difference chart follows the scheme.
+- **Readable, translated results and comparisons.** Chart titles, axis
+  labels and legends are translated; charts in Chinese use an installed CJK
+  font (PingFang SC, Microsoft YaHei, Noto Sans CJK SC and others) after
+  DejaVu Sans, where they drew empty boxes before. The compare table names
+  metrics ("63 Hz T20 (s)", "Background noise, RMS (dBFS)") instead of ids
+  and translates validity and match status; the metric id and the reason
+  for a missing delta are tooltips. Profiles are listed by name ("Room
+  microphone"); files and `--profile` keep the id. Plots are laid out again
+  when resized, so axis labels are no longer clipped. The text report
+  translates the direct-sound confidence and the broadband row.
+- **matplotlib>=3.10** (was >=3.8). The wheels of 3.8.0, 3.9.0 and 3.9.4
+  still contain the `_ttconv` extension that DEPENDENCIES.md §6 said was gone
+  from 3.8; 3.10.0 is the first without it (wheels opened 2026-09-24). With
+  the other declared minimums (numpy 1.26, scipy 1.12, soundfile 0.12,
+  sounddevice 0.4.6, PySide6_Essentials 6.6) the suite passes 522/522 on
+  Python 3.12; with the newest releases it passes on 3.13 and 3.14.
+- The `dev` extra lists `hatchling` (MIT; already the build backend) so the
+  wheel build-hook test runs in CI (DEPENDENCIES.md §2).
+- `SECURITY.md` names the supported versions and how files received from
+  other people are treated; `docs/HARDWARE_TESTS.md` gains two rows
+  (no logged buffer problem in a full take; an unplugged device is reported
+  as a failure) and says what the automated backend tests do not show.
+- Coverage of `core` + `models` (branch coverage, the CI gate's measure) is
+  90.20 % (87.74 % on 0.4.0); the run is recorded in `docs/STATUS.md`.
 
 ### Fixed
+- **A complete take could be discarded by its progress display.** The last
+  block reaches 100 % before PortAudio calls the finished callback (it
+  drains the output first); a progress poll in that gap called the front
+  end inside the stream loop, and a failing callback (a window already
+  closed) escaped as "playback/recording failed" (seen once on CI #58,
+  macOS). Progress failures are now logged once and never stop or discard a
+  take; a scripted stand-in with a finish delay reproduces it
+  deterministically.
+- **Standalone device choice (review findings).** The page preselected the
+  lowest-numbered starred device instead of the system's: on a Mac, where
+  every Core Audio device is its own starred entry, a virtual device such as
+  BlackHole could be played into and recorded from. "System default" now
+  stays selected, a chosen host API preselects its own default devices, and
+  a star is only a hint. `--wasapi-exclusive` (and the GUI option) was
+  refused by a shared-mode rate check before the exclusive stream was
+  opened: the pre-flight now asks with the stream's host-API settings. The
+  fake backend's host API has default devices again, so choosing one side
+  works.
+- **Desktop bundles.** Every launch of a frozen app rebuilt matplotlib's font
+  cache (PyInstaller's runtime hook sets a new temporary `MPLCONFIGDIR` per
+  start; Release #14 logs show 14-17 s before the window appeared); the cache
+  now lives in `$ROOMSCOPE_HOME/cache/matplotlib-<version>`. The Linux
+  tarball no longer carries the build runner's `libportaudio`, `libasound`,
+  `libjack` and Berkeley DB: it uses the system's PortAudio, as the user
+  guide says, so the distribution's ALSA plugins (PipeWire's among them) are
+  found. The macOS app declares `LSMinimumSystemVersion` 14.0, the minimum
+  of the bundled NumPy / SciPy wheels (`macosx_14_0`); the docs said
+  macOS 13+. The release notes and user guides give the Gatekeeper path that
+  works on macOS 15+ (Privacy & Security → Open Anyway; right-click → Open
+  no longer bypasses it). The uninstall check requires the whole install
+  folder to be gone, and the bundle smoke requires every library version in
+  `doctor` and no longer mistakes a pip install's `roomscope-gui` script for
+  the bundle's windowed launcher.
+- **A bug-report bundle could carry a file from outside the session.**
+  `roomscope session bundle` followed symbolic links, so a session folder
+  from someone else with a link to, say, a private key put that file into
+  the zip meant for a public issue. Files that resolve outside the session
+  folder are now left out (with a log line).
+- **Buffer under/overflows reached only the log.** A Standalone take whose
+  device reported an input overflow (samples dropped) or output underflow (a
+  gap in the sweep) was analysed with no sign of it in the GUI. The flags
+  now travel with the take (`AudioSignal.device_warnings`) into the result's
+  warnings and a translated "measure again" finding
+  (`measurement.dropouts`), in the GUI and `roomscope measure` alike.
+- **Standalone pre-flight checked the wrong device.** The GUI and
+  `roomscope measure` asked for the sample rate before resolving which host
+  API the take would use: with one side left at "system default", the GUI
+  checked the system default device (MME on Windows) while the stream
+  opened the chosen host API's default device, and the CLI skipped that side;
+  both asked for the device's maximum channel count instead of the channels
+  the stream opens. One `inventory.preflight`, used by both, now resolves the
+  devices, checks the channels, then the rate on those devices with those
+  channel counts.
+- Cross-platform audit (Windows / macOS behaviour emulated in
+  `tests/unit/test_cross_platform.py`): CLI output redirected to a file or
+  pipe is written as UTF-8 (the locale code page raised UnicodeEncodeError on
+  Δ, → or a Chinese room name); `project.json` stores session paths with `/`
+  and reads `\` from projects written on Windows, and a session added twice
+  is recognised by its resolved path; `roomscope session bundle` refuses a
+  destination inside the session folder (the zip contained itself and grew
+  without end); copying a file onto itself is detected with `samefile`
+  (case-insensitive file systems); the log file keeps working when another
+  process holds it during rotation (Windows); default input / output devices
+  are marked again (sounddevice returns an indexable pair, not a tuple); the
+  display language is read from Windows (`GetUserDefaultUILanguage`) and
+  `zh-Hans-CN` / "Chinese (Simplified)" tags map to zh_CN; the session list no
+  longer fails on dates Windows cannot convert; a silent recording names the
+  macOS microphone permission.
 - **Bundle gate (#17).** `scripts/check_bundle_contents.py` matches GPL-only
   Qt QML modules by directory (`qml/QtQuick/VirtualKeyboard`,
   `qml/QtQuick/Timeline`, `qml/QtCharts`, `qml/QtGraphs`,
@@ -96,15 +272,117 @@ tagged; because #17 had to be fixed before any bundle is published
 - `mypy --strict` is also clean when the PySide6 6.11 typed stubs are
   installed.
 
-### Changed
-- The `dev` extra lists `hatchling` (MIT; already the build backend) so the
-  wheel build-hook test runs in CI (DEPENDENCIES.md §2).
-- `SECURITY.md` names the supported versions and how files received from
-  other people are treated; `docs/HARDWARE_TESTS.md` gains two rows
-  (no logged buffer problem in a full take; an unplugged device is reported
-  as a failure) and says what the automated backend tests do not show.
-- Coverage of `core` + `models` (branch coverage, the CI gate's measure) is
-  90.20 % (87.74 % on 0.4.0); the run is recorded in `docs/STATUS.md`.
+### DAW workflow
+- **Wrong sweep speed is diagnosed.** A DAW that plays the test signal at the
+  wrong speed (a 48 kHz file in a 44.1 kHz project without conversion, or
+  Warp / Flex Time / Follow Tempo / elastic audio) made the analysis report only "direct-sound detection confidence is
+  low" or "recording is shorter than the reference sweep".
+  `roomscope.core.playback_speed` measures the sweep rate in the recording
+  (for every frequency bin the frame where the passing sweep peaks; a
+  Theil-Sen line through time against ln f) and names the cause: a
+  sample-rate mismatch when the played rate is within 2.5 % of a common rate,
+  otherwise a time-stretch. It runs only when direct-sound detection
+  confidence is low (a medium margin means the sweep did deconvolve), marks the decay unreliable, is stored as
+  `impulse_response.playback_speed` in `result.json` (optional, additive
+  schema field), and is added to the "shorter than the reference" and
+  "starts after the sweep began" errors. New findings
+  `measurement.playback_sample_rate` / `measurement.playback_time_stretch`
+  replace the generic direct-sound finding; both are translated. Synthetic
+  tests: a sweep played unconverted at 44.1 / 88.2 / 96 kHz, a 44.1 kHz
+  project exported at 48 kHz, ±3 % stretches, a sweep-less noise file.
+- **DAW export formats.** New tests analyse the same take as Broadcast WAV
+  with `bext` / `iXML` / `JUNK` chunks (Pro Tools), WAVE_FORMAT_EXTENSIBLE,
+  RF64, Wave64, AIFF, CAF (Logic Pro recordings) and FLAC, at 16 / 24 /
+  32-bit PCM and 32-bit float, and stereo bounces of a mono microphone. The
+  GUI's recording dialog lists all of those extensions (it offered only
+  `.wav .flac .aif .aiff`, so Logic's CAF files and `.w64` exports were
+  hidden) plus *All files*.
+- **Per-DAW guide.** `docs/user-guide/daw-setup.md` (and zh-CN): the rules
+  every DAW must follow (sweep at the project rate, no time-stretching, no
+  plug-in or room correction on the playback path, one loudspeaker, input
+  monitoring off, one pass, whole export without normalising), step-by-step
+  notes for Pro Tools, Logic Pro / GarageBand, Cubase / Nuendo, Studio One,
+  Ableton Live, REAPER, FL Studio, Bitwig Studio and Audacity, and a table
+  from each report message to its DAW cause. The notes come from the DAWs'
+  documentation; `docs/HARDWARE_TESTS.md` gains an empty per-DAW matrix for
+  checking them. The GUI's Step 2 text names those rules.
+
+### Packaging
+- **macOS app opens the GUI.** `RoomScope.app` has its own windowed
+  executable, so a Finder launch without arguments opens the GUI; the DMG is
+  mounted, copied and launched in the release workflow
+  (`scripts/check_macos_dmg.py`).
+- **Windows and Linux desktop launch.** The bundles gain a windowed
+  `roomscope-gui` launcher next to the console `roomscope`, sharing its
+  libraries. Started without arguments (Explorer, the Start menu, a desktop
+  file, the AppImage `AppRun`) it opens the GUI; before, those launches ran
+  the console CLI, which printed its usage and exited, so a double-click
+  never showed a window. With arguments both executables are the CLI.
+- **Windows installer.** The release workflow installs Inno Setup when the
+  runner lacks it and always builds `RoomScope-setup.exe` (per-user, no
+  administrator rights; Start-menu and optional desktop shortcuts to
+  `roomscope-gui.exe`; upgrades replace the previous libraries). The
+  installer is written to `dist/` (it went to `packaging/windows/Output`),
+  its version comes from `pyproject.toml` via `/DMyAppVersion`, and the
+  workflow installs it silently, smoke-tests the installed copy and
+  uninstalls it.
+- **Build without GitHub Actions.** `scripts/build_release.py` runs the
+  release workflow's bundle job on the local machine (tests, license bundle,
+  PyInstaller, `--strip` gate, smoke test, archive / installer / DMG,
+  `SHA256SUMS-<OS>-<ARCH>`, optionally wheel and sdist) with the workflow's
+  file names, and refuses packages that differ from `requirements/bundle.lock`;
+  `docs/RELEASE_PLAN.md` §3a describes publishing such a build by hand.
+- `scripts/smoke_bundle.py` also runs `gui --smoke` through the windowed
+  launcher; `--require-gui-launcher` fails a Windows / Linux bundle without
+  one.
+- Release notes open with a download table, the unsigned-bundle warning and
+  links to the user guide; the README has a Download section and the user
+  guide's install section names every Release file, the checksums, the Linux
+  system libraries and the wheel install (RoomScope is not on PyPI yet).
+- **Intel Macs.** The release workflow also builds on an Intel macOS runner;
+  the disk images are `RoomScope-macos-arm64.dmg` and
+  `RoomScope-macos-x86_64.dmg` (was `RoomScope.dmg`, Apple silicon only),
+  each checked for its own architecture, and the checksum files are named per
+  runner OS and architecture (`SHA256SUMS-macOS-ARM64`, ...).
+
+### Documentation
+- `docs/COMPATIBILITY.md` (+ zh-CN): platforms, Python and dependency floors,
+  DAW export formats, host APIs and cross-platform behaviour, each with what
+  verified it (CI job, local build, test module) and what is not verified.
+- `docs/EDITIONS.md` (+ zh-CN): the developer edition and the installer
+  edition, what each shows, and how to switch.
+- `docs/user-guide/daw-setup.md` (+ zh-CN) rewritten from each vendor's
+  current documentation, with a numbered source per step (a documented
+  workflow; no step has been run in a DAW with RoomScope yet): Pro Tools
+  (Apply SRC is
+  not a mismatch indicator; TrackInput off still monitors while recording),
+  Logic Pro 12.3 (*Flex* + *Smart Tempo* replace *Flex & Follow*), GarageBand
+  (no sample-rate setting; *Export projects at full volume* normalises),
+  Cubase / Nuendo (*Convert to Project Settings*, Auto Monitoring *Manual*,
+  Export Selected Events *Dry*), Fender Studio Pro 8 (formerly Studio One;
+  the track's *Tempo* mode), Live (*Auto-Warp Long Samples* is on by
+  default), REAPER (*Request sample rate*; the default *Beats* timebase),
+  FL Studio (monitor and loop-record defaults), Bitwig (*Stretch* mode
+  *Raw*; there is no *Off*), Audacity 3.4+ (*Record New Track*, *Export
+  Audio* with *Current Selection*), MOTU Digital Performer 12, and a
+  checklist for any other DAW with Ardour and Cakewalk notes. Rules added:
+  no plug-ins on the microphone track; exporting at another rate is
+  harmless; a small stretch is not named by the diagnosis.
+- **Speed diagnosis on short sweeps.** A correctly played short sweep in a
+  reverberant room measured up to 4.5 % off (1 s sweep) and was named a
+  time-stretch. The "as generated" band now follows the estimate's measured
+  spread, `max(1.25 %, 5.5 % / T^0.75)` for a `T`-second sweep (1.25 % at
+  10 s, 2.4 % at 3 s, 5.5 % at 1 s); a 44.1 / 48 kHz mismatch is still named
+  from about 0.6 s.
+- A recording whose quiet part is exact digital silence gets a warning
+  finding (`measurement.digital_silence`): the DAW's test-signal track
+  exported instead of the microphone otherwise analysed as a near-perfect
+  room with an RT60 of a few hundredths of a second.
+- `docs/COMPARISON.md` (+ zh-CN): a sourced comparison with REW, Open Sound
+  Meter, ARTA, Smaart, SoundID Reference, ARC X, Dirac Live, HouseCurve,
+  AURORA, pyroomacoustics, python-acoustics, pyrato and ITA-Toolbox, what
+  RoomScope does differently, and when another tool is the better choice;
+  README gains "What makes RoomScope different".
 
 ## [0.4.0] - 2026-09-24
 

@@ -18,6 +18,7 @@ from scipy.signal import fftconvolve
 from roomscope.audio.backend import (
     CALLBACK_BLOCK,
     DeviceInfo,
+    StreamOptions,
     prepare_playback,
     supported_sample_rate,
 )
@@ -92,7 +93,16 @@ class FakeBackend:
             )
         ]
 
-    def check_sample_rate(self, device: int, sample_rate: int, *, kind: str) -> None:
+    def check_sample_rate(
+        self,
+        device: int,
+        sample_rate: int,
+        *,
+        kind: str,
+        channels: int | None = None,
+        options: StreamOptions | None = None,
+    ) -> None:
+        del channels, options
         if kind not in {"input", "output"}:
             raise ConfigurationError("kind must be 'input' or 'output'")
         if device != 0:
@@ -112,7 +122,9 @@ class FakeBackend:
         extra_record_s: float = 0.0,
         progress: Callable[[float], None] | None = None,
         cancel: threading.Event | None = None,
+        options: StreamOptions | None = None,
     ) -> AudioSignal:
+        del options  # the synthetic backend has no host API
         if not input_channels:
             raise ConfigurationError("at least one input channel is required")
         if any(ch < 1 for ch in input_channels) or output_channel < 1:

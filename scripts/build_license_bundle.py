@@ -5,8 +5,8 @@ that the wheels omit (LGPL-3.0 and GPL-3.0 for Qt / PySide6, the PortAudio
 license) from ``packaging/licenses/``, adds short notices (FreeType, Qhull,
 Agg), and fails if a required package still has no license text or if
 PySide6 is installed but the LGPL / GPL texts are missing. matplotlib's old
-``ttconv`` module is treated as resolved: it is not present in matplotlib
-3.8+.
+``ttconv`` module is treated as resolved: matplotlib 3.10+ (which RoomScope
+requires) no longer contains it.
 """
 
 from __future__ import annotations
@@ -77,8 +77,8 @@ KNOWN_NOTICES = {
     ),
     "ttconv": (
         "matplotlib's historical ttconv TrueType converter is not present in\n"
-        "matplotlib 3.8 and later (fonttools is used instead). RoomScope requires\n"
-        "matplotlib>=3.8, so ttconv is not bundled. Status: resolved.\n"
+        "matplotlib 3.10 and later (fonttools is used instead). RoomScope requires\n"
+        "matplotlib>=3.10, so ttconv is not bundled. Status: resolved.\n"
     ),
 }
 
@@ -167,7 +167,7 @@ def build(out: Path, *, texts_dir: Path = TEXTS_DIR) -> list[str]:
         "RoomScope third-party license bundle",
         f"unresolved: {', '.join(unresolved) if unresolved else 'none'}",
         f"qt: {qt_line}",
-        "ttconv: resolved (not present in matplotlib>=3.8)",
+        "ttconv: resolved (not present in matplotlib>=3.10)",
         "ASIO: Windows sounddevice ASIO DLLs must be stripped by check_bundle_contents.py",
     ]
     summary.write_text("\n".join(lines) + "\n", encoding="utf-8")

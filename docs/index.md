@@ -13,6 +13,11 @@ The generator uses only the standard library. Open `site/index.html`.
 
 - [User guide (English)](user-guide/en.md)
 - [用户指南（中文）](user-guide/zh-CN.md)
+- [Measuring through your DAW](user-guide/daw-setup.md) · [用 DAW 测量](user-guide/daw-setup.zh-CN.md)
+- [How RoomScope compares](COMPARISON.md) · [与其他工具的比较](COMPARISON.zh-CN.md)
+- [Audio devices and host APIs](AUDIO_DEVICES.md) · [音频设备与主机 API](AUDIO_DEVICES.zh-CN.md)
+- [Developer and installer editions](EDITIONS.md) · [开发者版与安装包版](EDITIONS.zh-CN.md)
+- [Compatibility review](COMPATIBILITY.md) · [兼容性](COMPATIBILITY.zh-CN.md)
 - [Validation campaign protocol](VALIDATION.md)
 - [Hardware test matrix](HARDWARE_TESTS.md)
 

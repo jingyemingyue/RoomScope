@@ -7,6 +7,7 @@ from collections.abc import Sequence
 
 from PySide6.QtCore import QThread, Signal
 
+from roomscope.audio.backend import StreamOptions
 from roomscope.core.pipeline import Reference, analyze
 from roomscope.errors import MeasurementCancelledError, RoomScopeError
 from roomscope.models.audio import AudioSignal, FloatArray
@@ -61,8 +62,10 @@ class MeasureWorker(QThread):
         output_channel: int,
         level_dbfs: float,
         backend: str | None = None,
+        options: StreamOptions | None = None,
     ) -> None:
         super().__init__()
+        self._options = options
         self._signal = signal
         self._sample_rate = sample_rate
         self._input_device = input_device
@@ -90,6 +93,7 @@ class MeasureWorker(QThread):
                 level_dbfs=self._level_dbfs,
                 progress=self.progress.emit,
                 cancel=self._cancel,
+                options=self._options,
             )
         except MeasurementCancelledError:
             self.stopped.emit()

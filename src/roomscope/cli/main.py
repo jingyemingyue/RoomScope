@@ -9,10 +9,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from roomscope import __version__
 from roomscope.cli.report import format_comparison_report, format_report
@@ -244,7 +246,27 @@ def build_parser() -> argparse.ArgumentParser:
     _add_analysis_arguments(p_an)
     _add_loopback_file_arguments(p_an)
 
-    _command(sub, "devices", _("list audio devices (Standalone Mode)"))
+    p_dev = _command(sub, "devices", _("list audio devices (Standalone Mode)"))
+    p_dev.add_argument(
+        "--probe",
+        action="store_true",
+        help=_(
+            "also check which sample rates each device accepts and mark the recommended "
+            "entry of each physical device (nothing is played)"
+        ),
+    )
+    p_dev.add_argument(
+        "--host-apis", action="store_true", help=_("list the host APIs instead of devices")
+    )
+    p_dev.add_argument("--json", action="store_true", help=_("print the inventory as JSON"))
+
+    p_doc = _command(sub, "doctor", _("print an environment report for bug reports and debugging"))
+    p_doc.add_argument("--json", action="store_true", help=_("print the report as JSON"))
+    p_doc.add_argument(
+        "--probe",
+        action="store_true",
+        help=_("also ask every device which sample rates it accepts (nothing is played)"),
+    )
 
     p_me = _command(sub, "measure", _("Standalone Mode: play the sweep and record the microphone"))
     p_me.add_argument("--out", required=True, type=Path, help=_("session directory (created)"))
@@ -269,6 +291,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         dest="measure_loopback_channel",
         help=_("1-based loopback input channel (recorded with the microphone)"),
+    )
+    p_me.add_argument(
+        "--latency",
+        choices=("low", "high"),
+        default=None,
+        help=_("PortAudio latency class of the stream (default: PortAudio's high latency)"),
+    )
+    p_me.add_argument(
+        "--wasapi-exclusive",
+        action="store_true",
+        help=_("Windows WASAPI: open the device in exclusive mode (no mixer, no conversion)"),
+    )
+    p_me.add_argument(
+        "--coreaudio-set-rate",
+        action="store_true",
+        help=_("macOS: let RoomScope set the device's sample rate instead of converting"),
     )
     p_me.add_argument(
         "--acknowledge-level",
@@ -479,6 +517,7 @@ def _run_analysis(
     out_dir: Path | None = None,
     hardware: ChannelPlan | None = None,
     output_channel: int | None = None,
+    device_warnings: tuple[str, ...] = (),
 ) -> int:
     """Analyse a recording and optionally save a session.
 
@@ -495,6 +534,10 @@ def _run_analysis(
     from roomscope.models.session import MeasurementSession
 
     recording = read_wav(recording_path)
+    if device_warnings:
+        # Written to a WAV and read back, the take has lost what the device
+        # reported while recording it.
+        recording = replace(recording, device_warnings=device_warnings)
     if sweep_settings is not None:
         reference = Reference.from_settings(sweep_settings)
     else:
@@ -552,7 +595,14 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 def cmd_devices(args: argparse.Namespace) -> int:
     from roomscope.audio.backend import get_backend
 
-    devices = get_backend(args.backend).list_devices()
+    backend = get_backend(args.backend)
+    if (
+        getattr(args, "probe", False)
+        or getattr(args, "host_apis", False)
+        or getattr(args, "json", False)
+    ):
+        return _print_inventory(backend, args)
+    devices = backend.list_devices()
     print(
         f"{_('idx'):>3}  {_('in'):>3} {_('out'):>3}  {_('rate'):>7}  {_('name')}  [{_('host API')}]"
     )
@@ -563,6 +613,69 @@ def cmd_devices(args: argparse.Namespace) -> int:
             f"{d.name}  [{d.host_api}] {flags}"
         )
     return 0
+
+
+def _print_inventory(backend: Any, args: argparse.Namespace) -> int:
+    from roomscope.audio.inventory import build_inventory
+
+    inventory = build_inventory(backend, probe_rates=bool(getattr(args, "probe", False)))
+    if getattr(args, "json", False):
+        print(json.dumps(inventory.to_dict(), indent=1))
+        return 0
+    if inventory.portaudio_version:
+        print(f"PortAudio: {inventory.portaudio_version}")
+    if getattr(args, "host_apis", False):
+        print(f"{_('idx'):>3}  {_('devices'):>7}  {_('rank'):>4}  {_('host API')}")
+        for api in inventory.host_apis:
+            rank = "-" if api.rank is None else str(api.rank + 1)
+            print(f"{api.index:>3}  {api.device_count:>7}  {rank:>4}  {api.name}")
+            if api.note:
+                print(f"{'':>19}{api.note}")
+        return 0
+    for probe in inventory.devices:
+        d = probe.device
+        marks = []
+        if probe.recommended_input:
+            marks.append(_("recommended input"))
+        if probe.recommended_output:
+            marks.append(_("recommended output"))
+        print(
+            f"[{d.index}] {d.name}  [{d.host_api}]  in {d.max_input_channels} / "
+            f"out {d.max_output_channels}  {d.default_sample_rate:.0f} Hz"
+            + (f"  <- {', '.join(marks)}" if marks else "")
+        )
+        if d.is_input:
+            rates = ", ".join(str(r) for r in probe.input_rates) or "-"
+            print(f"      {_('record')}: {rates}")
+        if d.is_output:
+            rates = ", ".join(str(r) for r in probe.output_rates) or "-"
+            print(f"      {_('play')}:   {rates}")
+        for note in probe.notes:
+            print(f"      - {note}")
+    for note in inventory.notes:
+        print(note)
+    return 0
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    from roomscope.diagnostics import environment_report, format_environment_report
+
+    report = environment_report(backend_name=args.backend, probe_rates=args.probe)
+    if getattr(args, "json", False):
+        print(json.dumps(report, indent=1, default=str))
+    else:
+        print(format_environment_report(report))
+    return 0
+
+
+def _stream_options(args: argparse.Namespace) -> Any:
+    from roomscope.audio.backend import StreamOptions
+
+    return StreamOptions(
+        latency=getattr(args, "latency", None),
+        wasapi_exclusive=bool(getattr(args, "wasapi_exclusive", False)),
+        coreaudio_change_device_rate=bool(getattr(args, "coreaudio_set_rate", False)),
+    )
 
 
 def cmd_measure(args: argparse.Namespace) -> int:
@@ -587,10 +700,6 @@ def cmd_measure(args: argparse.Namespace) -> int:
         return 2
     backend = get_backend(args.backend)
     print(_(SAFETY_MESSAGE))
-    if args.input_device is not None:
-        backend.check_sample_rate(args.input_device, settings.sample_rate, kind="input")
-    if args.output_device is not None:
-        backend.check_sample_rate(args.output_device, settings.sample_rate, kind="output")
     if args.input_channels:
         requested = [
             int(part.strip()) for part in str(args.input_channels).split(",") if part.strip()
@@ -601,6 +710,25 @@ def cmd_measure(args: argparse.Namespace) -> int:
     # mapping before anything is played (#13).
     plan = plan_input_channels(requested, getattr(args, "measure_loopback_channel", None))
     channels = list(plan.input_channels)
+    options = _stream_options(args)
+    # Device pre-flight, shared with the GUI: one host API for both
+    # directions, channels that exist, the rate on the devices the stream will
+    # open, and a warning for two devices on two clocks (docs/AUDIO_DEVICES.md).
+    from roomscope.audio.inventory import build_inventory, preflight
+
+    device_plan = preflight(
+        backend,
+        build_inventory(backend, probe_rates=False),
+        input_device=args.input_device,
+        output_device=args.output_device,
+        input_channels=channels,
+        output_channel=int(args.output_channel),
+        sample_rate=settings.sample_rate,
+        options=options,
+    )
+    args.input_device, args.output_device = device_plan.input_device, device_plan.output_device
+    if device_plan.clock_warning:
+        print(_("Warning: {message}").format(message=device_plan.clock_warning), file=sys.stderr)
     args.loopback_channel = plan.analysis_loopback_channel
     args.channel = plan.analysis_channel
     out_dir: Path = args.out
@@ -632,6 +760,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
         output_channel=args.output_channel,
         level_dbfs=settings.level_dbfs,
         progress=_progress,
+        options=options,
     )
     recording_path = write_wav(
         out_dir / "recording.wav", recording.samples, settings.sample_rate, subtype="FLOAT"
@@ -650,6 +779,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
         out_dir=out_dir,
         hardware=plan,
         output_channel=int(args.output_channel),
+        device_warnings=recording.device_warnings,
     )
 
 
@@ -909,6 +1039,7 @@ COMMANDS = {
     "compare": cmd_compare,
     "schema": cmd_schema,
     "devices": cmd_devices,
+    "doctor": cmd_doctor,
     "measure": cmd_measure,
     "gui": cmd_gui,
     "session": cmd_session,
@@ -917,7 +1048,29 @@ COMMANDS = {
 }
 
 
+def _utf8_when_redirected() -> None:
+    """Write UTF-8 to a pipe or file unless the user chose an encoding.
+
+    Redirected output uses the locale code page (cp1252, cp936 on Windows)
+    with strict errors, so a report with Δ, → or a Chinese room name raised
+    UnicodeEncodeError after the work was done. A console is left alone.
+    """
+    if os.environ.get("PYTHONIOENCODING"):
+        return
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        isatty = getattr(stream, "isatty", None)
+        if reconfigure is None or isatty is None:
+            continue
+        try:
+            if not isatty():
+                reconfigure(encoding="utf-8", errors="backslashreplace")
+        except (OSError, ValueError):
+            continue
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    _utf8_when_redirected()
     argv_list = list(sys.argv[1:] if argv is None else argv)
     activate(_peek_option(argv_list, ("--lang",)))
     parser = build_parser()

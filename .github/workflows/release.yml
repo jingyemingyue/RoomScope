@@ -10,8 +10,8 @@ on:
     paths:
       - pyproject.toml
       - .github/workflows/release.yml
-      - packaging/macos/**
-      - packaging/roomscope.spec
+      - packaging/**
+      - scripts/smoke_bundle.py
       - src/roomscope/__main__.py
   pull_request:
     paths:
@@ -19,6 +19,7 @@ on:
       - packaging/**
       - scripts/check_bundle_contents.py
       - scripts/check_macos_dmg.py
+      - scripts/smoke_bundle.py
       - src/roomscope/__main__.py
       - tests/unit/test_desktop_entry.py
       - pyproject.toml
@@ -129,7 +130,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # macos-latest is Apple silicon; macos-15-intel builds the x86_64 app.
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -164,44 +166,88 @@ jobs:
           cp -R THIRD_PARTY_LICENSES dist/RoomScope.app/Contents/Resources/THIRD_PARTY_LICENSES
           python scripts/check_bundle_contents.py --root dist/RoomScope.app --strip
           python scripts/check_bundle_contents.py --root dist/RoomScope.app/Contents/Resources --require-licenses
-          codesign --force --deep --sign - dist/RoomScope.app
-          codesign --verify --deep --strict --verbose=2 dist/RoomScope.app
+          # Inside-out ad hoc signature (no Developer ID yet); verifies with --deep --strict.
+          sh packaging/macos/sign_app.sh dist/RoomScope.app
       - name: Smoke frozen binary
         shell: bash
-        run: python scripts/smoke_bundle.py --root dist/roomscope --out "$RUNNER_TEMP/bundle-smoke"
+        run: |
+          launcher=--require-gui-launcher
+          [[ "$RUNNER_OS" != macOS ]] || launcher=
+          python scripts/smoke_bundle.py --root dist/roomscope --out "$RUNNER_TEMP/bundle-smoke" \
+            --expect-commit "$GITHUB_SHA" $launcher
       - name: Smoke macOS .app executable
         if: runner.os == 'macOS'
         shell: bash
         run: QT_QPA_PLATFORM=offscreen dist/RoomScope.app/Contents/MacOS/RoomScope gui --smoke
-      - name: Windows zip and optional installer
+      - name: Rehearse the Developer ID layout (hardened runtime, ad hoc)
+        # What a Developer ID build changes, minus the certificate: hardened
+        # runtime and entitlements on a copy of the app, which must still start,
+        # load its libraries and create PortAudio's cffi callbacks. The released
+        # DMG keeps the plain ad hoc signature (docs/RELEASE_PLAN.md §3b).
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          plutil -lint packaging/macos/entitlements.plist packaging/macos/entitlements-adhoc.plist
+          # Notarization rejects get-task-allow (an "if", since errexit ignores "! cmd").
+          if grep -q get-task-allow packaging/macos/entitlements.plist; then exit 1; fi
+          dir="$RUNNER_TEMP/rehearsal"
+          mkdir -p "$dir"
+          ditto dist/RoomScope.app "$dir/RoomScope.app"
+          sh packaging/macos/sign_app.sh "$dir/RoomScope.app" --runtime
+          codesign -dvv "$dir/RoomScope.app" > "$dir/codesign.txt" 2>&1
+          codesign -d --entitlements - --xml "$dir/RoomScope.app" > "$dir/entitlements.xml"
+          cat "$dir/codesign.txt"
+          grep -q 'flags=.*runtime' "$dir/codesign.txt"
+          grep -q com.apple.security.device.audio-input "$dir/entitlements.xml"
+          python scripts/smoke_bundle.py --roomscope "$dir/RoomScope.app/Contents/MacOS/RoomScope" \
+            --out "$dir/smoke" --expect-commit "$GITHUB_SHA"
+      - name: Windows zip
         if: runner.os == 'Windows'
         shell: bash
+        run: python -c "import shutil; shutil.make_archive('dist/roomscope-windows-x64', 'zip', 'dist/roomscope')"
+      - name: Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
         env:
           ROOMSCOPE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          python -c "import shutil; shutil.make_archive('dist/roomscope-windows-x64', 'zip', 'dist/roomscope')"
-          if command -v iscc >/dev/null 2>&1; then
-            python - <<'PY'
-          import os
-          import re
-          from pathlib import Path
-          spec = Path('packaging/windows/roomscope.iss')
-          old = spec.read_text(encoding='utf-8')
-          new, count = re.subn(r'(?m)^#define MyAppVersion ".*"$',
-                               '#define MyAppVersion "' + os.environ['ROOMSCOPE_VERSION'] + '"', old)
-          if count != 1:
-              raise SystemExit('Expected exactly one Inno Setup version definition')
-          spec.write_text(new, encoding='utf-8')
-          PY
-            iscc packaging/windows/roomscope.iss
-          else
-            echo "ISCC unavailable; Windows zip is the deliverable."
-          fi
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup install failed' }
+          }
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
+          & $iscc "/DMyAppVersion=$env:ROOMSCOPE_VERSION" packaging\windows\roomscope.iss
+          if ($LASTEXITCODE -ne 0) { throw "iscc failed ($LASTEXITCODE)" }
+          if (-not (Test-Path dist\RoomScope-setup.exe)) { throw 'dist\RoomScope-setup.exe missing' }
+      - name: Install, smoke and uninstall the Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'RoomScope-installed'
+          $p = Start-Process dist\RoomScope-setup.exe -Wait -PassThru -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', "/DIR=$dir")
+          if ($p.ExitCode -ne 0) { throw "installer exited with $($p.ExitCode)" }
+          if (-not (Test-Path (Join-Path $dir 'roomscope-gui.exe'))) { throw 'roomscope-gui.exe not installed' }
+          if (-not (Test-Path (Join-Path $dir 'THIRD_PARTY_LICENSES'))) { throw 'licenses not installed' }
+          python scripts/smoke_bundle.py --root $dir --out (Join-Path $env:RUNNER_TEMP 'installed-smoke') --require-gui-launcher --expect-commit $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'installed smoke failed' }
+          $u = Start-Process (Join-Path $dir 'unins000.exe') -Wait -PassThru -ArgumentList @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
+          if ($u.ExitCode -ne 0) { throw "uninstaller exited with $($u.ExitCode)" }
+          # The uninstaller re-launches itself from %TEMP%; wait for it to finish.
+          for ($i = 0; $i -lt 60 -and (Test-Path $dir); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $dir) {
+            Get-ChildItem -Recurse $dir | Select-Object -First 20 FullName
+            throw "uninstall left $dir behind"
+          }
+          Write-Output "uninstalled: $dir removed"
       - name: macOS disk image
         if: runner.os == 'macOS'
         run: |
-          bash packaging/macos/make_dmg.sh dist/RoomScope.app dist/RoomScope.dmg
-          python scripts/check_macos_dmg.py dist/RoomScope.dmg
+          dmg="dist/RoomScope-macos-$(uname -m).dmg"
+          bash packaging/macos/make_dmg.sh dist/RoomScope.app "$dmg"
+          python scripts/check_macos_dmg.py "$dmg"
       - name: Linux archive
         if: runner.os == 'Linux'
         run: tar -C dist -czf dist/roomscope-linux-x86_64.tar.gz roomscope
@@ -212,14 +258,16 @@ jobs:
           import hashlib
           import os
           from pathlib import Path
-          names = ['roomscope-linux-x86_64.tar.gz', 'RoomScope.dmg',
-                   'roomscope-windows-x64.zip', 'RoomScope-setup.exe']
+          names = ['roomscope-linux-x86_64.tar.gz', 'RoomScope-macos-arm64.dmg',
+                   'RoomScope-macos-x86_64.dmg', 'roomscope-windows-x64.zip',
+                   'RoomScope-setup.exe']
           assets = [Path('dist') / name for name in names if (Path('dist') / name).is_file()]
           if not assets:
               raise SystemExit('No distributable archive found')
           lines = [f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}'
                    for path in assets]
-          (Path('dist') / f'SHA256SUMS-{os.environ["RUNNER_OS"]}').write_text(
+          suffix = f'{os.environ["RUNNER_OS"]}-{os.environ["RUNNER_ARCH"]}'
+          (Path('dist') / f'SHA256SUMS-{suffix}').write_text(
               '\n'.join(lines) + '\n', encoding='utf-8')
           PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -227,7 +275,7 @@ jobs:
           name: bundle-${{ matrix.os }}
           path: |
             dist/roomscope-linux-x86_64.tar.gz
-            dist/RoomScope.dmg
+            dist/RoomScope-macos-*.dmg
             dist/roomscope-windows-x64.zip
             dist/RoomScope-setup.exe
             dist/SHA256SUMS-*
@@ -280,9 +328,10 @@ jobs:
           match = re.search(r'(?ms)^## \[' + version + r'\].*?\n(.*?)(?=^## \[|\Z)', changelog)
           if match is None:
               raise SystemExit('CHANGELOG section missing for this version')
-          Path('release-notes.md').write_text(match.group(1).strip() + '\n\n'
-              'Unsigned bundles for maintainer testing; hardware validation remains pending.\n',
-              encoding='utf-8')
+          header = Path('packaging/release-notes-header.md').read_text(encoding='utf-8')
+          header = header.replace('{version}', os.environ['ROOMSCOPE_VERSION'])
+          Path('release-notes.md').write_text(header + '## Changes\n\n'
+              + match.group(1).strip() + '\n', encoding='utf-8')
           PY
       - name: Restore matching draft tag name if GitHub reset it
         env:

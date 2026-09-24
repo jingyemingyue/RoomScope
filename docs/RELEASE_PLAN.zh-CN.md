@@ -7,16 +7,16 @@
 ## 1. 现状
 
 * `main` 已经包含 v0.1 基础 + 0.2（重开与对比）+ 0.3（信任测量链）+ 0.4（面向所有人）+ 1.0-rc 的纯软件部分。四个里程碑 PR（#5、#6、#7、#8）在 2026-09-24 审查后合并，审查发现记录为 issue #9–#16。
-* 还没有任何 tag 或 GitHub Release，仓库仍是私有。
+* 还没有任何 tag 或已发布的 Release（v0.4.1 是草稿）。仓库已于 2026-09-24 公开。
 * 需要人在真实房间完成的事情都没做：硬件矩阵（HARDWARE_TESTS.md）没有一格 PASS，验证活动（VALIDATION.md）没有跑。维护者近期没有测量设备，所以这些排在最后，也可以在开源之后由贡献者补。
-* 签名证书、PyPI 项目名与可信发布、公开仓库，都是维护者决定，目前全部未定。
+* 签名证书、PyPI 项目名与可信发布都是维护者决定，目前未定；仓库已于 2026-09-24 公开。
 
 ## 2. 版本阶梯
 
 | 版本 | 目的 | 切版前必须成立 | 不声称 |
 | --- | --- | --- | --- |
 | **0.4.0** | 第一个预发布：把 `main` 上的东西做成草稿 Release 和未签名安装包，供维护者自测 | 三个系统、Python 3.12–3.14 的 CI 全绿；ruff、mypy、schema、打包门禁通过；许可证包含 LGPL-3.0 / GPL-3.0 / PortAudio 原文；CHANGELOG 有 `[0.4.0]` 节；STATUS 有带日期的快照 | 任何硬件结果；真人安装过安装包；PyPI；公开可用 |
-| **0.4.x** | 审查后续修复 | 每个补丁至少关闭 #9–#17 之一并带合成测试；不加功能（0.4.1 一次关闭全部九项） | — |
+| **0.4.x** | 社区硬件验证之前的软件就绪阶段（维护者于 2026-09-24 定义）：审查后续 #9–#17（0.4.1 全部关闭）、打包、设备诊断、界面、DAW 指南和社区报告模板 | 发布提交上 CI 与发布工作流全绿；每个新行为都有合成或脚本化测试；CHANGELOG 写明改动；不声称任何硬件或 DAW 结果 | 任何硬件或 DAW 结果；签名；PyPI |
 | **0.5.0** | “有人用过”：Standalone 和 DAW 流程第一次在真实硬件上跑通 | 至少一个平台上硬件矩阵每格都有带日期的 PASS；#12、#13、#14、#15 关闭 | 验证活动；API/schema 冻结；签名 |
 | **1.0.0rc1** | 冻结并证明 | ARCHITECTURE_V1.md §3.1 的 MUST 项无一开放：硬件矩阵每个平台至少跑过一次、验证活动连数据一起发布、签名或维护者明确决定不签、公开仓库清单执行完、API 与 schema 冻结 | — |
 | **1.0.0** | 正式版 | 只含候选版之后的修复；发布说明写明验证结果和已知限制 | — |
@@ -25,12 +25,11 @@
 
 流水线是 `.github/workflows/release.yml`，由 `pyproject.toml` 里的版本号驱动，最后一步始终由维护者点击。
 
-> **工作流状态（2026-09-24）**：按版本号发布的 `.github/workflows/release.yml`
-> 已加入 PR #18。PR 验证运行会在 Linux、macOS、Windows 上构建安装包并执行
-> 门禁及冒烟测试，不创建草稿 Release，也不上传 PyPI。PR 合并后，新工作流才
-> 在 `main` 生效；合并带来 `pyproject.toml` 的 0.4.1 版本变更，发布任务
-> 通过后应生成第一个 v0.4.1 草稿。发布前核对合并提交的 CI 和草稿附件。
-> 在旧的只认 tag 的工作流仍位于 `main` 时，不要推送 tag。
+> **工作流状态（2026-09-24）**：按版本号发布的工作流自 PR #18 起已在 `main`
+> 上；v0.4.1 草稿 Release 就是由它创建的。只要 `v0.4.1` 还没有 tag，`main`
+> 上的 `pyproject.toml`、工作流、`packaging/` 或 `scripts/smoke_bundle.py`
+> 一有变化，草稿就会被刷新。Windows 任务每次都会构建并安装
+> `RoomScope-setup.exe`。发布前核对 `main` 最新一次运行和草稿附件。
 
 1. **在 `main` 上准备发布提交**：把 `project.version` 改成新版本（不带 `.dev`），把 CHANGELOG 的 `[Unreleased]` 挪到 `## [版本] - 日期` 下，在 `docs/STATUS.md` 加一条写明“实际跑了什么”的快照，依赖版本有变时复查 DEPENDENCIES.md §3–§4。提交并推送。
 2. **CI 自动开草稿**：`pyproject.toml` 在 `main` 上变了、且还没有 `v<版本>` 这个 tag，工作流就会跑 lint/类型检查/测试，构建 sdist 和 wheel，在三个系统上构建未签名安装包（许可证包 → PyInstaller → 剥掉 GPL-only Qt 模块和 ASIO DLL → 门禁 → 冒烟测试 → 打包 → 校验和），生成 SBOM，然后开一个名为 `v<版本>` 的**草稿** Release，把 CHANGELOG 对应段落作正文、所有压缩包作附件。**此时还没有 tag。** 带 `.dev` 的版本不会开草稿。
@@ -39,13 +38,52 @@
 
 由此得出的规则：`pyproject.toml` 是版本号的唯一来源；tag 名与它不一致时工作流失败；tag 只来自发布草稿或维护者自己推送；已发布的历史永不重写。
 
+### 3a. 没有 GitHub Actions 额度时
+
+私有仓库消耗自己的 Actions 分钟数，macOS 运行器按十倍计。额度用完后，任务会在几秒内失败且没有分配运行器（没有步骤、没有日志）。可选做法（从省钱到省事）：
+
+1. **本地构建。** `scripts/build_release.py` 在当前机器上执行与发布工作流 bundle 任务相同的步骤，并在 `dist/` 中生成相同的文件名。每个平台运行一次：Apple 芯片 Mac（`RoomScope-macos-arm64.dmg`）、有条件时 Intel Mac（`RoomScope-macos-x86_64.dmg`）、装有 Inno Setup 6 的 Windows（`roomscope-windows-x64.zip`、`RoomScope-setup.exe`）以及 Linux x86_64（`roomscope-linux-x86_64.tar.gz`）；在其中一台上加 `--python-dist` 生成 wheel 和 sdist。运行前按脚本文档安装 `requirements/bundle.lock`、`dev` 与 `gui` 附加依赖、`pyinstaller==6.22.3` 和 `build`；版本不一致时脚本会拒绝，除非加 `--allow-unlocked`。脚本会运行测试、许可证包、`--strip --require-licenses` 门禁和冒烟测试；在 macOS 上还会做临时签名，并从 DMG 挂载、复制和启动应用。在 Windows 上它只编译安装程序，不像工作流那样安装、冒烟测试和卸载（那会改变这台电脑）；发布本地构建的安装程序前请手动完成这三步。
+2. **手动发布。** 在 Releases 页面创建或编辑草稿 `v<version>`（tag 为 `main` 上发布提交的 `v<version>`，勾选 *pre-release*），粘贴说明（`packaging/release-notes-header.md` 中把 `{version}` 替换后，再接 CHANGELOG 对应段落），上传第 1 步的所有文件及每台机器的 `SHA256SUMS-*`，然后发布。PyPI 任务需要 Actions，没有它就不会上传 PyPI。
+3. **把仓库设为公开**（§5）：公开仓库使用 GitHub 托管的标准运行器是免费的，工作流即可照常运行。已于 2026-09-24 公开，此后工作流一直在 GitHub 运行器上运行。
+
+本地构建的版本只经过了该脚本在那台机器上执行的检查；`docs/STATUS.md` 记录哪台机器构建了哪些文件。
+
+### 3b. macOS 签名：现在，以及有 Developer ID 之后
+
+**现在**应用只做临时（ad hoc）签名，它只封装应用包：不是 Developer ID 签名，没有公证，首次打开会被 Gatekeeper 拦截（步骤见用户指南）。`packaging/macos/sign_app.sh` 按 Apple 对分发代码的要求由内向外签名 [A1][A2]：先签 `Contents/Frameworks` 下每个独立的 Mach-O 文件，再按由深到浅的顺序签每个嵌套 `.framework`，最后签应用本身；`codesign --deep` 只用于验证，因为 Apple 不建议用它签名 [A1][A3]。发布的应用不启用 hardened runtime，也没有 entitlements。
+
+**在 CI 中演练。** 在两个 macOS 运行器（arm64、x86_64）上，发布任务用 `sign_app.sh --runtime` 对应用副本签名：启用 hardened runtime 并使用 `entitlements-adhoc.plist`。该副本必须能启动（GUI 冒烟测试、fake 后端测量），并且 `roomscope doctor` 必须能创建 cffi 回调，这是 PortAudio 在音频线程中调用 RoomScope 的机制。各 entitlement 的理由：
+
+| 键 | 原因 | 来源 |
+| --- | --- | --- |
+| `com.apple.security.device.audio-input` | hardened runtime 下的 Core Audio 输入（话筒）；缺少它系统会终止应用 | [A4][A5] |
+| `com.apple.security.cs.allow-unsigned-executable-memory` | python-sounddevice 用 cffi 的 `ffi.callback`（ABI 模式）创建流回调；cffi 文档要求在 macOS 上提供此键，而 Apple 的 x86_64 libffi 在不使用 `MAP_JIT` 的情况下映射可写且可执行的内存 | [A6][A7] |
+| `com.apple.security.cs.disable-library-validation`（仅演练文件） | 临时签名没有 Team ID，库验证会拒绝应用自己的库。Developer ID 构建用同一个 Team ID 签署所有内容，不需要此键 | [A8] |
+
+`entitlements.plist`（Developer ID 使用的文件）只含前两个键，永远不含公证会拒绝的 `get-task-allow` [A9]。
+
+**有了 Developer ID Application 证书之后**（维护者决定，§5），按顺序执行以下步骤；目前都还没有运行过：
+
+1. 在运行器上用仓库 secrets 把证书导入临时钥匙串（尚未编写；目前工作流不读取任何签名 secret，因此社区构建永远不需要它）。
+2. `sh packaging/macos/sign_app.sh dist/RoomScope.app --identity "Developer ID Application: NAME (TEAMID)"`：顺序相同，每一项加 `--timestamp`，应用本身加 `--options runtime` 和 `entitlements.plist` [A2][A9]。
+3. 构建 DMG（`make_dmg.sh`），用同一身份加 `--timestamp` 签名 [A10]。
+4. `xcrun notarytool submit RoomScope-macos-<arch>.dmg --wait`，使用 App Store Connect API 密钥（`--key`、`--key-id`、`--issuer`）或 Apple ID、团队 ID 与 App 专用密码；即使成功也要查看 `notarytool log` [A11][A12]。
+5. 对 DMG 执行 `xcrun stapler staple`，然后对 DMG 用 `spctl -a -t open -vvv --context context:primary-signature`、对挂载后的应用用 `spctl -a -t exec -vvv` 检查 [A12][A13]。
+6. 在 staple 之后再计算 SHA-256（staple 会改变 DMG）。
+
+没有证书时 CI 无法证明的内容：Developer ID 签名、共享 Team ID 下的库验证、安全时间戳、公证、staple、Gatekeeper 放行，以及话筒权限提示。
+
+Windows：安装程序和可执行文件没有 Authenticode 签名，首次运行时 SmartScreen 会警告（见用户指南）。这是 0.x 预发布版本的已知限制，不是错误；是否签名属于同一个 §5 决定。有证书后：先用 `signtool sign /fd sha256 /tr <时间戳 URL> /td sha256` 签署 `dist\roomscope\*.exe`，再用 `iscc "--signtool=signtool=signtool.exe sign … $f" /DSignToolName=signtool` 编译安装程序，让 Inno Setup 签署安装程序及其卸载程序（[W1][W2][W3]；`packaging/windows/roomscope.iss`）。尚未运行过。
+
+§3b 来源（访问于 2026-09-24）见英文版 [RELEASE_PLAN.md](RELEASE_PLAN.md) §3b 的 [A1]–[A13]、[W1]–[W3]。
+
 ## 4. 每次发布都适用的门禁
 
 CI 全绿（lint、mypy、文档链接检查、文档站点构建、`check_src_safety.py`、schema、测试矩阵、`core`/`models` 85% 覆盖率、打包、已安装 Essentials 的 GPL 门禁）；发布工作流全绿（`--strip --require-licenses` 门禁、每个系统的冒烟测试）；DEPENDENCIES.md §6 没有影响所发二进制的 UNKNOWN / NEEDS REVIEW；STATUS 如实写明跑了什么、没跑什么，硬件格保持空白直到有人填上日期和声卡型号；CHANGELOG 有该版本段落，审查发现的夸大说法在同一版本里更正（0.4.0：中文目录只覆盖七个 profile 中的三个，见 #14，0.4.1 已补全）。
 
 ## 5. 仍待维护者决定
 
-公开仓库（§9.1 清单）；Apple Developer ID + 公证、Windows 签名，或明确决定不签名发 1.0；PyPI 注册 `roomscope`、配可信发布、建 `pypi` 环境、设 `ROOMSCOPE_PUBLISH_PYPI=true`；验证活动的房间、参考工具（REW 只作对比仪器）和执行人；是否要求 DCO 签署；Dependabot 的 #3 / #4 在它重新 rebase 到 SHA 固定的工作流并且 CI 绿之后合并。
+公开仓库（已于 2026-09-24 公开；§9.1 清单中其余仓库设置未在此核对）；Apple Developer ID + 公证、Windows 签名，或明确决定不签名发 1.0；PyPI 注册 `roomscope`、配可信发布、建 `pypi` 环境、设 `ROOMSCOPE_PUBLISH_PYPI=true`；验证活动的房间、参考工具（REW 只作对比仪器）和执行人；是否要求 DCO 签署；Dependabot 的 #3 / #4 在它重新 rebase 到 SHA 固定的工作流并且 CI 绿之后合并。
 
 ## 6. 2026-09-24 审查后续（issue）
 

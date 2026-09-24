@@ -221,6 +221,12 @@ msgstr "在已声明输入增益不变的前提下，本底噪声从 {baseline_d
 msgid "The direct sound could not be identified with confidence, so delays and levels of reflections may be off. Check that the correct reference sweep was used, lower the playback level if the loudspeaker distorts, and measure again."
 msgstr "无法可靠识别直达声，反射的延时和电平可能不准。请确认使用了正确的参考扫描信号；若扬声器失真请降低回放电平，然后重测。"
 
+msgid "The sweep was generated at {generated_rate_hz} Hz but played at {played_rate_hz} Hz: the DAW project runs at another sample rate and did not convert the file. Generate the sweep at the project's sample rate, or let the DAW convert it on import, and measure again."
+msgstr "扫描信号按 {generated_rate_hz} Hz 生成，却以 {played_rate_hz} Hz 播放：DAW 工程的采样率不同，且没有对文件做采样率转换。请按工程采样率生成扫描信号，或让 DAW 在导入时转换采样率，然后重测。"
+
+msgid "The sweep was played at {speed_percent:.1f} % of its speed: the DAW time-stretched it (Warp, Flex Time, Follow Tempo, elastic audio or a stretch mode). Switch time-stretching off for the sweep clip and measure again."
+msgstr "扫描信号以原速度的 {speed_percent:.1f} % 播放：DAW 对它做了时间伸缩（Warp、Flex Time、Follow Tempo、Elastic Audio 或其他伸缩模式）。请关闭扫描片段的时间伸缩，然后重测。"
+
 msgid "The recording clips. Lower the playback or input gain and measure again."
 msgstr "录音削波。请降低回放或输入增益后重测。"
 
@@ -551,14 +557,14 @@ msgstr "尚未写出测试信号。"
 msgid "Step 2 - Record Through Your DAW"
 msgstr "步骤 2 — 在 DAW 中录音"
 
-msgid "1. Import the test-signal WAV on a new track of your DAW project.\n2. Route that track to the monitors (or the loudspeaker you want to test).\n3. Arm a second track with the measurement microphone and record while the test signal plays.\n4. Export / bounce the recorded track as a WAV file at the project sample rate.\n   Do not trim it - RoomScope finds the sweep automatically.\nStart with a low monitor level; the sweep should be clearly audible but not loud."
-msgstr "1. 把测试信号 WAV 导入 DAW 项目的新轨道。\n2. 将该轨道路由到监听（或要测的扬声器）。\n3. 用测量话筒武装第二条轨道，在测试信号播放时录音。\n4. 按工程采样率导出/bounce 为 WAV。\n   不要裁切——RoomScope 会自动找到扫描。\n先把监听开低；扫描应清楚可闻，但不要很大声。"
+msgid "1. Generate the test signal at your DAW project's sample rate (Step 1).\n2. Import it on a new track. Switch time-stretching off for that clip (Warp, Flex, Follow Tempo, elastic audio) and bypass plug-ins on its track and on the master bus, including room-correction plug-ins.\n3. Route that track to the one loudspeaker you want to test.\n4. Arm a second track with the measurement microphone (input monitoring off) and record while the test signal plays.\n5. Export the recorded track as WAV, AIFF, CAF or FLAC at the project sample rate, without normalising.\n   Do not trim it - RoomScope finds the sweep automatically.\nStart with a low monitor level; the sweep should be clearly audible but not loud.\nThe user guide has step-by-step notes for Pro Tools, Logic Pro, Cubase, Studio One, Ableton Live, REAPER, FL Studio and Bitwig Studio."
+msgstr "1. 按 DAW 工程的采样率生成测试信号（步骤 1）。\n2. 把它导入新轨道。关闭该片段的时间伸缩（Warp、Flex、Follow Tempo、Elastic Audio），并旁通该轨道和主输出总线上的插件，包括房间校正插件。\n3. 将该轨道只路由到要测的那一只扬声器。\n4. 用测量话筒武装第二条轨道（关闭输入监听），在测试信号播放时录音。\n5. 按工程采样率把录音轨导出为 WAV、AIFF、CAF 或 FLAC，不要做标准化。\n   不要裁切——RoomScope 会自动找到扫描。\n先把监听开低；扫描应清楚可闻，但不要很大声。\n用户指南里有 Pro Tools、Logic Pro、Cubase、Studio One、Ableton Live、REAPER、FL Studio 和 Bitwig Studio 的分步说明。"
 
 msgid "Step 3 - Import Recording"
 msgstr "步骤 3 — 导入录音"
 
-msgid "Choose Recording WAV..."
-msgstr "选择录音 WAV…"
+msgid "Choose Recording..."
+msgstr "选择录音…"
 
 msgid "No recording selected."
 msgstr "尚未选择录音。"
@@ -608,8 +614,8 @@ msgstr "参考：{name}"
 msgid "Choose recording"
 msgstr "选择录音"
 
-msgid "Audio files (*.wav *.flac *.aif *.aiff)"
-msgstr "音频文件 (*.wav *.flac *.aif *.aiff)"
+msgid "Audio files (*.wav *.wave *.bwf *.rf64 *.w64 *.aif *.aiff *.aifc *.caf *.flac);;All files (*)"
+msgstr "音频文件 (*.wav *.wave *.bwf *.rf64 *.w64 *.aif *.aiff *.aifc *.caf *.flac);;所有文件 (*)"
 
 msgid "Cannot read recording"
 msgstr "无法读取录音"
@@ -753,7 +759,7 @@ msgid "RT60 estimate"
 msgstr "RT60 估计"
 
 msgid "Reverberation (extrapolated to 60 dB). 'insufficient range' means the decay is not clean enough for that metric."
-msgstr "混响（外推到 60 dB）。“insufficient range”表示衰减对该指标不够干净。"
+msgstr "混响（外推到 60 dB）。“动态范围不足”表示衰减对该指标不够干净。"
 
 msgid "Save Session..."
 msgstr "保存会话…"
@@ -1306,3 +1312,449 @@ msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s，来自 {basis}）。对合
 
 msgid "Low frequencies decay more slowly than the mid range ({low_max:.2f} s vs {mid_mean:.2f} s), which makes the ensemble bottom-heavy and muddies diction. Bass trapping or a different position helps."
 msgstr "低频比中频衰减更慢（{low_max:.2f} s 对 {mid_mean:.2f} s），会让合唱整体偏重低频、咬字发浑。低音陷阱或换位置会有帮助。"
+
+msgid "(unnamed room)"
+msgstr "（未命名房间）"
+
+msgid "A validity flag on every number"
+msgstr "每个数字都带有效性标记"
+
+msgid "Any DAW: WAV in, WAV out"
+msgstr "任意 DAW：WAV 进，WAV 出"
+
+msgid "No room score, no invented figures"
+msgstr "不打总分，不编造数字"
+
+msgid "Generate a test signal, play and record it in any DAW, import the recording."
+msgstr "生成测试信号，在任意 DAW 中播放并录音，再导入录音。"
+
+msgid "Start in my DAW"
+msgstr "在我的 DAW 中开始"
+
+msgid "RoomScope plays the sweep and records the microphone through your audio interface."
+msgstr "RoomScope 通过你的音频接口播放扫描并录制话筒。"
+
+msgid "Measure now"
+msgstr "立即测量"
+
+msgid "Run Standalone Mode on the fake backend. Nothing is sent to a loudspeaker."
+msgstr "在模拟后端上运行独立模式，不会向扬声器发送任何信号。"
+
+msgid "Try the demo"
+msgstr "试用演示"
+
+msgid "Open a session.json or a folder that contains one."
+msgstr "打开 session.json，或包含它的文件夹。"
+
+msgid "Pick two saved sessions and compare their metrics."
+msgstr "选择两个已保存的会话并比较其指标。"
+
+msgid "Four steps: generate the test signal, play and record it in your DAW, import the recording, analyse. RoomScope never talks to the DAW."
+msgstr "四个步骤：生成测试信号、在 DAW 中播放并录音、导入录音、分析。RoomScope 从不与 DAW 通信。"
+
+msgid "RoomScope plays the sweep and records the microphone through your audio interface, then runs the same analysis as Universal DAW Mode."
+msgstr "RoomScope 通过你的音频接口播放扫描并录制话筒，然后运行与通用 DAW 模式相同的分析。"
+
+msgid "valid"
+msgstr "有效"
+
+msgid "unreliable"
+msgstr "不可靠"
+
+msgid "insufficient range"
+msgstr "动态范围不足"
+
+msgid "not computed"
+msgstr "未计算"
+
+msgid "Reverberation (RT60)"
+msgstr "混响（RT60）"
+
+msgid "Background noise"
+msgstr "本底噪声"
+
+msgid "Early reflections"
+msgstr "早期反射"
+
+msgid "Direct sound"
+msgstr "直达声"
+
+msgid "pre-peak margin not checkable"
+msgstr "峰前余量无法检查"
+
+msgid "Results"
+msgstr "结果"
+
+msgid "Full report"
+msgstr "完整报告"
+
+msgid "high"
+msgstr "高"
+
+msgid "medium"
+msgstr "中"
+
+msgid "low"
+msgstr "低"
+
+msgid "REVERBERATION BY BAND"
+msgstr "分频带混响"
+
+msgid "no reverberation time could be reported"
+msgstr "无法给出混响时间"
+
+msgid "no quiet segment to measure"
+msgstr "没有可测量的安静片段"
+
+msgid "clean"
+msgstr "无明显反射"
+
+msgid "wrong speed"
+msgstr "速度错误"
+
+msgid "confidence"
+msgstr "置信度"
+
+msgid "no hum"
+msgstr "无工频干扰"
+
+msgid "pre-peak margin {margin:.1f} dB"
+msgstr "峰前余量 {margin:.1f} dB"
+
+msgid "INTERPRETATION ({profile} PROFILE)"
+msgstr "解读（{profile}配置）"
+
+msgid "No findings."
+msgstr "没有发现。"
+
+msgid "{profile} profile"
+msgstr "{profile}配置"
+
+msgid "broadband, estimated from {basis}"
+msgstr "宽带，由 {basis} 估算"
+
+msgid "RMS, {segment} segment, uncalibrated"
+msgstr "RMS，{segment}片段，未校准"
+
+msgid "strongest at {delay:.1f} ms, {level:.1f} dB"
+msgstr "最强在 {delay:.1f} ms，{level:.1f} dB"
+
+msgid "above {threshold:g} dB"
+msgstr "高于 {threshold:g} dB"
+
+msgid "none above {threshold:g} dB"
+msgstr "没有高于 {threshold:g} dB 的反射"
+
+msgid "sweep played at {percent:.1f} % speed"
+msgstr "扫描以 {percent:.1f} % 速度播放"
+
+msgid "hum {base:g} Hz"
+msgstr "工频干扰 {base:g} Hz"
+
+msgid "warning"
+msgstr "警告"
+
+msgid "notice"
+msgstr "提示"
+
+msgid "info"
+msgstr "信息"
+
+msgid "reverberation"
+msgstr "混响"
+
+msgid "noise"
+msgstr "噪声"
+
+msgid "early reflections"
+msgstr "早期反射"
+
+msgid "low frequency"
+msgstr "低频"
+
+msgid "measurement"
+msgstr "测量"
+
+msgid "comparison"
+msgstr "比较"
+
+msgid "print an environment report for bug reports and debugging"
+msgstr "打印用于问题报告和调试的环境报告"
+
+msgid "also check which sample rates each device accepts and mark the recommended entry of each physical device (nothing is played)"
+msgstr "同时检查每个设备接受哪些采样率，并标出每个物理设备的推荐条目（不会播放任何声音）"
+
+msgid "list the host APIs instead of devices"
+msgstr "列出主机 API 而不是设备"
+
+msgid "print the inventory as JSON"
+msgstr "以 JSON 格式打印设备清单"
+
+msgid "print the report as JSON"
+msgstr "以 JSON 格式打印报告"
+
+msgid "PortAudio latency class of the stream (default: PortAudio's high latency)"
+msgstr "音频流的 PortAudio 延迟等级（默认：PortAudio 的高延迟）"
+
+msgid "Windows WASAPI: open the device in exclusive mode (no mixer, no conversion)"
+msgstr "Windows WASAPI：以独占模式打开设备（不经混音器，不转换采样率）"
+
+msgid "macOS: let RoomScope set the device's sample rate instead of converting"
+msgstr "macOS：由 RoomScope 设置设备采样率，而不是做转换"
+
+msgid "recommended input"
+msgstr "推荐输入"
+
+msgid "recommended output"
+msgstr "推荐输出"
+
+msgid "devices"
+msgstr "设备数"
+
+msgid "rank"
+msgstr "排序"
+
+msgid "Warning: {message}"
+msgstr "警告：{message}"
+
+msgid "record"
+msgstr "录音"
+
+msgid "play"
+msgstr "播放"
+
+msgid "Audio Device Inspector"
+msgstr "音频设备检查器"
+
+msgid "All host APIs"
+msgstr "所有主机 API"
+
+msgid "Probe sample rates"
+msgstr "探测采样率"
+
+msgid "Copy as JSON"
+msgstr "复制为 JSON"
+
+msgid "Environment Report"
+msgstr "环境报告"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "Every host API and device PortAudio reports. Probing asks each device which sample rates it accepts for one channel; nothing is played. See docs/AUDIO_DEVICES.md for what each host API does to the signal."
+msgstr "PortAudio 报告的所有主机 API 和设备。探测会询问每个设备在单声道下接受哪些采样率，不会播放任何声音。各主机 API 对信号的影响见 docs/AUDIO_DEVICES.md。"
+
+msgid "Backend {backend}; {version}; host APIs: {apis}; {n} device(s)."
+msgstr "后端 {backend}；{version}；主机 API：{apis}；{n} 个设备。"
+
+msgid "&Developer"
+msgstr "开发者(&D)"
+
+msgid "Audio Device &Inspector..."
+msgstr "音频设备检查器(&I)…"
+
+
+msgid "Open &Data Folder"
+msgstr "打开数据文件夹(&D)"
+
+msgid "How RoomScope talks to your interface: WASAPI, ASIO, WDM-KS, DirectSound or MME on Windows, Core Audio on macOS, ALSA or JACK on Linux. Input and output must use the same one. \"System default\" uses the devices your system uses; a star marks the entry recommended for each device."
+msgstr "RoomScope 与声卡通信的方式：Windows 上为 WASAPI、ASIO、WDM-KS、DirectSound 或 MME，macOS 上为 Core Audio，Linux 上为 ALSA 或 JACK。输入和输出必须使用同一种。“系统默认”使用系统当前的设备；星号标出每个设备的推荐条目。"
+
+
+msgid "Advanced audio options (developer edition)"
+msgstr "高级音频选项（开发者版）"
+
+msgid "PortAudio default (high)"
+msgstr "PortAudio 默认（高）"
+
+msgid "Low"
+msgstr "低"
+
+msgid "High"
+msgstr "高"
+
+msgid "WASAPI exclusive mode (bypasses the Windows audio engine)"
+msgstr "WASAPI 独占模式（绕过 Windows 音频引擎）"
+
+msgid "Core Audio: set the device to the requested rate, never convert"
+msgstr "Core Audio：把设备设为请求的采样率，绝不转换"
+
+msgid "Latency"
+msgstr "延迟"
+
+msgid "Two devices, two clocks"
+msgstr "两个设备，两个时钟"
+
+msgid "Measure anyway?"
+msgstr "仍要测量吗？"
+
+msgid "Follow the system"
+msgstr "跟随系统"
+
+msgid "Light"
+msgstr "浅色"
+
+msgid "Dark"
+msgstr "深色"
+
+msgid "Show developer tools (Developer menu, advanced audio options; after a restart)"
+msgstr "显示开发者工具（开发者菜单、高级音频选项；重启后生效）"
+
+msgid "Theme"
+msgstr "主题"
+
+msgid "Compare two sessions"
+msgstr "比较两个会话"
+
+msgid "Every difference carries a validity: RoomScope says when two takes cannot be compared rather than printing a delta."
+msgstr "每个差值都带有有效性：两次测量无法比较时，RoomScope 会明确说明，而不是给出一个差值。"
+
+msgid "Metrics"
+msgstr "指标"
+
+msgid "Frequency response difference"
+msgstr "频率响应差异"
+
+msgid "Resonances"
+msgstr "共振"
+
+msgid "also ask every device which sample rates it accepts (nothing is played)"
+msgstr "同时询问每个设备接受哪些采样率（不会播放任何声音）"
+
+msgid "Paste this report into a GitHub issue so the problem can be reproduced. Nothing is sent automatically. Probing asks each device which sample rates it accepts; nothing is played. Device names can contain personal names: review the text before posting."
+msgstr "把这份报告粘贴到 GitHub issue 中，以便复现问题。RoomScope 不会自动发送任何内容。探测会询问每个设备接受哪些采样率，不会播放任何声音。设备名称可能包含个人姓名，发布前请检查文本。"
+
+msgid "The log file and settings are in this folder."
+msgstr "日志文件和设置保存在此文件夹中。"
+
+msgid "Open Issue Page"
+msgstr "打开 Issue 页面"
+
+msgid "&Environment Report for Bug Reports..."
+msgstr "用于问题报告的环境报告(&E)…"
+
+msgid "Open Data Folder"
+msgstr "打开数据文件夹"
+
+msgid "Audio backend unavailable"
+msgstr "音频后端不可用"
+
+msgid "No audio device list is available; Universal DAW Mode still works."
+msgstr "无法获取音频设备列表；通用 DAW 模式仍然可用。"
+
+msgid "Audio backend unavailable: {error}"
+msgstr "音频后端不可用：{error}"
+
+msgid "The audio device reported dropped or late buffers during the take, so samples may be missing and the result may be smeared. Close other audio programs, choose a higher latency or buffer size, and measure again."
+msgstr "音频设备在本次测量中报告了丢失或延迟的缓冲区，录音中可能缺少采样，结果可能因此被抹平。请关闭其他音频程序，选择更高的延迟或缓冲区大小，然后重新测量。"
+
+msgid "The recording has no background noise at all: its quiet part is exact digital silence, which a microphone never records. Check that you exported the microphone track, not the test-signal track, and that no gate or noise reduction is on the microphone track. The room figures are not reliable until then."
+msgstr "这段录音完全没有背景噪声：其安静部分是精确的数字静音，而话筒永远会录到一些噪声。请确认导出的是话筒音轨而不是测试信号音轨，并确认话筒音轨上没有门限或降噪处理。在此之前，房间相关数值都不可靠。"
+
+msgid "Audio system (host API)"
+msgstr "音频系统（主机 API）"
+
+msgid "Background noise, RMS"
+msgstr "本底噪声，RMS"
+
+msgid "Loopback path delay"
+msgstr "loopback 路径延迟"
+
+msgid "Broadband"
+msgstr "宽带"
+
+msgid "outside the sweep's range"
+msgstr "超出扫描范围"
+
+msgid "not comparable"
+msgstr "不可比较"
+
+msgid "Time after direct sound (ms)"
+msgstr "直达声之后的时间（ms）"
+
+msgid "Time after direct sound (s)"
+msgstr "直达声之后的时间（s）"
+
+msgid "Amplitude (relative)"
+msgstr "幅度（相对）"
+
+msgid "Impulse response, first 100 ms"
+msgstr "脉冲响应，前 100 ms"
+
+msgid "Envelope (dB re direct)"
+msgstr "包络（dB，相对直达声）"
+
+msgid "Energy-time curve"
+msgstr "能量-时间曲线"
+
+msgid "raw"
+msgstr "原始"
+
+msgid "1/{fraction}-octave smoothed"
+msgstr "1/{fraction} 倍频程平滑"
+
+msgid "interface (loopback)"
+msgstr "音频接口（loopback）"
+
+msgid "Frequency (Hz)"
+msgstr "频率（Hz）"
+
+msgid "Magnitude (dB, relative)"
+msgstr "幅度（dB，相对）"
+
+msgid "Frequency response ({window:.2f} s window)"
+msgstr "频率响应（{window:.2f} s 窗）"
+
+msgid "Time (s)"
+msgstr "时间（s）"
+
+msgid "Schroeder decay (dB)"
+msgstr "Schroeder 衰减（dB）"
+
+msgid "Energy decay curves (Lundeby-truncated)"
+msgstr "能量衰减曲线（Lundeby 截断）"
+
+msgid "No quiet segment available"
+msgstr "没有可用的安静段"
+
+msgid "PSD (dB re FS^2/Hz)"
+msgstr "功率谱密度（dB re FS^2/Hz）"
+
+msgid "Background noise: {rms:.1f} dBFS RMS ({segment}), uncalibrated"
+msgstr "本底噪声：{rms:.1f} dBFS RMS（{segment}段），未校准"
+
+msgid "envelope"
+msgstr "包络"
+
+msgid "candidate reflections"
+msgstr "候选反射"
+
+msgid "threshold"
+msgstr "阈值"
+
+msgid "Level re direct sound (dB)"
+msgstr "相对直达声的电平（dB）"
+
+msgid "Early reflections (direct-sound confidence: {confidence})"
+msgstr "早期反射（直达声置信度：{confidence}）"
+
+msgid "General"
+msgstr "通用"
+
+msgid "Vocals"
+msgstr "人声"
+
+msgid "Voice-over"
+msgstr "配音与旁白"
+
+msgid "Acoustic guitar"
+msgstr "原声吉他"
+
+msgid "Drums"
+msgstr "鼓"
+
+msgid "Room microphone"
+msgstr "房间话筒"
+
+msgid "Choir / ensemble"
+msgstr "合唱 / 小型合奏"

@@ -56,7 +56,8 @@ def add_session(
     for index, entry in enumerate(positions):
         if entry.label == position:
             dirs = list(entry.session_dirs)
-            if stored not in dirs:
+            known = {_resolve(base, d).resolve() for d in dirs}
+            if _resolve(base, stored).resolve() not in known:
                 dirs.append(stored)
             positions[index] = PositionEntry(label=position, session_dirs=tuple(dirs))
             break
@@ -87,12 +88,17 @@ def list_project_sessions(path: str | Path) -> list[tuple[str, Path]]:
 
 
 def _relative(path: Path, base: Path) -> str:
+    """Store paths inside the project with ``/`` so a project moves between OSes."""
     try:
-        return str(path.resolve().relative_to(base.resolve()))
+        return path.resolve().relative_to(base.resolve()).as_posix()
     except ValueError:
         return str(path.resolve())
 
 
 def _resolve(base: Path, stored: str) -> Path:
     candidate = Path(stored)
-    return candidate if candidate.is_absolute() else base / candidate
+    if candidate.is_absolute():
+        return candidate
+    # A relative entry written on Windows uses "\"; it is never part of a
+    # folder name RoomScope writes, so read it as a separator everywhere.
+    return base.joinpath(*[part for part in stored.replace("\\", "/").split("/") if part])

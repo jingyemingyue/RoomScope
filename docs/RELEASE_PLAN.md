@@ -16,7 +16,8 @@ No dates. The exit criteria are the schedule (ARCHITECTURE_V1.md §10).
   *software* items (Placement tab, validation protocol, packaging
   scaffolding, robustness). They were reviewed and merged on 2026-09-24
   (PRs #5, #6, #7, #8); the review findings are GitHub issues #9–#16.
-* No tag and no GitHub Release exist yet. The repository is private.
+* No tag and no published Release exist yet (v0.4.1 is a draft). The
+  repository has been public since 2026-09-24.
 * **Update (2026-09-24, later the same day):** the review follow-ups
   #9–#17 (#17, the QML part of the bundle gate, was found after this plan
   was written) are fixed on the branch `v0.4.1-review-followups`, which
@@ -30,16 +31,16 @@ No dates. The exit criteria are the schedule (ARCHITECTURE_V1.md §10).
   run. The maintainer has no measurement hardware available in the near
   term, so those items are scheduled last and may be filled by
   contributors after the repository opens.
-* Signing identities, the PyPI project name, trusted publishing and the
-  public flip are maintainer decisions and are all still open
-  (ARCHITECTURE_V1.md §13).
+* Signing identities, the PyPI project name and trusted publishing are
+  maintainer decisions and are still open (ARCHITECTURE_V1.md §13); the
+  public flip was made on 2026-09-24.
 
 ## 2. Version ladder
 
 | Version | Purpose | Must be true before it is cut | Not claimed |
 | --- | --- | --- | --- |
 | **0.4.0** | First pre-release: everything on `main` today, as a draft Release with unsigned bundles for the maintainer's own testing | CI green on Linux / macOS / Windows and Python 3.12–3.14; `ruff`, `mypy`, the schema job and the bundle gates pass; the license bundle carries the verbatim LGPL-3.0 / GPL-3.0 / PortAudio texts; `CHANGELOG.md` has a `[0.4.0]` section; `docs/STATUS.md` has a dated snapshot | Any hardware result; a person installing a bundle on macOS / Windows; PyPI; public availability |
-| **0.4.x** | Patch releases for the review follow-ups | Each patch closes at least one of #9–#17 with a synthetic test; no new feature (0.4.1 closes all nine) | — |
+| **0.4.x** | Software readiness before community hardware validation (the maintainer's phase definition, 2026-09-24): the review follow-ups #9–#17 (all closed in 0.4.1), packaging, device diagnostics, the GUI, the DAW guide and the community report templates | CI and the Release workflow green on the release commit; every new behaviour has a synthetic or scripted test; `CHANGELOG.md` names what changed; no hardware or DAW claim | Any hardware or DAW result; signing; PyPI |
 | **0.5.0** | "Trusted by a human": the first version whose Standalone Mode and DAW workflow were run on real hardware at least once | One dated PASS row per cell of the hardware matrix on at least one platform (device enumeration, sample-rate negotiation, channel mapping, loopback capture, Stop during playback, a full Standalone measurement, the same signal through one DAW); #12 and #13 (loopback time origin, real-time callback) closed; #14 (zh-CN catalog complete, safety warning translated) closed; #15 (ISO 3382-2 table source) closed | The validation campaign; API / schema freeze; signing |
 | **1.0.0rc1** | Freeze and prove (ARCHITECTURE_V1.md §10, row 1.0-rc) | No open MUST item of §3.1: hardware matrix executed at least once per platform (M10); validation campaign published with its data (M11); signed bundles or an explicit maintainer decision to ship unsigned (M9); public-repository checklist executed (M13, §9.1); API and schema integers frozen; SECURITY / CONTRIBUTING / STATUS updated for the freeze; PyPI pre-release if trusted publishing is configured | — |
 | **1.0.0** | Release | Fixes from the candidate only; release notes name the validation results and the known limitations | — |
@@ -54,14 +55,12 @@ The pipeline is `.github/workflows/release.yml`
 ([source](../.github/workflows/release.yml)). It is driven by the version
 in `pyproject.toml`, and the maintainer keeps the last word.
 
-> **Workflow status (2026-09-24).** The version-driven `.github/workflows/release.yml`
-> is included in PR #18. Its PR validation run builds and smoke-tests the
-> Linux, macOS and Windows bundles without opening a draft or publishing to
-> PyPI. The workflow becomes active on `main` when the PR is merged; the
-> merge changes `pyproject.toml` to 0.4.1 and is intended to create the
-> first v0.4.1 draft after the release jobs pass. Check the merged commit's
-> CI and the draft assets before publishing. Do not push a tag while the
-> older tag-only workflow is still on `main`.
+> **Workflow status (2026-09-24).** The version-driven workflow has been on
+> `main` since PR #18; the v0.4.1 draft Release was opened from it and is
+> refreshed whenever `pyproject.toml`, the workflow, `packaging/` or
+> `scripts/smoke_bundle.py` change on `main` while `v0.4.1` has no tag. The
+> Windows job builds and installs `RoomScope-setup.exe` on every run. Check
+> the latest `main` run and the draft's assets before publishing.
 
 1. **Prepare the release commit on `main`.** Set `project.version` in
    `pyproject.toml` to the new version (no `.dev` suffix). Move the
@@ -98,6 +97,121 @@ tag whose name does not equal `v<pyproject version>` fails the workflow;
 tags come only from publishing a draft or from the maintainer's own push;
 published history is never rewritten.
 
+### 3a. Without GitHub Actions minutes
+
+A private repository spends its own Actions minutes, and macOS runners count
+ten times. When they run out, jobs fail within seconds without a runner (no
+step runs, no log). Three ways on, from cheapest:
+
+1. **Build locally.** `scripts/build_release.py` runs the release workflow's
+   bundle job on the machine it is started on and writes the same file names
+   to `dist/`. Run it once per platform: on a Mac with Apple silicon
+   (`RoomScope-macos-arm64.dmg`), an Intel Mac if available
+   (`RoomScope-macos-x86_64.dmg`), Windows with Inno Setup 6 installed
+   (`roomscope-windows-x64.zip`, `RoomScope-setup.exe`) and Linux x86_64
+   (`roomscope-linux-x86_64.tar.gz`); add `--python-dist` on one of them for
+   the wheel and sdist. The script installs nothing itself: install
+   `requirements/bundle.lock`, the `dev` and `gui` extras, `pyinstaller==6.22.3`
+   and `build` as the script's docstring shows; it refuses other versions
+   unless `--allow-unlocked`. It runs the test suite, the license bundle, the
+   `--strip --require-licenses` gate and the smoke test (CLI, fake-backend
+   measurement, offscreen GUI, windowed launcher); on macOS it also ad-hoc
+   signs the app and mounts, copies and launches it from the DMG. On
+   Windows it compiles the installer but does not install, smoke-test and
+   uninstall it as the workflow does (that would change the PC); do those
+   three steps by hand before publishing a locally built installer.
+2. **Publish by hand.** Create or edit the draft `v<version>` on the Releases
+   page (tag `v<version>` on the release commit of `main`, *pre-release*),
+   paste the notes (`packaging/release-notes-header.md` with `{version}`
+   replaced, then the CHANGELOG section), upload every file from step 1 and
+   each machine's `SHA256SUMS-*`, and publish. The PyPI job needs Actions;
+   without it nothing reaches PyPI, as before.
+3. **Make the repository public** (§5): standard GitHub-hosted runners are
+   free for public repositories, and the workflow then runs as written.
+   Done on 2026-09-24; the workflows have run on GitHub's runners since.
+
+A locally built release has had exactly the checks the script ran on that
+machine; `docs/STATUS.md` records which machines built which files.
+
+### 3b. macOS signing: today, and with a Developer ID
+
+**Today** the app is signed ad hoc, which only seals the bundle: it is not a
+Developer ID signature, it is not notarized, and Gatekeeper blocks it on first
+open (the user guide gives the steps). `packaging/macos/sign_app.sh` signs from
+the inside out, as Apple asks for distributed code [A1][A2]: every loose
+Mach-O file under `Contents/Frameworks`, each nested `.framework` deepest
+first, then the app; `codesign --deep` is used only to verify, because Apple
+advises against it for signing [A1][A3]. The released app has no hardened
+runtime and no entitlements.
+
+**Rehearsed in CI.** On both macOS runners (arm64, x86_64) the release job signs
+a copy of the app with `sign_app.sh --runtime`: hardened runtime and
+`entitlements-adhoc.plist`. That copy must start (GUI smoke, fake measurement)
+and `roomscope doctor` must be able to create a cffi callback, the mechanism
+PortAudio uses to call RoomScope from the audio thread. The entitlements, per
+key:
+
+| Key | Why | Source |
+| --- | --- | --- |
+| `com.apple.security.device.audio-input` | Core Audio input (the microphone) under the hardened runtime; without it the system terminates the app | [A4][A5] |
+| `com.apple.security.cs.allow-unsigned-executable-memory` | python-sounddevice creates its stream callbacks with cffi's `ffi.callback` (ABI mode); cffi's documentation asks for this key on macOS, and Apple's x86_64 libffi maps writable-and-executable memory without `MAP_JIT` | [A6][A7] |
+| `com.apple.security.cs.disable-library-validation` (rehearsal file only) | An ad hoc signature has no Team ID, so library validation would refuse the app's own libraries. A Developer ID build signs everything with one Team ID and does not need it | [A8] |
+
+`entitlements.plist` (the Developer ID file) has the first two keys and never
+`get-task-allow`, which notarization rejects [A9].
+
+**With a Developer ID Application certificate** (maintainer decision, §5), the
+steps are, in order, and none has been run yet:
+
+1. Import the certificate into a temporary keychain on the runner from
+   repository secrets (not written yet; nothing in the workflow reads a
+   signing secret today, so community builds never need one).
+2. `sh packaging/macos/sign_app.sh dist/RoomScope.app --identity "Developer ID Application: NAME (TEAMID)"`:
+   the same order, plus `--timestamp` on every item and `--options runtime`
+   with `entitlements.plist` on the app [A2][A9].
+3. Build the DMG (`make_dmg.sh`), sign it with the same identity and
+   `--timestamp` [A10].
+4. `xcrun notarytool submit RoomScope-macos-<arch>.dmg --wait` with an App
+   Store Connect API key (`--key`, `--key-id`, `--issuer`) or Apple ID,
+   team ID and app-specific password; read `notarytool log` even on success
+   [A11][A12].
+5. `xcrun stapler staple` the DMG, then check with
+   `spctl -a -t open -vvv --context context:primary-signature` on the DMG and
+   `spctl -a -t exec -vvv` on the mounted app [A12][A13].
+6. Compute the SHA-256 sums after stapling (stapling changes the DMG).
+
+What CI cannot show without the certificate: a Developer ID signature,
+library validation with a shared Team ID, secure timestamps, notarization,
+stapling, Gatekeeper acceptance, and the microphone permission prompt.
+
+Windows: the installer and executables are not Authenticode-signed; SmartScreen
+warns on first run (user guide). This is a known limitation of the 0.x
+pre-releases, not an error; signing is the same §5 decision. When a
+certificate exists: sign `dist\roomscope\*.exe` with `signtool sign /fd sha256
+/tr <timestamp URL> /td sha256`, then compile the installer with
+`iscc "--signtool=signtool=signtool.exe sign … $f" /DSignToolName=signtool`
+so that Inno Setup signs the installer and its uninstaller ([W1][W2][W3];
+`packaging/windows/roomscope.iss`). Not run yet.
+
+Sources for §3b (accessed 2026-09-24):
+
+* [A1] Apple, TN2206 "macOS Code Signing In Depth": https://developer.apple.com/library/archive/technotes/tn2206/_index.html
+* [A2] Apple, "Creating distribution-signed code for macOS": https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac
+* [A3] Apple Developer Forums (DTS), "--deep Considered Harmful": https://developer.apple.com/forums/thread/129980
+* [A4] Apple, `com.apple.security.device.audio-input`: https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.device.audio-input
+* [A5] Apple, "Requesting authorization to capture and save media": https://developer.apple.com/documentation/avfoundation/requesting-authorization-to-capture-and-save-media
+* [A6] cffi documentation, "Callbacks (old style)": https://cffi.readthedocs.io/en/latest/using.html#callbacks
+* [A7] Apple, `com.apple.security.cs.allow-unsigned-executable-memory`: https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.allow-unsigned-executable-memory
+* [A8] Apple, `com.apple.security.cs.disable-library-validation`: https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.disable-library-validation
+* [A9] Apple, "Notarizing macOS software before distribution": https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution
+* [A10] Apple, "Packaging Mac software for distribution": https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution
+* [A11] Apple, TN3147 "Migrating to the latest notarization tool": https://developer.apple.com/documentation/technotes/tn3147-migrating-to-the-latest-notarization-tool
+* [A12] Apple, "Customizing the notarization workflow": https://developer.apple.com/documentation/security/customizing-the-notarization-workflow
+* [A13] Apple Developer Forums (DTS), "Testing a Notarised Product": https://developer.apple.com/forums/thread/130560
+* [W1] Inno Setup Help, `[Setup]: SignTool`: https://jrsoftware.org/ishelp/topic_setup_signtool.htm (and `SignedUninstaller`: https://jrsoftware.org/ishelp/topic_setup_signeduninstaller.htm)
+* [W2] Inno Setup Help, Compiler Command-Line Parameters (`--signtool=<name>=<command>`): https://jrsoftware.org/ishelp/topic_compilercmdline.htm
+* [W3] Microsoft Learn, SignTool.exe: https://learn.microsoft.com/en-us/dotnet/framework/tools/signtool-exe
+
 ## 4. Gates that apply to every release
 
 * CI (`ci.yml`) green on the release commit: lint, mypy, docs link check,
@@ -121,7 +235,7 @@ published history is never rewritten.
 
 | Decision | Needed by | State |
 | --- | --- | --- |
-| Public flip of the repository (ARCHITECTURE_V1.md §9.1 checklist: description and topics, branch protection on `main`, CODEOWNERS present, private vulnerability reporting, labels, Discussions, pinned roadmap) | 1.0.0rc1 (recommended at the first candidate so it gets outside testing) | Open |
+| Public flip of the repository (ARCHITECTURE_V1.md §9.1 checklist: description and topics, branch protection on `main`, CODEOWNERS present, private vulnerability reporting, labels, Discussions, pinned roadmap) | 1.0.0rc1 (recommended at the first candidate so it gets outside testing) | Repository public since 2026-09-24; CODEOWNERS is present; the other checklist items are repository settings not checked here (the issue templates use the labels `hardware-report` and `daw-report`, which GitHub adds only if they exist) |
 | Apple Developer ID + notarization, Windows Authenticode; or ship 1.0 unsigned with documentation | 1.0.0rc1 | Open; 0.x bundles are unsigned by design |
 | PyPI: register `roomscope`, configure trusted publishing, create the `pypi` environment with required reviewers, set `ROOMSCOPE_PUBLISH_PYPI=true` | First version the maintainer wants on PyPI (earliest 0.5.0) | Open; the workflow stays off until then |
 | Validation campaign: rooms, reference instrument (REW as a comparison instrument only), who runs it | 1.0.0rc1 | Open; no hardware available near-term |

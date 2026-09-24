@@ -1,0 +1,74 @@
+name: Audio interface test report
+description: You ran RoomScope with a real sound card or audio interface. Works or fails, both help.
+title: "[hardware] <interface> on <OS>"
+labels: ["hardware-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The maintainer does not own your interface, so a real run on your
+        machine is the only evidence RoomScope has for it. The checks are listed
+        in [docs/HARDWARE_TESTS.md](https://github.com/jingyemingyue/RoomScope/blob/main/docs/HARDWARE_TESTS.md);
+        do as many as you like. A failed check is as useful as a pass.
+        Only results from a physical interface count: not the Demo mode, the
+        fake backend, or a virtual machine without a passed-through device.
+  - type: input
+    id: interface
+    attributes:
+      label: Audio interface and driver
+      description: Model, how it is connected, and the driver (version if you know it).
+      placeholder: "Focusrite Scarlett 2i2 (4th gen), USB, Focusrite Control 2 / ASIO driver 4.119"
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Host API, sample rate and channels
+      description: As chosen in Standalone Mode (or the roomscope measure options).
+      placeholder: "Windows WASAPI, 48000 Hz, input 1 -> output 1, latency default"
+    validations:
+      required: true
+  - type: input
+    id: mic
+    attributes:
+      label: Microphone and loudspeaker (optional)
+      placeholder: "Behringer ECM8000 into input 1; Genelec 8020 on output 1"
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: What you ran
+      options:
+        - label: Device list (the device appears, with the right number of channels)
+        - label: Probe sample rates (Environment Report → Probe sample rates)
+        - label: A full Standalone measurement
+        - label: Stop pressed during playback
+        - label: Loopback (output cabled back to an input)
+        - label: The same sweep through a DAW (Universal DAW Mode)
+  - type: textarea
+    id: result
+    attributes:
+      label: Result
+      description: |
+        What worked and what did not, and any message RoomScope showed. Mention
+        clicks, dropouts, or a "buffer under/overflow" line in the log.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment report with probed sample rates
+      description: |
+        **Help → Environment Report for Bug Reports → Probe sample rates → Copy**,
+        or `roomscope doctor --probe` in a terminal. Nothing is played while
+        probing. Review it before posting: device names can contain personal names.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Session bundle or log (optional)
+      description: |
+        Drag in a session bundle (`roomscope session bundle <session> --out
+        report.zip`, add `--no-audio` to leave the recordings out), or paste the
+        relevant lines of `roomscope.log`.

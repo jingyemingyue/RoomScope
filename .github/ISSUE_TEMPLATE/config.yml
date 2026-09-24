@@ -6,3 +6,9 @@ contact_links:
   - name: Project status
     url: https://github.com/jingyemingyue/RoomScope/blob/main/docs/STATUS.md
     about: What is implemented, tested, known to be missing, and planned next.
+  - name: Hardware and DAW test matrix
+    url: https://github.com/jingyemingyue/RoomScope/blob/main/docs/HARDWARE_TESTS.md
+    about: Which interfaces and DAWs have been run for real (none yet) and how to add yours.
+  - name: Security vulnerability
+    url: https://github.com/jingyemingyue/RoomScope/security/advisories/new
+    about: Report privately, not in a public issue (see SECURITY.md).

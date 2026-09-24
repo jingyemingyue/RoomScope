@@ -46,6 +46,7 @@ from roomscope.core.loopback import (
 )
 from roomscope.core.noise import analyze_noise, quiet_segment_candidates, sweep_level_dbfs
 from roomscope.core.placement import estimate_placement
+from roomscope.core.playback_speed import diagnose_playback_speed
 from roomscope.core.reflections import detect_early_reflections
 from roomscope.core.resonance import detect_potential_resonances
 from roomscope.core.sweep import (
@@ -81,6 +82,7 @@ from roomscope.models.result import (
     NoiseResult,
     PlacementLength,
     PlacementResult,
+    PlaybackSpeed,
     Validity,
 )
 from roomscope.version import __version__
@@ -289,7 +291,9 @@ def _validate_recording(mono: FloatArray, sample_rate: int) -> tuple[ClippingChe
     peak = float(np.max(np.abs(mono)))
     if peak <= 0.0 or 20.0 * np.log10(peak) < SILENCE_THRESHOLD_DBFS:
         raise InvalidAudioError(
-            f"recording is silent (peak below {SILENCE_THRESHOLD_DBFS:g} dBFS); check the input routing"
+            f"recording is silent (peak below {SILENCE_THRESHOLD_DBFS:g} dBFS); check the input "
+            "routing and, on macOS, that the app has microphone access (System Settings > "
+            "Privacy & Security > Microphone)"
         )
     clipping = detect_clipping(mono)
     if clipping.clipped:
@@ -374,9 +378,15 @@ def _decay_unreliable_reasons(
     margin_db: float | None,
     clipped: bool,
     aliased: tuple[AliasedDistortion, ...] = (),
+    playback_speed: PlaybackSpeed | None = None,
 ) -> list[str]:
     """Measurement-level reasons why no decay metric may be reported as valid."""
     reasons: list[str] = []
+    if playback_speed is not None:
+        reasons.append(
+            f"the sweep was played at {playback_speed.speed_ratio * 100.0:.1f} % of the speed it "
+            "was generated at, so the deconvolved response is not the room's impulse response"
+        )
     if confidence == "low":
         margin = "not checkable" if margin_db is None else f"{margin_db:.1f} dB"
         reasons.append(
@@ -397,6 +407,35 @@ def _decay_unreliable_reasons(
             "spreads over the impulse response after the direct sound and imitates a decay"
         )
     return reasons
+
+
+def _playback_speed(
+    mono: FloatArray, sample_rate: int, reference: Reference
+) -> PlaybackSpeed | None:
+    """Diagnose a sweep played at the wrong speed (needs the sweep definition).
+
+    A diagnosis only: if it cannot be computed, the analysis goes on without it.
+    """
+    if reference.settings is None:
+        return None
+    try:
+        return diagnose_playback_speed(mono, sample_rate, reference.settings)
+    except (ValueError, FloatingPointError, np.linalg.LinAlgError):
+        return None
+
+
+def _explain_playback_speed(
+    exc: InvalidAudioError, mono: FloatArray, sample_rate: int, reference: Reference
+) -> None:
+    """Append a wrong sweep speed, when there is one, to ``exc``'s message.
+
+    A sweep played faster than generated is shorter than the reference and
+    seems to start late; the speed is the cause the user can fix. The
+    exception keeps its type and attributes.
+    """
+    speed = _playback_speed(mono, sample_rate, reference)
+    if speed is not None and exc.args:
+        exc.args = (f"{exc.args[0]}. However, {speed.describe()}", *exc.args[1:])
 
 
 def _select_mic_and_loopback(
@@ -537,7 +576,7 @@ def analyze(
     """
     settings = settings or AnalysisSettings()
     sample_rate = recording.sample_rate
-    warnings: list[str] = []
+    warnings: list[str] = list(recording.device_warnings)
 
     mono, channel, channel_warning, lb_samples, lb_channel = _select_mic_and_loopback(
         recording, settings, loopback
@@ -550,7 +589,11 @@ def analyze(
     prepared = _prepare_reference(reference, sample_rate)
     warnings.extend(prepared.warnings)
 
-    h_full = deconvolve(mono, prepared.inverse)
+    try:
+        h_full = deconvolve(mono, prepared.inverse)
+    except InvalidAudioError as exc:
+        _explain_playback_speed(exc, mono, sample_rate, reference)
+        raise
     located = _locate_pass(
         h_full,
         recording_length=mono.shape[0],
@@ -615,7 +658,13 @@ def analyze(
     ir_notes: list[str] = []
     # The excitation band is what later stages (decay, frequency response,
     # resonances) must respect: impulse.excitation_band / result.excitation_band.
-    band, start_note = _check_recording_start(prepared, -located.sweep_start_raw_index, sample_rate)
+    try:
+        band, start_note = _check_recording_start(
+            prepared, -located.sweep_start_raw_index, sample_rate
+        )
+    except InvalidAudioError as exc:
+        _explain_playback_speed(exc, mono, sample_rate, reference)
+        raise
     if start_note:
         ir_notes.append(start_note)
     if located.sweep_passes > 1:
@@ -648,6 +697,15 @@ def analyze(
             "(noise, pre-ringing or a wrong reference); direct-sound detection confidence is "
             f"{confidence}"
         )
+    # A sweep played at the wrong speed (a DAW sample-rate mismatch or
+    # time-stretch) is one cause of an unidentifiable direct sound that the
+    # user can fix; the check costs one short-time spectrum. Only a failed
+    # detection is checked: a sweep played even 2 % off leaves a pre-peak
+    # margin of a few dB (low), and a medium margin means the generated sweep
+    # did deconvolve the recording.
+    playback_speed = _playback_speed(mono, sample_rate, reference) if confidence == "low" else None
+    if playback_speed is not None:
+        ir_notes.append(playback_speed.describe())
     warnings.extend(ir_notes)
 
     harmonics: tuple[HarmonicDistortion, ...] = ()
@@ -699,11 +757,12 @@ def analyze(
         harmonic_distortion=harmonics,
         aliased_distortion=aliased,
         loopback=loopback_result,
+        playback_speed=playback_speed,
     )
 
     decay = _analyze_decay_of_pass(h_full, located, sample_rate, settings, band)
     unreliable = _decay_unreliable_reasons(
-        confidence, located.pre_peak_margin_db, clipping.clipped, aliased
+        confidence, located.pre_peak_margin_db, clipping.clipped, aliased, playback_speed
     )
     if unreliable:
         decay = decay.with_all_unreliable("; ".join(unreliable))

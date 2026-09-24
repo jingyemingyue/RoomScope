@@ -19,6 +19,10 @@ class AudioSignal:
     samples: FloatArray
     sample_rate: int
     source: str | None = None
+    #: Problems the audio device reported while recording this take (buffer
+    #: under/overflows); :func:`roomscope.core.pipeline.analyze` carries them
+    #: into the result's warnings.
+    device_warnings: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.sample_rate <= 0:

@@ -39,7 +39,8 @@ dependencies = [
   "scipy>=1.12",
   "soundfile>=0.12",
   "sounddevice>=0.4.6",
-  "matplotlib>=3.8",
+  # 3.10 is the first release without the _ttconv extension (DEPENDENCIES.md §6).
+  "matplotlib>=3.10",
 ]
 
 [project.optional-dependencies]
@@ -185,8 +186,12 @@ disable_error_code = ["misc", "import-untyped"]
 
 [[tool.mypy.overrides]]
 module = [
+  "_cffi_backend",
   "PySide6",
   "PySide6.*",
+  # Ships with PySide6_Essentials (the gui extra); the lint job installs dev only.
+  "shiboken6",
+  "shiboken6.*",
   "sounddevice",
   "sounddevice.*",
   "soundfile",

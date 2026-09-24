@@ -1,7 +1,9 @@
-"""Settings dialog: language, profile, backend, output folder, copy-recording."""
+"""Settings dialog: language, profile, backend, output folder, copy-recording,
+theme and the developer tools switch."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtWidgets import (
@@ -20,7 +22,8 @@ from PySide6.QtWidgets import (
 
 from roomscope.i18n import _, activate, available_locales
 from roomscope.interpretation import available_profiles
-from roomscope.settings import UserSettings, load_settings, save_settings
+from roomscope.interpretation.profiles import profile_title
+from roomscope.settings import load_settings, save_settings
 
 
 class SettingsDialog(QDialog):
@@ -38,8 +41,9 @@ class SettingsDialog(QDialog):
         self.language.setCurrentIndex(max(index, 0))
         self.profile = QComboBox()
         for name in available_profiles():
-            self.profile.addItem(name)
-        self.profile.setCurrentText(self._settings.default_profile or "generic")
+            self.profile.addItem(profile_title(name), name)
+        profile_index = self.profile.findData(self._settings.default_profile or "generic")
+        self.profile.setCurrentIndex(max(profile_index, 0))
         self.backend = QComboBox()
         self.backend.addItem(_("Default (PortAudio)"), "")
         self.backend.addItem("portaudio", "portaudio")
@@ -54,11 +58,22 @@ class SettingsDialog(QDialog):
         folder_row.addWidget(browse)
         self.copy_recording = QCheckBox(_("Copy the raw recording into every session"))
         self.copy_recording.setChecked(self._settings.copy_recording)
+        self.theme = QComboBox()
+        self.theme.addItem(_("Follow the system"), "")
+        self.theme.addItem(_("Light"), "light")
+        self.theme.addItem(_("Dark"), "dark")
+        self.theme.setCurrentIndex(max(self.theme.findData(self._settings.theme), 0))
+        self.developer_tools = QCheckBox(
+            _("Show developer tools (Developer menu, advanced audio options; after a restart)")
+        )
+        self.developer_tools.setChecked(self._settings.developer_tools)
         form.addRow(_("Language"), self.language)
         form.addRow(_("Default profile"), self.profile)
         form.addRow(_("Audio backend"), self.backend)
         form.addRow(_("Default output folder"), folder_row)
         form.addRow(self.copy_recording)
+        form.addRow(_("Theme"), self.theme)
+        form.addRow(self.developer_tools)
         layout.addLayout(form)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -73,14 +88,26 @@ class SettingsDialog(QDialog):
             self.output_dir.setText(directory)
 
     def accept(self) -> None:
-        settings = UserSettings(
+        # Start from the stored settings so fields this dialog does not show
+        # survive a save.
+        settings = replace(
+            self._settings,
             language=str(self.language.currentData() or ""),
-            default_profile=self.profile.currentText() or "generic",
+            default_profile=str(self.profile.currentData() or "generic"),
             audio_backend=str(self.backend.currentData() or ""),
             output_dir=self.output_dir.text().strip(),
             copy_recording=self.copy_recording.isChecked(),
+            theme=str(self.theme.currentData() or ""),
+            developer_tools=self.developer_tools.isChecked(),
         )
         save_settings(settings)
+        from PySide6.QtWidgets import QApplication
+
+        from roomscope.ui.theme import apply_application_chrome
+
+        app = QApplication.instance()
+        if app is not None:
+            apply_application_chrome(app)
         if settings.language:
             activate(settings.language)
         else:

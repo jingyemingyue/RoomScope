@@ -22,21 +22,54 @@ unit, its algorithm source and a validity flag; when the data is not good
 enough, RoomScope says *"Insufficient decay range"* instead of inventing a
 figure. There is deliberately no "room score".
 
-> Status: **1.0-rc software in progress** ([ARCHITECTURE_V1.md](docs/ARCHITECTURE_V1.md)).
-> The DSP core, CLI, GUI, compare, loopback, zh-CN catalog, session bundles
-> and the unsigned-bundle workflow exist and are covered by synthetic tests.
-> There is no numbered GitHub Release and no PyPI publish yet. Hardware-matrix
-> cells and the validation campaign are empty. Developers can clone, install
-> in editable mode and run the suite; see [CONTRIBUTING.md](CONTRIBUTING.md).
-> Snapshot of what works: [docs/STATUS.md](docs/STATUS.md).
+> Status: **0.4.x pre-release** on the way to 1.0
+> ([RELEASE_PLAN.md](docs/RELEASE_PLAN.md)). The DSP core, CLI, GUI, compare,
+> loopback, zh-CN catalog, session bundles and the desktop bundles exist and
+> are covered by synthetic tests on Linux, macOS and Windows. **Not yet:** any
+> result measured on real hardware (the hardware matrix and the validation
+> campaign are empty), signed bundles, a PyPI package. Treat the numbers as
+> unvalidated until 0.5.0. Snapshot of what works: [docs/STATUS.md](docs/STATUS.md).
+
+## Download
+
+No release has been published yet. When the maintainer publishes a
+pre-release, these files are attached to the
+[GitHub Releases](https://github.com/jingyemingyue/RoomScope/releases); until
+then, [install from source](#install-from-source).
+
+| System | File |
+| --- | --- |
+| Windows 10/11 x64 | `RoomScope-setup.exe` (installer) or `roomscope-windows-x64.zip` |
+| macOS 14+, Apple silicon | `RoomScope-macos-arm64.dmg` |
+| macOS 14+, Intel | `RoomScope-macos-x86_64.dmg` |
+| Linux x86_64 | `roomscope-linux-x86_64.tar.gz` |
+| Any OS with Python 3.12+ | `roomscope-<version>-py3-none-any.whl` |
+
+The bundles are **not signed for distribution** (macOS: ad hoc signature, not
+notarized; Windows: no Authenticode signature): macOS Gatekeeper and Windows
+SmartScreen warn on first launch. How to open them, check the `SHA256SUMS-*` files and install the
+wheel is in the [user guide](docs/user-guide/en.md#install)
+([简体中文](docs/user-guide/zh-CN.md#安装)).
 
 ## Two workflows, one analysis core
 
 ### Universal DAW Mode
 
-Works with any DAW that can import, play, record and export WAV files
-(Cubase / Nuendo, Pro Tools, Logic Pro, Studio One, Ableton Live, REAPER,
-FL Studio, Bitwig, Digital Performer, ...). RoomScope never talks to the DAW.
+Designed for any DAW that can import, play, record and export WAV files.
+RoomScope never talks to the DAW. It reads what DAWs export (Broadcast WAV,
+RF64, Wave64, AIFF, CAF, FLAC; 16/24/32-bit PCM or 32-bit float; mono or
+multi-channel) and, when the sweep's sidecar file is used, names the usual
+cause when the DAW played the sweep at the wrong speed (a project at another
+sample rate, or a Warp / Flex / Follow Tempo stretch larger than the
+estimate's own spread: about 1.3 % for the default 10 s sweep, more for
+shorter sweeps).
+Step-by-step notes, written from each vendor's documentation, cover Pro
+Tools, Logic Pro / GarageBand, Cubase / Nuendo, Fender Studio Pro (Studio
+One), Ableton Live, REAPER, FL Studio, Bitwig, Digital Performer and
+Audacity: [docs/user-guide/daw-setup.md](docs/user-guide/daw-setup.md).
+**None of them has been run with RoomScope in a real DAW yet**
+([HARDWARE_TESTS.md](docs/HARDWARE_TESTS.md)); a DAW compatibility report is
+the most useful contribution you can make.
 
 1. **Generate Test Signal** – RoomScope writes a sweep WAV (plus a small JSON
    sidecar with the exact sweep definition).
@@ -53,14 +86,16 @@ FL Studio, Bitwig, Digital Performer, ...). RoomScope never talks to the DAW.
 RoomScope plays the sweep and records the microphone itself through the
 audio interface you select (PortAudio via `sounddevice`). Start with the
 monitor level low: the default sweep level is conservative and RoomScope
-never touches system volume or audio settings.
+does not touch system volume or audio settings (the one opt-in exception, a
+macOS option that sets the device's sample rate, is described in
+[SECURITY.md](SECURITY.md#safety-of-standalone-mode)).
 
 Both modes call exactly the same analysis pipeline
 (`roomscope.core.pipeline.analyze`).
 
-## Install (development)
+## Install from source
 
-Requires Python 3.12 or newer. **Supported for 1.0:** macOS 13+ (arm64,
+Requires Python 3.12 or newer. **Supported for 1.0:** macOS 14+ (arm64,
 x86_64), Windows 10/11 x64, Linux x86_64 with glibc of the CI runner or
 newer, Python 3.12–3.14 for the wheel. Anything else may work and is not
 tested.
@@ -164,6 +199,23 @@ for r in result.reflections.reflections:
     print(f"{r.delay_ms:.1f} ms  {r.relative_db:.1f} dB")
 ```
 
+## What makes RoomScope different
+
+* **It refuses to invent a number.** Every metric carries its unit, its
+  algorithm source and a validity flag; a decay too short for T30 says
+  *insufficient range* instead of a figure. There is no single "room score".
+* **It lives next to your DAW, not inside it.** It needs only a DAW that
+  plays and records WAV, and it names the usual cause when the DAW played the
+  sweep at the wrong speed (sample-rate mismatch or Warp / Flex / Follow
+  Tempo). The per-DAW steps are documented, not yet tested in each DAW.
+* **It speaks the recording engineer's question** — "is this position usable
+  for a vocal, a drum room mic, a choir?" — through labelled interpretation
+  profiles, and compares two positions with a validity on every delta.
+* **It says what one microphone cannot know.** Placement geometry never names
+  a wall or derives coordinates the measurement cannot support.
+
+A sourced comparison with other tools is in [docs/COMPARISON.md](docs/COMPARISON.md).
+
 ## Design principles
 
 * **DAW-independent** – no DAW SDKs, ever. WAV in, WAV out.
@@ -197,6 +249,11 @@ for r in result.reflections.reflections:
 | [docs/STATUS.md](docs/STATUS.md) | Implemented / tested / known limitations / next milestone |
 | [docs/user-guide/en.md](docs/user-guide/en.md) | User guide (English): install, measure, read, compare, bundle |
 | [docs/user-guide/zh-CN.md](docs/user-guide/zh-CN.md) | 用户指南（简体中文） |
+| [docs/AUDIO_DEVICES.md](docs/AUDIO_DEVICES.md) | Host APIs (WASAPI, WDM-KS, MME, Core Audio, ALSA, JACK, …), what each does to a measurement, and how RoomScope probes and chooses devices, with sources; [中文](docs/AUDIO_DEVICES.zh-CN.md) |
+| [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) | Platforms, Python and dependency floors, DAW export formats, host APIs — and what verified each; [中文](docs/COMPATIBILITY.zh-CN.md) |
+| [docs/EDITIONS.md](docs/EDITIONS.md) | Developer edition vs. installer edition; [中文](docs/EDITIONS.zh-CN.md) |
+| [docs/COMPARISON.md](docs/COMPARISON.md) | How RoomScope differs from REW, Open Sound Meter, ARTA, Smaart, SoundID and others, and when another tool is the better choice; [中文](docs/COMPARISON.zh-CN.md) |
+| [docs/user-guide/daw-setup.md](docs/user-guide/daw-setup.md) | Step-by-step DAW notes (Pro Tools, Logic, Cubase, Studio One, Live, REAPER, FL Studio, Bitwig, Audacity); [中文](docs/user-guide/daw-setup.zh-CN.md) |
 | [docs/PROJECT_BRIEF.zh-CN.md](docs/PROJECT_BRIEF.zh-CN.md) | Original project brief (Chinese) |
 
 ## Contributing

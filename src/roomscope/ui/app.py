@@ -24,6 +24,9 @@ def run_app(argv: list[str] | None = None, *, smoke: bool = False) -> int:
     app = QApplication.instance() or QApplication(argv if argv is not None else sys.argv)
     QGuiApplication.setDesktopFileName("roomscope")
     apply_application_chrome(app)
+    from roomscope.ui.widgets import app_icon
+
+    QApplication.setWindowIcon(app_icon())
     window = MainWindow()
     window.show()
     if smoke:

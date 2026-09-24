@@ -15,13 +15,14 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QFileDialog,
     QHBoxLayout,
-    QLabel,
+    QHeaderView,
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -35,7 +36,47 @@ from roomscope.interpretation.interpreter import Finding
 from roomscope.io.session_store import load_measurement, save_comparison
 from roomscope.models.comparison import CompareSettings, ComparisonResult, ResonanceMatch
 from roomscope.ui.browser import SessionBrowser
+from roomscope.ui.results import validity_text
 from roomscope.ui.theme import style_figure
+from roomscope.ui.widgets import Card, PageHeader, label, primary
+
+
+_DECAY_METRICS = {"edt": "EDT", "t20": "T20", "t30": "T30"}
+
+
+def metric_label(name: str, unit: str = "") -> str:
+    """A readable, translated name for a comparison metric id ("band.63 Hz.t20")."""
+    fixed = {
+        "noise.rms_dbfs": _("Background noise, RMS"),
+        "placement.source_height_m": _("Loudspeaker height"),
+        "placement.ceiling_height_m": _("Plane above the devices"),
+        "placement.horizontal_separation_m": _("Horizontal separation"),
+        "loopback.path_delay_ms": _("Loopback path delay"),
+    }
+    text = fixed.get(name)
+    if text is None:
+        parts = name.split(".")
+        if parts[0] == "broadband":
+            where, rest = _("Broadband"), parts[1:]
+        elif parts[0] == "band" and len(parts) >= 2:
+            where, rest = parts[1], parts[2:]
+        else:
+            where, rest = name, []
+        metric = rest[0] if rest else ""
+        what = (
+            _("RT60 estimate") if metric == "rt60_estimate" else _DECAY_METRICS.get(metric, metric)
+        )
+        text = f"{where} {what}".strip()
+    return f"{text} ({unit})" if unit else text
+
+
+def status_text(status: str) -> str:
+    """Translated reflection / resonance match status."""
+    return {
+        "matched": _("matched"),
+        "appeared": _("appeared"),
+        "disappeared": _("disappeared"),
+    }.get(status, status)
 
 
 def _decay_flags(match: ResonanceMatch) -> str:
@@ -53,12 +94,31 @@ class ComparePage(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._comparison: ComparisonResult | None = None
+        self.setProperty("page", True)
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(_("Compare two sessions. Select two rows, or pick each path.")))
-        self.browser = SessionBrowser(multi_select=True)
-        self.browser.open_session.connect(self._fill_next_path)
-        layout.addWidget(self.browser, 1)
+        layout.setContentsMargins(28, 20, 28, 14)
+        layout.setSpacing(10)
 
+        header = PageHeader(
+            _("Compare two sessions"),
+            _(
+                "Every difference carries a validity: RoomScope says when two takes cannot "
+                "be compared rather than printing a delta."
+            ),
+        )
+        back = QPushButton(_("Back"))
+        back.clicked.connect(self.back.emit)
+        header.action_row.addWidget(back)
+        layout.addWidget(header)
+
+        picker = Card()
+        picker.body.addWidget(
+            label(_("Compare two sessions. Select two rows, or pick each path."), "hint", wrap=True)
+        )
+        self.browser = SessionBrowser(multi_select=True)
+        self.browser.list.setMinimumHeight(90)
+        self.browser.open_session.connect(self._fill_next_path)
+        picker.body.addWidget(self.browser, 1)
         paths = QHBoxLayout()
         self.baseline_path = QLineEdit()
         self.baseline_path.setPlaceholderText(_("Baseline session"))
@@ -72,8 +132,8 @@ class ComparePage(QWidget):
         paths.addWidget(pick_a)
         paths.addWidget(self.candidate_path)
         paths.addWidget(pick_b)
-        layout.addLayout(paths)
-
+        picker.body.addLayout(paths)
+        buttons = QHBoxLayout()
         self.same_gain = QCheckBox(_("Input gain unchanged"))
         self.same_gain.setToolTip(
             _(
@@ -81,30 +141,33 @@ class ComparePage(QWidget):
                 "may have changed."
             )
         )
-        layout.addWidget(self.same_gain)
-
-        buttons = QHBoxLayout()
-        run = QPushButton(_("Compare"))
-        run.clicked.connect(self.run_compare)
+        buttons.addWidget(self.same_gain)
+        buttons.addStretch(1)
         save = QPushButton(_("Save comparison.json..."))
         save.clicked.connect(self._save)
-        back = QPushButton(_("Back"))
-        back.clicked.connect(self.back.emit)
-        buttons.addWidget(run)
+        run = primary(QPushButton(_("Compare")))
+        run.setShortcut("Ctrl+Return")
+        run.clicked.connect(self.run_compare)
         buttons.addWidget(save)
-        buttons.addStretch(1)
-        buttons.addWidget(back)
-        layout.addLayout(buttons)
+        buttons.addWidget(run)
+        picker.body.addLayout(buttons)
+        layout.addWidget(picker)
 
-        self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(
+        def table(columns: list[str]) -> QTableWidget:
+            widget = QTableWidget(0, len(columns))
+            widget.setHorizontalHeaderLabels(columns)
+            widget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+            widget.verticalHeader().setVisible(False)
+            widget.setAlternatingRowColors(True)
+            widget.setShowGrid(False)
+            widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            return widget
+
+        self.tabs = QTabWidget()
+        self.table = table(
             [_("Metric"), _("Baseline"), _("Candidate"), _("Delta"), "%", _("Validity")]
         )
-        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        layout.addWidget(self.table, 1)
-
-        self.reflections = QTableWidget(0, 4)
-        self.reflections.setHorizontalHeaderLabels(
+        self.reflections = table(
             [
                 _("Status"),
                 _("Baseline (ms / dB)"),
@@ -112,11 +175,7 @@ class ComparePage(QWidget):
                 _("Δ level (dB)"),
             ]
         )
-        self.reflections.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        layout.addWidget(self.reflections, 1)
-
-        self.resonances = QTableWidget(0, 4)
-        self.resonances.setHorizontalHeaderLabels(
+        self.resonances = table(
             [
                 _("Status"),
                 _("Baseline (Hz)"),
@@ -124,21 +183,26 @@ class ComparePage(QWidget):
                 _("Decay distinguishable"),
             ]
         )
-        self.resonances.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        layout.addWidget(self.resonances, 1)
-
-        self.figure = Figure(figsize=(7.0, 3.2), dpi=100)
+        chart = QWidget()
+        chart_layout = QVBoxLayout(chart)
+        # Laid out again at every draw: the chart is drawn while its tab is
+        # hidden, at a size it does not keep.
+        self.figure = Figure(figsize=(7.0, 3.2), dpi=100, layout="tight")
         self.canvas = FigureCanvasQTAgg(self.figure)
-        layout.addWidget(self.canvas)
-        self.band_mad = QLabel("")
-        self.band_mad.setWordWrap(True)
-        layout.addWidget(self.band_mad)
-
+        style_figure(self.figure)
+        chart_layout.addWidget(self.canvas, 1)
+        self.band_mad = label("", "hint", wrap=True)
+        chart_layout.addWidget(self.band_mad)
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
-        layout.addWidget(self.text, 1)
-        self.status = QLabel("")
-        self.status.setWordWrap(True)
+        self.text.setProperty("report", True)
+        self.tabs.addTab(self.table, _("Metrics"))
+        self.tabs.addTab(chart, _("Frequency response difference"))
+        self.tabs.addTab(self.reflections, _("Early Reflections"))
+        self.tabs.addTab(self.resonances, _("Resonances"))
+        self.tabs.addTab(self.text, _("Full report"))
+        layout.addWidget(self.tabs, 2)
+        self.status = label("", "hint", wrap=True)
         layout.addWidget(self.status)
 
     def set_paths(self, baseline: Path, candidate: Path) -> None:
@@ -186,16 +250,21 @@ class ComparePage(QWidget):
         self.table.setRowCount(len(rows))
         for r, item in enumerate(rows):
             values = [
-                item.name,
+                metric_label(item.name, item.unit),
                 "" if item.baseline is None else f"{item.baseline:.3f}",
                 "" if item.candidate is None else f"{item.candidate:.3f}",
                 "" if item.delta is None else f"{item.delta:+.3f}",
                 "" if item.delta_percent is None else f"{item.delta_percent:+.1f}",
-                str(item.validity),
+                validity_text(item.validity)[0],
             ]
             for c, value in enumerate(values):
                 cell = QTableWidgetItem(value)
                 cell.setFlags(cell.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                if c == 0:
+                    cell.setToolTip(item.name)
+                if c == len(values) - 1 and item.reason:
+                    # Why a delta is missing (core diagnostics, English).
+                    cell.setToolTip(item.reason)
                 self.table.setItem(r, c, cell)
         self.table.resizeColumnsToContents()
         self.reflections.setRowCount(len(comparison.reflections))
@@ -211,7 +280,7 @@ class ComparePage(QWidget):
             baseline = _pair(match.baseline_delay_ms, match.baseline_relative_db)
             candidate = _pair(match.candidate_delay_ms, match.candidate_relative_db)
             delta = "" if match.level_delta_db is None else f"{match.level_delta_db:+.1f}"
-            for c, value in enumerate((match.status, baseline, candidate, delta)):
+            for c, value in enumerate((status_text(match.status), baseline, candidate, delta)):
                 cell = QTableWidgetItem(value)
                 cell.setFlags(cell.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.reflections.setItem(r, c, cell)
@@ -221,7 +290,7 @@ class ComparePage(QWidget):
             baseline_hz = "" if resonance.baseline_hz is None else f"{resonance.baseline_hz:.1f}"
             candidate_hz = "" if resonance.candidate_hz is None else f"{resonance.candidate_hz:.1f}"
             resonance_row = (
-                resonance.status,
+                status_text(resonance.status),
                 baseline_hz,
                 candidate_hz,
                 _decay_flags(resonance),
@@ -237,7 +306,7 @@ class ComparePage(QWidget):
         fr = comparison.frequency_response
         if fr is not None and fr.frequencies_hz.size:
             axes.semilogx(fr.frequencies_hz, fr.difference_db, linestyle="-")
-            axes.set_xlabel("Hz")
+            axes.set_xlabel(_("Frequency (Hz)"))
             axes.set_ylabel("Δ dB")
             axes.set_title(_("Frequency-response difference (candidate − baseline)"))
             axes.grid(True, which="both", alpha=0.3)
@@ -252,7 +321,6 @@ class ComparePage(QWidget):
             axes.text(0.5, 0.5, _("No difference curve"), ha="center", va="center")
             axes.set_axis_off()
             self.band_mad.setText("")
-        self.figure.tight_layout()
         style_figure(self.figure)
         self.canvas.draw_idle()
 
