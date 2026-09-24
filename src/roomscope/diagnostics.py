@@ -142,6 +142,27 @@ def redact_home(path: str | Path, home: str | Path | None = None) -> str:
     return text
 
 
+def audio_callback_check() -> str:
+    """``"ok"`` when this process can create and call a native callback.
+
+    PortAudio calls RoomScope's audio function through a cffi callback
+    (python-sounddevice, ABI mode). cffi needs memory that is both writable
+    and executable for it, which the macOS hardened runtime refuses unless
+    the app has ``com.apple.security.cs.allow-unsigned-executable-memory``
+    (cffi documentation, "Callbacks (old style)"); SELinux can refuse it too.
+    A failure here means Standalone Mode cannot record.
+    """
+    try:
+        import _cffi_backend
+
+        ffi = _cffi_backend.FFI()
+        callback = ffi.callback("int(*)(int)", lambda value: value + 1)
+        answer = callback(41)
+    except Exception as exc:  # MemoryError: "Cannot allocate write+execute memory"
+        return f"failed: {exc!r}"
+    return "ok" if answer == 42 else f"failed: the callback returned {answer!r}"
+
+
 def _settings_summary() -> dict[str, Any]:
     try:
         from roomscope.settings import load_settings
@@ -193,6 +214,7 @@ def environment_report(
         report["audio"] = {"error": str(exc)}
     else:
         report["audio"] = inventory.to_dict()
+    report["audio_callbacks"] = audio_callback_check()
     return report
 
 
@@ -260,6 +282,7 @@ def format_environment_report(report: dict[str, Any]) -> str:
     for key, value in report["paths"].items():
         lines.append(f"  {key:<20} {value}")
     audio = report.get("audio", {})
+    lines.append(f"Audio callbacks: {report.get('audio_callbacks', 'not checked')}")
     lines.append("Audio:")
     if "error" in audio:
         lines.append(f"  unavailable: {audio['error']}")

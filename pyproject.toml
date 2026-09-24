@@ -186,6 +186,7 @@ disable_error_code = ["misc", "import-untyped"]
 
 [[tool.mypy.overrides]]
 module = [
+  "_cffi_backend",
   "PySide6",
   "PySide6.*",
   "sounddevice",

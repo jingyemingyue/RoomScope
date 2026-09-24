@@ -124,9 +124,81 @@ step runs, no log). Three ways on, from cheapest:
    without it nothing reaches PyPI, as before.
 3. **Make the repository public** (§5): standard GitHub-hosted runners are
    free for public repositories, and the workflow then runs as written.
+   Done on 2026-09-24; the workflows have run on GitHub's runners since.
 
 A locally built release has had exactly the checks the script ran on that
 machine; `docs/STATUS.md` records which machines built which files.
+
+### 3b. macOS signing: today, and with a Developer ID
+
+**Today** the app is signed ad hoc, which only seals the bundle: it is not a
+Developer ID signature, it is not notarized, and Gatekeeper blocks it on first
+open (the user guide gives the steps). `packaging/macos/sign_app.sh` signs from
+the inside out, as Apple asks for distributed code [A1][A2]: every loose
+Mach-O file under `Contents/Frameworks`, each nested `.framework` deepest
+first, then the app; `codesign --deep` is used only to verify, because Apple
+advises against it for signing [A1][A3]. The released app has no hardened
+runtime and no entitlements.
+
+**Rehearsed in CI.** On both macOS runners (arm64, x86_64) the release job signs
+a copy of the app with `sign_app.sh --runtime`: hardened runtime and
+`entitlements-adhoc.plist`. That copy must start (GUI smoke, fake measurement)
+and `roomscope doctor` must be able to create a cffi callback, the mechanism
+PortAudio uses to call RoomScope from the audio thread. The entitlements, per
+key:
+
+| Key | Why | Source |
+| --- | --- | --- |
+| `com.apple.security.device.audio-input` | Core Audio input (the microphone) under the hardened runtime; without it the system terminates the app | [A4][A5] |
+| `com.apple.security.cs.allow-unsigned-executable-memory` | python-sounddevice creates its stream callbacks with cffi's `ffi.callback` (ABI mode); cffi's documentation asks for this key on macOS, and Apple's x86_64 libffi maps writable-and-executable memory without `MAP_JIT` | [A6][A7] |
+| `com.apple.security.cs.disable-library-validation` (rehearsal file only) | An ad hoc signature has no Team ID, so library validation would refuse the app's own libraries. A Developer ID build signs everything with one Team ID and does not need it | [A8] |
+
+`entitlements.plist` (the Developer ID file) has the first two keys and never
+`get-task-allow`, which notarization rejects [A9].
+
+**With a Developer ID Application certificate** (maintainer decision, §5), the
+steps are, in order, and none has been run yet:
+
+1. Import the certificate into a temporary keychain on the runner from
+   repository secrets (not written yet; nothing in the workflow reads a
+   signing secret today, so community builds never need one).
+2. `sh packaging/macos/sign_app.sh dist/RoomScope.app --identity "Developer ID Application: NAME (TEAMID)"`:
+   the same order, plus `--timestamp` on every item and `--options runtime`
+   with `entitlements.plist` on the app [A2][A9].
+3. Build the DMG (`make_dmg.sh`), sign it with the same identity and
+   `--timestamp` [A10].
+4. `xcrun notarytool submit RoomScope-macos-<arch>.dmg --wait` with an App
+   Store Connect API key (`--key`, `--key-id`, `--issuer`) or Apple ID,
+   team ID and app-specific password; read `notarytool log` even on success
+   [A11][A12].
+5. `xcrun stapler staple` the DMG, then check with
+   `spctl -a -t open -vvv --context context:primary-signature` on the DMG and
+   `spctl -a -t exec -vvv` on the mounted app [A12][A13].
+6. Compute the SHA-256 sums after stapling (stapling changes the DMG).
+
+What CI cannot show without the certificate: a Developer ID signature,
+library validation with a shared Team ID, secure timestamps, notarization,
+stapling, Gatekeeper acceptance, and the microphone permission prompt.
+
+Windows: the installer and executables are not Authenticode-signed; SmartScreen
+warns on first run (user guide). This is a known limitation of the 0.x
+pre-releases, not an error; signing is the same §5 decision.
+
+Sources for §3b (accessed 2026-09-24):
+
+* [A1] Apple, TN2206 "macOS Code Signing In Depth": https://developer.apple.com/library/archive/technotes/tn2206/_index.html
+* [A2] Apple, "Creating distribution-signed code for macOS": https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac
+* [A3] Apple Developer Forums (DTS), "--deep Considered Harmful": https://developer.apple.com/forums/thread/129980
+* [A4] Apple, `com.apple.security.device.audio-input`: https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.device.audio-input
+* [A5] Apple, "Requesting authorization to capture and save media": https://developer.apple.com/documentation/avfoundation/requesting-authorization-to-capture-and-save-media
+* [A6] cffi documentation, "Callbacks (old style)": https://cffi.readthedocs.io/en/latest/using.html#callbacks
+* [A7] Apple, `com.apple.security.cs.allow-unsigned-executable-memory`: https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.allow-unsigned-executable-memory
+* [A8] Apple, `com.apple.security.cs.disable-library-validation`: https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.disable-library-validation
+* [A9] Apple, "Notarizing macOS software before distribution": https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution
+* [A10] Apple, "Packaging Mac software for distribution": https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution
+* [A11] Apple, TN3147 "Migrating to the latest notarization tool": https://developer.apple.com/documentation/technotes/tn3147-migrating-to-the-latest-notarization-tool
+* [A12] Apple, "Customizing the notarization workflow": https://developer.apple.com/documentation/security/customizing-the-notarization-workflow
+* [A13] Apple Developer Forums (DTS), "Testing a Notarised Product": https://developer.apple.com/forums/thread/130560
 
 ## 4. Gates that apply to every release
 

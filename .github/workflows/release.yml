@@ -166,8 +166,8 @@ jobs:
           cp -R THIRD_PARTY_LICENSES dist/RoomScope.app/Contents/Resources/THIRD_PARTY_LICENSES
           python scripts/check_bundle_contents.py --root dist/RoomScope.app --strip
           python scripts/check_bundle_contents.py --root dist/RoomScope.app/Contents/Resources --require-licenses
-          codesign --force --deep --sign - dist/RoomScope.app
-          codesign --verify --deep --strict --verbose=2 dist/RoomScope.app
+          # Inside-out ad hoc signature (no Developer ID yet); verifies with --deep --strict.
+          sh packaging/macos/sign_app.sh dist/RoomScope.app
       - name: Smoke frozen binary
         shell: bash
         run: |
@@ -179,6 +179,26 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: QT_QPA_PLATFORM=offscreen dist/RoomScope.app/Contents/MacOS/RoomScope gui --smoke
+      - name: Rehearse the Developer ID layout (hardened runtime, ad hoc)
+        # What a Developer ID build changes, minus the certificate: hardened
+        # runtime and entitlements on a copy of the app, which must still start,
+        # load its libraries and create PortAudio's cffi callbacks. The released
+        # DMG keeps the plain ad hoc signature (docs/RELEASE_PLAN.md §3b).
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          plutil -lint packaging/macos/entitlements.plist packaging/macos/entitlements-adhoc.plist
+          ! grep -q get-task-allow packaging/macos/entitlements.plist
+          dir="$RUNNER_TEMP/rehearsal"
+          mkdir -p "$dir"
+          ditto dist/RoomScope.app "$dir/RoomScope.app"
+          sh packaging/macos/sign_app.sh "$dir/RoomScope.app" --runtime
+          codesign -dvv "$dir/RoomScope.app" > "$dir/codesign.txt" 2>&1
+          cat "$dir/codesign.txt"
+          grep -q 'flags=.*runtime' "$dir/codesign.txt"
+          codesign -d --entitlements - --xml "$dir/RoomScope.app" | grep -q com.apple.security.device.audio-input
+          python scripts/smoke_bundle.py --roomscope "$dir/RoomScope.app/Contents/MacOS/RoomScope" \
+            --out "$dir/smoke" --expect-commit "$GITHUB_SHA"
       - name: Windows zip
         if: runner.os == 'Windows'
         shell: bash

@@ -45,9 +45,38 @@
 
 1. **本地构建。** `scripts/build_release.py` 在当前机器上执行与发布工作流 bundle 任务相同的步骤，并在 `dist/` 中生成相同的文件名。每个平台运行一次：Apple 芯片 Mac（`RoomScope-macos-arm64.dmg`）、有条件时 Intel Mac（`RoomScope-macos-x86_64.dmg`）、装有 Inno Setup 6 的 Windows（`roomscope-windows-x64.zip`、`RoomScope-setup.exe`）以及 Linux x86_64（`roomscope-linux-x86_64.tar.gz`）；在其中一台上加 `--python-dist` 生成 wheel 和 sdist。运行前按脚本文档安装 `requirements/bundle.lock`、`dev` 与 `gui` 附加依赖、`pyinstaller==6.22.3` 和 `build`；版本不一致时脚本会拒绝，除非加 `--allow-unlocked`。脚本会运行测试、许可证包、`--strip --require-licenses` 门禁和冒烟测试；在 macOS 上还会做临时签名，并从 DMG 挂载、复制和启动应用。
 2. **手动发布。** 在 Releases 页面创建或编辑草稿 `v<version>`（tag 为 `main` 上发布提交的 `v<version>`，勾选 *pre-release*），粘贴说明（`packaging/release-notes-header.md` 中把 `{version}` 替换后，再接 CHANGELOG 对应段落），上传第 1 步的所有文件及每台机器的 `SHA256SUMS-*`，然后发布。PyPI 任务需要 Actions，没有它就不会上传 PyPI。
-3. **把仓库设为公开**（§5）：公开仓库使用 GitHub 托管的标准运行器是免费的，工作流即可照常运行。
+3. **把仓库设为公开**（§5）：公开仓库使用 GitHub 托管的标准运行器是免费的，工作流即可照常运行。已于 2026-09-24 公开，此后工作流一直在 GitHub 运行器上运行。
 
 本地构建的版本只经过了该脚本在那台机器上执行的检查；`docs/STATUS.md` 记录哪台机器构建了哪些文件。
+
+### 3b. macOS 签名：现在，以及有 Developer ID 之后
+
+**现在**应用只做临时（ad hoc）签名，它只封装应用包：不是 Developer ID 签名，没有公证，首次打开会被 Gatekeeper 拦截（步骤见用户指南）。`packaging/macos/sign_app.sh` 按 Apple 对分发代码的要求由内向外签名 [A1][A2]：先签 `Contents/Frameworks` 下每个独立的 Mach-O 文件，再按由深到浅的顺序签每个嵌套 `.framework`，最后签应用本身；`codesign --deep` 只用于验证，因为 Apple 不建议用它签名 [A1][A3]。发布的应用不启用 hardened runtime，也没有 entitlements。
+
+**在 CI 中演练。** 在两个 macOS 运行器（arm64、x86_64）上，发布任务用 `sign_app.sh --runtime` 对应用副本签名：启用 hardened runtime 并使用 `entitlements-adhoc.plist`。该副本必须能启动（GUI 冒烟测试、fake 后端测量），并且 `roomscope doctor` 必须能创建 cffi 回调，这是 PortAudio 在音频线程中调用 RoomScope 的机制。各 entitlement 的理由：
+
+| 键 | 原因 | 来源 |
+| --- | --- | --- |
+| `com.apple.security.device.audio-input` | hardened runtime 下的 Core Audio 输入（话筒）；缺少它系统会终止应用 | [A4][A5] |
+| `com.apple.security.cs.allow-unsigned-executable-memory` | python-sounddevice 用 cffi 的 `ffi.callback`（ABI 模式）创建流回调；cffi 文档要求在 macOS 上提供此键，而 Apple 的 x86_64 libffi 在不使用 `MAP_JIT` 的情况下映射可写且可执行的内存 | [A6][A7] |
+| `com.apple.security.cs.disable-library-validation`（仅演练文件） | 临时签名没有 Team ID，库验证会拒绝应用自己的库。Developer ID 构建用同一个 Team ID 签署所有内容，不需要此键 | [A8] |
+
+`entitlements.plist`（Developer ID 使用的文件）只含前两个键，永远不含公证会拒绝的 `get-task-allow` [A9]。
+
+**有了 Developer ID Application 证书之后**（维护者决定，§5），按顺序执行以下步骤；目前都还没有运行过：
+
+1. 在运行器上用仓库 secrets 把证书导入临时钥匙串（尚未编写；目前工作流不读取任何签名 secret，因此社区构建永远不需要它）。
+2. `sh packaging/macos/sign_app.sh dist/RoomScope.app --identity "Developer ID Application: NAME (TEAMID)"`：顺序相同，每一项加 `--timestamp`，应用本身加 `--options runtime` 和 `entitlements.plist` [A2][A9]。
+3. 构建 DMG（`make_dmg.sh`），用同一身份加 `--timestamp` 签名 [A10]。
+4. `xcrun notarytool submit RoomScope-macos-<arch>.dmg --wait`，使用 App Store Connect API 密钥（`--key`、`--key-id`、`--issuer`）或 Apple ID、团队 ID 与 App 专用密码；即使成功也要查看 `notarytool log` [A11][A12]。
+5. 对 DMG 执行 `xcrun stapler staple`，然后对 DMG 用 `spctl -a -t open -vvv --context context:primary-signature`、对挂载后的应用用 `spctl -a -t exec -vvv` 检查 [A12][A13]。
+6. 在 staple 之后再计算 SHA-256（staple 会改变 DMG）。
+
+没有证书时 CI 无法证明的内容：Developer ID 签名、共享 Team ID 下的库验证、安全时间戳、公证、staple、Gatekeeper 放行，以及话筒权限提示。
+
+Windows：安装程序和可执行文件没有 Authenticode 签名，首次运行时 SmartScreen 会警告（见用户指南）。这是 0.x 预发布版本的已知限制，不是错误；是否签名属于同一个 §5 决定。
+
+§3b 来源（访问于 2026-09-24）见英文版 [RELEASE_PLAN.md](RELEASE_PLAN.md) §3b 的 [A1]–[A13]。
 
 ## 4. 每次发布都适用的门禁
 

@@ -1,8 +1,9 @@
 """Smoke-test a desktop bundle or an on-PATH ``roomscope`` (ARCHITECTURE_V1.md §6.2).
 
 Runs ``--version``, ``doctor --json`` (the report a bug reporter pastes: it
-must name the library versions and, with ``--expect-commit``, the commit the
-bundle was built from), a fake-backend Standalone measurement, and
+must name the library versions, find that PortAudio's cffi callbacks can be
+created, and, with ``--expect-commit``, name the commit the bundle was built
+from), a fake-backend Standalone measurement, and
 ``gui --smoke`` offscreen, then ``gui --smoke`` through the windowed
 ``roomscope-gui`` launcher when the bundle has one (Windows, Linux), and
 starts that launcher without arguments, as a double-click does, requiring the
@@ -92,6 +93,9 @@ def check_doctor(binary: Path, expect_commit: str | None = None) -> dict[str, ob
     report = json.loads(done.stdout)
     if not report.get("packages", {}).get("numpy"):
         raise SystemExit("doctor does not report the NumPy version")
+    if report.get("audio_callbacks") != "ok":
+        # PortAudio's cffi callback could not be created: no recording works.
+        raise SystemExit(f"audio callbacks: {report.get('audio_callbacks')}")
     commit = (report.get("build") or {}).get("commit")
     if expect_commit and commit != expect_commit:
         raise SystemExit(f"doctor reports build commit {commit!r}, expected {expect_commit!r}")

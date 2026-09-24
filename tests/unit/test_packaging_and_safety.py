@@ -4,6 +4,7 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -206,7 +207,11 @@ def test_smoke_checks_the_doctor_report(monkeypatch: pytest.MonkeyPatch) -> None
     import subprocess
 
     module = _load("smoke_bundle_doctor", Path("scripts") / "smoke_bundle.py")
-    report = {"packages": {"numpy": "2.3.0"}, "build": {"commit": "abc"}}
+    report: dict[str, Any] = {
+        "packages": {"numpy": "2.3.0"},
+        "build": {"commit": "abc"},
+        "audio_callbacks": "ok",
+    }
 
     def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         assert argv[1:] == ["--backend", "fake", "doctor", "--json"]
@@ -216,6 +221,9 @@ def test_smoke_checks_the_doctor_report(monkeypatch: pytest.MonkeyPatch) -> None
     assert module.check_doctor(Path("roomscope"), "abc") == report
     with pytest.raises(SystemExit, match="expected 'def'"):
         module.check_doctor(Path("roomscope"), "def")
+    report["audio_callbacks"] = "failed: MemoryError()"
+    with pytest.raises(SystemExit, match="audio callbacks"):
+        module.check_doctor(Path("roomscope"))
     report["packages"]["numpy"] = None
     with pytest.raises(SystemExit, match="NumPy"):
         module.check_doctor(Path("roomscope"))

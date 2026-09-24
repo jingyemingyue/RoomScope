@@ -57,6 +57,17 @@ All notable changes to RoomScope are documented here. The format follows
   channels and separate clocks before playing.
 
 ### Changed
+- **macOS signing prepared for a Developer ID** (none exists yet; releases
+  stay ad hoc signed, not notarized). `packaging/macos/sign_app.sh` signs
+  inside out (loose Mach-O files, nested frameworks deepest first, then the
+  app) instead of `codesign --deep`, which Apple advises against for
+  signing; `--identity` adds the hardened runtime, secure timestamps and
+  `entitlements.plist` for a future Developer ID build. The release job
+  rehearses that layout on arm64 and x86_64 with an ad hoc hardened-runtime
+  copy (`entitlements-adhoc.plist`) that must start and create PortAudio's
+  cffi callbacks; `roomscope doctor` reports whether callbacks work (a
+  hardened runtime without `allow-unsigned-executable-memory`, or SELinux,
+  would stop every recording). Steps and sources: `docs/RELEASE_PLAN.md` §3b.
 - **GUI redesign.** One design system (`ui/theme.py` tokens, a generated Qt
   style sheet, Fusion on every OS so Windows, macOS and Linux render alike,
   light and dark schemes) and shared widgets (`ui/widgets.py`). Home: mode

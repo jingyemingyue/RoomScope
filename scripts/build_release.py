@@ -204,8 +204,8 @@ def plan(target: Target, args: argparse.Namespace, work: Path) -> list[Step]:
             shutil.copytree(licenses, resources / "THIRD_PARTY_LICENSES", dirs_exist_ok=True)
             _python("scripts/check_bundle_contents.py", "--root", app, "--strip")
             _python("scripts/check_bundle_contents.py", "--root", resources, "--require-licenses")
-            _run("codesign", "--force", "--deep", "--sign", "-", app)
-            _run("codesign", "--verify", "--deep", "--strict", "--verbose=2", app)
+            # Inside-out ad hoc signature and --deep verification, as in CI.
+            _run("sh", "packaging/macos/sign_app.sh", app)
 
         steps.append(Step("Check macOS .app and its licenses", mac_app))
 

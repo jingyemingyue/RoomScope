@@ -86,6 +86,22 @@ def test_report_without_audio_backend_still_prints(monkeypatch: pytest.MonkeyPat
     assert "unavailable: PortAudio library not found" in text
 
 
+def test_audio_callbacks_are_checked(monkeypatch: pytest.MonkeyPatch) -> None:
+    from roomscope import diagnostics
+
+    assert diagnostics.audio_callback_check() == "ok"
+    assert "Audio callbacks: ok" in format_environment_report(environment_report("fake"))
+
+    class NoExecutableMemory:
+        def callback(self, *args: object) -> None:
+            raise MemoryError("Cannot allocate write+execute memory for ffi.callback()")
+
+    import _cffi_backend
+
+    monkeypatch.setattr(_cffi_backend, "FFI", NoExecutableMemory)
+    assert diagnostics.audio_callback_check().startswith("failed: MemoryError")
+
+
 def test_cli_doctor_probe(capsys: pytest.CaptureFixture[str]) -> None:
     from roomscope.cli.main import main
 

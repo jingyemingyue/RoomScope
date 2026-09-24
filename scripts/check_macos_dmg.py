@@ -69,6 +69,7 @@ def main() -> None:
         )
         report = json.loads(doctor.stdout)
         assert report["packages"]["numpy"], report["packages"]
+        assert report["audio_callbacks"] == "ok", report["audio_callbacks"]
         if os.environ.get("GITHUB_SHA"):
             assert (report["build"] or {}).get("commit") == os.environ["GITHUB_SHA"], report[
                 "build"
