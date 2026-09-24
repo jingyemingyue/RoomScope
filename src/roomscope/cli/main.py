@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -917,7 +918,29 @@ COMMANDS = {
 }
 
 
+def _utf8_when_redirected() -> None:
+    """Write UTF-8 to a pipe or file unless the user chose an encoding.
+
+    Redirected output uses the locale code page (cp1252, cp936 on Windows)
+    with strict errors, so a report with Δ, → or a Chinese room name raised
+    UnicodeEncodeError after the work was done. A console is left alone.
+    """
+    if os.environ.get("PYTHONIOENCODING"):
+        return
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        isatty = getattr(stream, "isatty", None)
+        if reconfigure is None or isatty is None:
+            continue
+        try:
+            if not isatty():
+                reconfigure(encoding="utf-8", errors="backslashreplace")
+        except (OSError, ValueError):
+            continue
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    _utf8_when_redirected()
     argv_list = list(sys.argv[1:] if argv is None else argv)
     activate(_peek_option(argv_list, ("--lang",)))
     parser = build_parser()

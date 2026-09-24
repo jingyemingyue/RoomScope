@@ -1312,3 +1312,168 @@ msgstr "宽带衰减{text}（估计 RT60 {rt:.2f} s，来自 {basis}）。对合
 
 msgid "Low frequencies decay more slowly than the mid range ({low_max:.2f} s vs {mid_mean:.2f} s), which makes the ensemble bottom-heavy and muddies diction. Bass trapping or a different position helps."
 msgstr "低频比中频衰减更慢（{low_max:.2f} s 对 {mid_mean:.2f} s），会让合唱整体偏重低频、咬字发浑。低音陷阱或换位置会有帮助。"
+
+msgid "(unnamed room)"
+msgstr "（未命名房间）"
+
+msgid "A validity flag on every number"
+msgstr "每个数字都带有效性标记"
+
+msgid "Any DAW: WAV in, WAV out"
+msgstr "任意 DAW：WAV 进，WAV 出"
+
+msgid "No room score, no invented figures"
+msgstr "不打总分，不编造数字"
+
+msgid "Generate a test signal, play and record it in any DAW, import the recording."
+msgstr "生成测试信号，在任意 DAW 中播放并录音，再导入录音。"
+
+msgid "Start in my DAW"
+msgstr "在我的 DAW 中开始"
+
+msgid "RoomScope plays the sweep and records the microphone through your audio interface."
+msgstr "RoomScope 通过你的音频接口播放扫描并录制话筒。"
+
+msgid "Measure now"
+msgstr "立即测量"
+
+msgid "Run Standalone Mode on the fake backend. Nothing is sent to a loudspeaker."
+msgstr "在模拟后端上运行独立模式，不会向扬声器发送任何信号。"
+
+msgid "Try the demo"
+msgstr "试用演示"
+
+msgid "Open a session.json or a folder that contains one."
+msgstr "打开 session.json，或包含它的文件夹。"
+
+msgid "Pick two saved sessions and compare their metrics."
+msgstr "选择两个已保存的会话并比较其指标。"
+
+msgid "Four steps: generate the test signal, play and record it in your DAW, import the recording, analyse. RoomScope never talks to the DAW."
+msgstr "四个步骤：生成测试信号、在 DAW 中播放并录音、导入录音、分析。RoomScope 从不与 DAW 通信。"
+
+msgid "RoomScope plays the sweep and records the microphone through your audio interface, then runs the same analysis as Universal DAW Mode."
+msgstr "RoomScope 通过你的音频接口播放扫描并录制话筒，然后运行与通用 DAW 模式相同的分析。"
+
+msgid "valid"
+msgstr "有效"
+
+msgid "unreliable"
+msgstr "不可靠"
+
+msgid "insufficient range"
+msgstr "动态范围不足"
+
+msgid "not computed"
+msgstr "未计算"
+
+msgid "Reverberation (RT60)"
+msgstr "混响（RT60）"
+
+msgid "Background noise"
+msgstr "本底噪声"
+
+msgid "Early reflections"
+msgstr "早期反射"
+
+msgid "Direct sound"
+msgstr "直达声"
+
+msgid "pre-peak margin not checkable"
+msgstr "峰前余量无法检查"
+
+msgid "Results"
+msgstr "结果"
+
+msgid "Full report"
+msgstr "完整报告"
+
+msgid "high"
+msgstr "高"
+
+msgid "medium"
+msgstr "中"
+
+msgid "low"
+msgstr "低"
+
+msgid "REVERBERATION BY BAND"
+msgstr "分频带混响"
+
+msgid "no reverberation time could be reported"
+msgstr "无法给出混响时间"
+
+msgid "no quiet segment to measure"
+msgstr "没有可测量的安静片段"
+
+msgid "clean"
+msgstr "无明显反射"
+
+msgid "wrong speed"
+msgstr "速度错误"
+
+msgid "confidence"
+msgstr "置信度"
+
+msgid "no hum"
+msgstr "无工频干扰"
+
+msgid "pre-peak margin {margin:.1f} dB"
+msgstr "峰前余量 {margin:.1f} dB"
+
+msgid "INTERPRETATION ({profile} PROFILE)"
+msgstr "解读（{profile} 配置）"
+
+msgid "No findings."
+msgstr "没有发现。"
+
+msgid "{profile} profile"
+msgstr "{profile} 配置"
+
+msgid "broadband, estimated from {basis}"
+msgstr "宽带，由 {basis} 估算"
+
+msgid "RMS, {segment} segment, uncalibrated"
+msgstr "RMS，{segment}片段，未校准"
+
+msgid "strongest at {delay:.1f} ms, {level:.1f} dB"
+msgstr "最强在 {delay:.1f} ms，{level:.1f} dB"
+
+msgid "above {threshold:g} dB"
+msgstr "高于 {threshold:g} dB"
+
+msgid "none above {threshold:g} dB"
+msgstr "没有高于 {threshold:g} dB 的反射"
+
+msgid "sweep played at {percent:.1f} % speed"
+msgstr "扫描以 {percent:.1f} % 速度播放"
+
+msgid "hum {base:g} Hz"
+msgstr "工频干扰 {base:g} Hz"
+
+msgid "warning"
+msgstr "警告"
+
+msgid "notice"
+msgstr "提示"
+
+msgid "info"
+msgstr "信息"
+
+msgid "reverberation"
+msgstr "混响"
+
+msgid "noise"
+msgstr "噪声"
+
+msgid "early reflections"
+msgstr "早期反射"
+
+msgid "low frequency"
+msgstr "低频"
+
+msgid "measurement"
+msgstr "测量"
+
+msgid "comparison"
+msgstr "比较"

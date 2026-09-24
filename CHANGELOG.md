@@ -7,6 +7,62 @@ All notable changes to RoomScope are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **GUI redesign.** One design system (`ui/theme.py` tokens, a generated Qt
+  style sheet, Fusion on every OS so Windows, macOS and Linux render alike,
+  light and dark schemes) and shared widgets (`ui/widgets.py`). Home: mode
+  cards and the product's three principles; the session list shows room,
+  position and local time. DAW and Standalone pages: page header, scrolling
+  step cards, primary actions, safety and demo banners. Results: key figures
+  (RT60, background noise, early reflections, direct-sound confidence) each
+  with a validity or trust chip, findings as coloured cards with translated
+  severity and topic, the band table in full; the text report moved to a
+  *Full report* tab. Plots share the series palette; minor grid lines follow
+  the scheme. The window has a drawn app icon. All new strings are in the
+  zh-CN catalog.
+- **matplotlib>=3.10** (was >=3.8). The wheels of 3.8.0, 3.9.0 and 3.9.4
+  still contain the `_ttconv` extension that DEPENDENCIES.md §6 said was gone
+  from 3.8; 3.10.0 is the first without it (wheels opened 2026-09-24). With
+  the other declared minimums (numpy 1.26, scipy 1.12, soundfile 0.12,
+  sounddevice 0.4.6, PySide6_Essentials 6.6) the suite passes 522/522 on
+  Python 3.12; with the newest releases it passes on 3.13 and 3.14.
+
+### Fixed
+- Cross-platform audit (Windows / macOS behaviour emulated in
+  `tests/unit/test_cross_platform.py`): CLI output redirected to a file or
+  pipe is written as UTF-8 (the locale code page raised UnicodeEncodeError on
+  Δ, → or a Chinese room name); `project.json` stores session paths with `/`
+  and reads `\` from projects written on Windows, and a session added twice
+  is recognised by its resolved path; `roomscope session bundle` refuses a
+  destination inside the session folder (the zip contained itself and grew
+  without end); copying a file onto itself is detected with `samefile`
+  (case-insensitive file systems); the log file keeps working when another
+  process holds it during rotation (Windows); default input / output devices
+  are marked again (sounddevice returns an indexable pair, not a tuple); the
+  display language is read from Windows (`GetUserDefaultUILanguage`) and
+  `zh-Hans-CN` / "Chinese (Simplified)" tags map to zh_CN; the session list no
+  longer fails on dates Windows cannot convert; a silent recording names the
+  macOS microphone permission.
+
+### Documentation
+- `docs/user-guide/daw-setup.md` (+ zh-CN) re-checked against each vendor's
+  current manual, with a numbered source per step: Pro Tools (Apply SRC is
+  not a mismatch indicator; TrackInput off still monitors while recording),
+  Logic Pro 12.3 (*Flex* + *Smart Tempo* replace *Flex & Follow*), GarageBand
+  (no sample-rate setting; *Export projects at full volume* normalises),
+  Cubase / Nuendo (*Convert to Project Settings*, Auto Monitoring *Manual*,
+  Export Selected Events *Dry*), Fender Studio Pro 8 (formerly Studio One;
+  the track's *Tempo* mode), Live (*Auto-Warp Long Samples* is on by
+  default), REAPER (*Allow projects to override device sample rate*),
+  FL Studio (monitor and loop-record defaults), Bitwig (*Stretch* mode
+  *Raw*; there is no *Off*), Audacity 3.4+ (*Record New Track*, *Export
+  Audio* with *Current Selection*).
+- `docs/COMPARISON.md` (+ zh-CN): a sourced comparison with REW, Open Sound
+  Meter, ARTA, Smaart, SoundID Reference, ARC X, Dirac Live, HouseCurve,
+  AURORA, pyroomacoustics, python-acoustics, pyrato and ITA-Toolbox, what
+  RoomScope does differently, and when another tool is the better choice;
+  README gains "What makes RoomScope different".
+
 ## [0.4.1] - 2026-09-24
 
 Patch release: closes the review follow-ups #9–#17, each with a synthetic

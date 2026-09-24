@@ -61,7 +61,7 @@ roomscope-env/bin/roomscope gui
 
 `roomscope devices` 会在方括号里显示每个设备的主机 API。
 
-* **Windows。** 同一台声卡会按每种主机 API 各列一次。优先选 `[Windows WASAPI]`（或 `[Windows WDM-KS]`）；避免 `[MME]` 和 `[Windows DirectSound]`，它们要经过 Windows 混音器。共享模式下 WASAPI 只能以“声音设置 ▸ 设备 ▸ 属性 ▸ 高级”中设定的采样率运行，请把它设为测量采样率，并关闭*音频增强*。在“设置 ▸ 隐私和安全性 ▸ 麦克风”中允许桌面应用使用麦克风。安装包不含 ASIO 支持（ASIO DLL 用 Steinberg 的专有 SDK 构建，已被移除，见 DEPENDENCIES.md §3）；只能通过 ASIO 工作的声卡请用通用 DAW 模式测量。
+* **Windows。** 同一台声卡会按每种主机 API 各列一次。优先选 `[Windows WASAPI]`（或 `[Windows WDM-KS]`）；避免 `[MME]` 和 `[Windows DirectSound]`，它们要经过 Windows 混音器。共享模式下 WASAPI 只能以设备的共享模式格式运行（[Microsoft：Device formats](https://learn.microsoft.com/en-us/windows/win32/coreaudio/device-formats)）：请在“声音”控制面板（控制面板 ▸ 硬件和声音 ▸ 声音 ▸ 设备 ▸ 属性 ▸ 高级 ▸ *默认格式*）中把它设为测量采样率，并在“设置 ▸ 声音 ▸ 设备”中把*音频增强*设为关闭（[Microsoft 支持](https://support.microsoft.com/en-us/windows/fix-sound-or-audio-problems-in-windows-73025246-b61c-40fb-671a-2535c7cd56c8)）。在“设置 ▸ 隐私和安全性 ▸ 麦克风”中允许桌面应用使用麦克风。安装包不含 ASIO 支持（ASIO DLL 用 Steinberg 的专有 SDK 构建，已被移除，见 DEPENDENCIES.md §3）；只能通过 ASIO 工作的声卡请用通用 DAW 模式测量。
 * **macOS。** Core Audio。在“系统设置 ▸ 隐私与安全性 ▸ 麦克风”中允许 RoomScope；没有该权限时录音是静音，RoomScope 会报告 *“recording is silent”*。在“音频 MIDI 设置”中设定声卡采样率；输入和输出是不同设备时，可在那里把它们合成一个聚合设备。
 * **Linux。** 通过系统 PortAudio（`libportaudio2`）使用 ALSA。`hw:` 设备使用声卡自身的采样率；`pipewire`、`pulse` 或 `default` 经过声音服务器，可能被重采样：RoomScope 在测量前会把设备采样率显示在请求的采样率旁边。你的用户可能需要加入 `audio` 组。
 

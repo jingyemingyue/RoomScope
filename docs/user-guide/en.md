@@ -94,9 +94,12 @@ synthetic room. Nothing is sent to a loudspeaker.
 * **Windows.** Every interface is listed once per host API. Prefer
   `[Windows WASAPI]` (or `[Windows WDM-KS]`); avoid `[MME]` and
   `[Windows DirectSound]`, which pass through the Windows mixer. In shared
-  mode WASAPI only runs at the rate set in Sound settings ▸ the device ▸
-  Properties ▸ Advanced, so set that to the measurement rate and switch
-  *Audio enhancements* off. Allow desktop apps to use the microphone
+  mode WASAPI only runs at the device's shared-mode format
+  ([Microsoft: Device formats](https://learn.microsoft.com/en-us/windows/win32/coreaudio/device-formats)):
+  set it to the measurement rate in the Sound control panel (Control Panel ▸
+  Hardware and Sound ▸ Sound ▸ the device ▸ Properties ▸ Advanced ▸ *Default
+  Format*), and set *Audio enhancements* to Off (Settings ▸ Sound ▸ the device)
+  ([Microsoft support](https://support.microsoft.com/en-us/windows/fix-sound-or-audio-problems-in-windows-73025246-b61c-40fb-671a-2535c7cd56c8)). Allow desktop apps to use the microphone
   (Settings ▸ Privacy & security ▸ Microphone). The bundles carry no ASIO
   support (the ASIO DLLs are built with Steinberg's proprietary SDK and are
   removed, DEPENDENCIES.md §3); an interface that only works through ASIO is

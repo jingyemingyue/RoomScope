@@ -68,7 +68,11 @@ def normalize_lang(tag: str | None) -> str:
     lower = raw.lower()
     if lower in {"c", "posix"}:
         return DEFAULT_LANG
-    if lower in {"zh", "zh_cn", "zh_hans", "zh_sg", "zh_chs"}:
+    # zh, zh_CN, zh-Hans, zh-Hans-CN (macOS / Qt uiLanguages), zh_CHS, zh_SG and
+    # Windows' getlocale() form "Chinese (Simplified)_China" all mean Simplified.
+    if lower in {"zh", "zh_cn", "zh_hans", "zh_sg", "zh_chs"} or lower.startswith(
+        ("zh_hans", "chinese (simplified)", "chinese_simplified")
+    ):
         return "zh_CN"
     if "_" in raw:
         lang, _, region = raw.partition("_")
@@ -267,6 +271,9 @@ def _system_language() -> str:
             tag = candidate.split(".", 1)[0]
             if tag:
                 return normalize_lang(tag)
+    windows = _windows_ui_language()
+    if windows:
+        return normalize_lang(windows)
     try:
         detected = py_locale.getlocale()[0]
     except (ValueError, TypeError):
@@ -274,6 +281,26 @@ def _system_language() -> str:
     if detected:
         return normalize_lang(detected)
     return DEFAULT_LANG
+
+
+def _windows_ui_language() -> str | None:
+    """The Windows display language (``GetUserDefaultUILanguage``), e.g. ``zh_CN``.
+
+    Windows sets no ``LANG``; the display language is the user's choice, and
+    ``locale.windows_locale`` maps its language identifier to a locale name.
+    ``ctypes.windll`` exists on Windows only.
+    """
+    try:
+        import ctypes
+
+        windll = getattr(ctypes, "windll", None)
+        if windll is None:
+            return None
+        lang_id = int(windll.kernel32.GetUserDefaultUILanguage())
+    except (AttributeError, OSError, ValueError):
+        return None
+    name = py_locale.windows_locale.get(lang_id)
+    return str(name) if name else None
 
 
 def _load_translation(lang: str) -> gettext.NullTranslations:

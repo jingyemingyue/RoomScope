@@ -12,7 +12,7 @@ from matplotlib.figure import Figure
 
 from roomscope.core.reflections import reflection_envelope_db
 from roomscope.models.result import AnalysisResult, Validity
-from roomscope.ui.theme import style_figure
+from roomscope.ui.theme import PLOT_SERIES, plot_colors, style_figure
 
 _EPS = 1e-300
 
@@ -55,6 +55,7 @@ def plot_frequency_response(fig: Figure, result: AnalysisResult) -> None:
         linewidth=0.5,
         alpha=0.35,
         linestyle=":",
+        color=plot_colors()["muted"],
         label="raw",
     )
     if fr.magnitude_db_smoothed is not None:
@@ -63,6 +64,7 @@ def plot_frequency_response(fig: Figure, result: AnalysisResult) -> None:
             fr.magnitude_db_smoothed,
             linewidth=1.6,
             linestyle="-",
+            color=PLOT_SERIES[0],
             label=f"1/{fr.smoothing_fraction}-octave smoothed",
         )
     loopback = result.impulse_response.loopback

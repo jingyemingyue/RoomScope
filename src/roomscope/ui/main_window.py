@@ -19,6 +19,7 @@ from roomscope.ui.compare_view import ComparePage
 from roomscope.ui.pages import DawModePage, HomePage, StandalonePage
 from roomscope.ui.results import ResultsPage
 from roomscope.ui.state import MeasurementState
+from roomscope.ui.widgets import app_icon
 
 ABOUT_TEXT = (
     f"<b>RoomScope {__version__}</b><br>"
@@ -39,7 +40,9 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"RoomScope {__version__}")
-        self.resize(900, 720)
+        self.setWindowIcon(app_icon())
+        self.setMinimumSize(960, 640)
+        self.resize(1180, 800)
         self.state = MeasurementState()
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)

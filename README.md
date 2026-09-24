@@ -187,6 +187,22 @@ for r in result.reflections.reflections:
     print(f"{r.delay_ms:.1f} ms  {r.relative_db:.1f} dB")
 ```
 
+## What makes RoomScope different
+
+* **It refuses to invent a number.** Every metric carries its unit, its
+  algorithm source and a validity flag; a decay too short for T30 says
+  *insufficient range* instead of a figure. There is no single "room score".
+* **It lives next to your DAW, not inside it.** Any DAW that plays and records
+  WAV works; RoomScope also tells you when the DAW played the sweep at the
+  wrong speed (sample-rate mismatch or Warp / Flex / Follow Tempo).
+* **It speaks the recording engineer's question** — "is this position usable
+  for a vocal, a drum room mic, a choir?" — through labelled interpretation
+  profiles, and compares two positions with a validity on every delta.
+* **It says what one microphone cannot know.** Placement geometry never names
+  a wall or derives coordinates the measurement cannot support.
+
+A sourced comparison with other tools is in [docs/COMPARISON.md](docs/COMPARISON.md).
+
 ## Design principles
 
 * **DAW-independent** – no DAW SDKs, ever. WAV in, WAV out.
@@ -220,6 +236,7 @@ for r in result.reflections.reflections:
 | [docs/STATUS.md](docs/STATUS.md) | Implemented / tested / known limitations / next milestone |
 | [docs/user-guide/en.md](docs/user-guide/en.md) | User guide (English): install, measure, read, compare, bundle |
 | [docs/user-guide/zh-CN.md](docs/user-guide/zh-CN.md) | 用户指南（简体中文） |
+| [docs/COMPARISON.md](docs/COMPARISON.md) | How RoomScope differs from REW, Open Sound Meter, ARTA, Smaart, SoundID and others, and when another tool is the better choice; [中文](docs/COMPARISON.zh-CN.md) |
 | [docs/user-guide/daw-setup.md](docs/user-guide/daw-setup.md) | Step-by-step DAW notes (Pro Tools, Logic, Cubase, Studio One, Live, REAPER, FL Studio, Bitwig, Audacity); [中文](docs/user-guide/daw-setup.zh-CN.md) |
 | [docs/PROJECT_BRIEF.zh-CN.md](docs/PROJECT_BRIEF.zh-CN.md) | Original project brief (Chinese) |
 

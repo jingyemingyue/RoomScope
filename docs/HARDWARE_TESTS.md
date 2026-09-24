@@ -43,7 +43,7 @@ time-stretch finding).
 | Logic Pro | | n/a | n/a | | |
 | GarageBand | | n/a | n/a | | n/a |
 | Cubase / Nuendo | | | n/a | | |
-| Studio One | | | | | |
+| Fender Studio Pro (Studio One) | | | | | |
 | Ableton Live | | | n/a | | |
 | REAPER | | | | | |
 | FL Studio | | | n/a | | |

@@ -291,7 +291,9 @@ def _validate_recording(mono: FloatArray, sample_rate: int) -> tuple[ClippingChe
     peak = float(np.max(np.abs(mono)))
     if peak <= 0.0 or 20.0 * np.log10(peak) < SILENCE_THRESHOLD_DBFS:
         raise InvalidAudioError(
-            f"recording is silent (peak below {SILENCE_THRESHOLD_DBFS:g} dBFS); check the input routing"
+            f"recording is silent (peak below {SILENCE_THRESHOLD_DBFS:g} dBFS); check the input "
+            "routing and, on macOS, that the app has microphone access (System Settings > "
+            "Privacy & Security > Microphone)"
         )
     clipping = detect_clipping(mono)
     if clipping.clipped:

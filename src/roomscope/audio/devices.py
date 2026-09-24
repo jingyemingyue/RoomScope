@@ -31,9 +31,12 @@ def list_devices() -> list[DeviceInfo]:
         defaults = sd.default.device
     except Exception as exc:
         raise AudioDeviceError(f"cannot query audio devices: {exc}") from exc
-    default_in, default_out = (
-        (defaults[0], defaults[1]) if isinstance(defaults, tuple | list) else (defaults, defaults)
-    )
+    # sounddevice returns an _InputOutputPair (indexable, not a tuple); -1 is
+    # PortAudio's paNoDevice.
+    try:
+        default_in, default_out = int(defaults[0]), int(defaults[1])
+    except (TypeError, IndexError, ValueError):
+        default_in = default_out = int(defaults) if isinstance(defaults, int) else -1
     devices: list[DeviceInfo] = []
     for index, info in enumerate(raw):
         api_index = int(info.get("hostapi", 0))

@@ -14,6 +14,7 @@ Raw sweep and recording files are never modified in place.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import zipfile
 from dataclasses import dataclass, replace
@@ -146,6 +147,15 @@ def bundle_session(
     target = Path(dest) if dest is not None else base.with_name(base.name + ".zip")
     if target.is_dir():
         target = target / f"{base.name}.zip"
+    try:
+        target.resolve().relative_to(base.resolve())
+    except ValueError:
+        pass
+    else:
+        # The archive would contain itself and grow without end.
+        raise SessionError(
+            f"write the bundle outside the session folder (it would be inside {base})"
+        )
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
         with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -165,7 +175,9 @@ def _copy_into(src: Path, dest: Path) -> Path | None:
         return None
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
-        if src.resolve() == dest.resolve():
+        # samefile also matches on case-insensitive file systems (macOS, Windows)
+        # where Recording.wav and recording.wav are one file.
+        if dest.exists() and os.path.samefile(src, dest):
             return dest
         shutil.copy2(src, dest)
     except OSError as exc:

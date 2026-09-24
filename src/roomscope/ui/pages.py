@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -41,6 +42,7 @@ from roomscope.models.result import AnalysisResult
 from roomscope.models.session import MeasurementSession
 from roomscope.ui.browser import SessionBrowser
 from roomscope.ui.state import MeasurementState
+from roomscope.ui.widgets import Card, ModeCard, PageHeader, label, primary
 from roomscope.ui.workers import AnalysisWorker, MeasureWorker
 
 DAW_INSTRUCTIONS = N_(
@@ -63,54 +65,106 @@ class HomePage(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setProperty("page", True)
         layout = QVBoxLayout(self)
-        title = QLabel("RoomScope")
-        title.setStyleSheet("font-size: 22px; font-weight: bold;")
-        subtitle = QLabel(_("An open-source, DAW-independent recording environment analyzer"))
-        layout.addWidget(title)
-        layout.addWidget(subtitle)
-        layout.addSpacing(16)
-        layout.addWidget(QLabel(_("New Measurement")))
-        daw = QPushButton(_("Universal DAW Mode"))
-        daw.setToolTip(
-            "Generate a test signal, play and record it in any DAW, import the recording."
+        layout.setContentsMargins(28, 22, 28, 22)
+        layout.setSpacing(14)
+
+        layout.addWidget(label("RoomScope", "title"))
+        layout.addWidget(
+            label(
+                _("An open-source, DAW-independent recording environment analyzer"),
+                "subtitle",
+                wrap=True,
+            )
         )
-        standalone = QPushButton(_("Standalone Mode"))
-        standalone.setToolTip(
-            "RoomScope plays the sweep and records the microphone through your audio interface."
+        pills = QHBoxLayout()
+        pills.setSpacing(8)
+        for text in (
+            _("A validity flag on every number"),
+            _("Any DAW: WAV in, WAV out"),
+            _("No room score, no invented figures"),
+        ):
+            pills.addWidget(label(text, "pill"))
+        pills.addStretch(1)
+        layout.addLayout(pills)
+        layout.addSpacing(6)
+
+        layout.addWidget(label(_("New Measurement").upper(), "section"))
+        cards = QHBoxLayout()
+        cards.setSpacing(12)
+        daw = ModeCard(
+            "DAW",
+            _("Universal DAW Mode"),
+            _("Generate a test signal, play and record it in any DAW, import the recording."),
+            _("Start in my DAW"),
         )
-        demo = QPushButton(_("Demo (no interface)"))
-        demo.setToolTip(
-            "Run Standalone Mode on the fake backend. Nothing is sent to a loudspeaker."
+        standalone = ModeCard(
+            "I/O",
+            _("Standalone Mode"),
+            _("RoomScope plays the sweep and records the microphone through your audio interface."),
+            _("Measure now"),
+        )
+        demo = ModeCard(
+            "DEMO",
+            _("Demo (no interface)"),
+            _("Run Standalone Mode on the fake backend. Nothing is sent to a loudspeaker."),
+            _("Try the demo"),
         )
         daw.clicked.connect(lambda: self.choose_mode.emit("universal_daw"))
         standalone.clicked.connect(lambda: self.choose_mode.emit("standalone"))
         demo.clicked.connect(lambda: self.choose_mode.emit("demo"))
-        layout.addWidget(daw)
-        layout.addWidget(standalone)
-        layout.addWidget(demo)
-        layout.addSpacing(16)
-        layout.addWidget(QLabel(_("Saved sessions")))
-        session_row = QHBoxLayout()
+        self.mode_cards = (daw, standalone, demo)
+        for card in self.mode_cards:
+            cards.addWidget(card)
+        layout.addLayout(cards)
+        layout.addSpacing(6)
+
+        sessions = Card()
+        header = QHBoxLayout()
+        header.addWidget(label(_("Saved sessions").upper(), "section"))
+        header.addStretch(1)
         open_button = QPushButton(_("Open Session..."))
-        open_button.setToolTip("Open a session.json or a folder that contains one.")
+        open_button.setToolTip(_("Open a session.json or a folder that contains one."))
         open_button.clicked.connect(self.open_session.emit)
         compare_button = QPushButton(_("Compare two sessions..."))
-        compare_button.setToolTip("Pick two saved sessions and compare their metrics.")
+        compare_button.setToolTip(_("Pick two saved sessions and compare their metrics."))
         compare_button.clicked.connect(self.compare_requested.emit)
-        session_row.addWidget(open_button)
-        session_row.addWidget(compare_button)
-        layout.addLayout(session_row)
+        header.addWidget(open_button)
+        header.addWidget(compare_button)
+        sessions.body.addLayout(header)
         self.browser = SessionBrowser()
         self.browser.open_session.connect(self.open_recent.emit)
         self.recent = self.browser.list
-        layout.addWidget(self.browser, 1)
+        sessions.body.addWidget(self.browser, 1)
+        layout.addWidget(sessions, 1)
 
     def refresh_recent(self) -> None:
         self.browser.refresh_recent()
 
     def list_folder(self, root: Path) -> None:
         self.browser.list_folder(root)
+
+
+def _scroll_page(page: QWidget, header: PageHeader) -> QVBoxLayout:
+    """Give ``page`` a fixed header and a scrolling body; return the body layout."""
+    page.setProperty("page", True)
+    outer = QVBoxLayout(page)
+    outer.setContentsMargins(28, 20, 28, 12)
+    outer.setSpacing(8)
+    outer.addWidget(header)
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    body = QWidget()
+    body.setProperty("page", True)
+    layout = QVBoxLayout(body)
+    layout.setContentsMargins(0, 0, 8, 8)
+    layout.setSpacing(12)
+    scroll.setWidget(body)
+    outer.addWidget(scroll, 1)
+    return layout
 
 
 def _metadata_form(state: MeasurementState) -> tuple[QGroupBox, QLineEdit, QLineEdit, QLineEdit]:
@@ -199,7 +253,16 @@ class DawModePage(QWidget):
         super().__init__(parent)
         self.state = state
         self._worker: AnalysisWorker | None = None
-        layout = QVBoxLayout(self)
+        layout = _scroll_page(
+            self,
+            PageHeader(
+                _("Universal DAW Mode"),
+                _(
+                    "Four steps: generate the test signal, play and record it in your DAW, "
+                    "import the recording, analyse. RoomScope never talks to the DAW."
+                ),
+            ),
+        )
 
         # Step 1
         step1 = QGroupBox(_("Step 1 - Generate Test Signal"))
@@ -221,7 +284,7 @@ class DawModePage(QWidget):
         form1.addRow(_("Sample rate"), self.sample_rate)
         form1.addRow(_("Sweep duration"), self.duration)
         form1.addRow(_("Peak level"), self.level)
-        self.save_sweep_button = QPushButton(_("Save Test Signal WAV..."))
+        self.save_sweep_button = primary(QPushButton(_("Save Test Signal WAV...")))
         self.save_sweep_button.clicked.connect(self._choose_sweep_target)
         self.sweep_label = QLabel(_("No test signal written yet."))
         self.sweep_label.setWordWrap(True)
@@ -234,6 +297,7 @@ class DawModePage(QWidget):
         v2 = QVBoxLayout(step2)
         instructions = QLabel(_(DAW_INSTRUCTIONS))
         instructions.setWordWrap(True)
+        instructions.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         v2.addWidget(instructions)
         layout.addWidget(step2)
 
@@ -272,7 +336,7 @@ class DawModePage(QWidget):
         profile_form.addRow(_("Recording profile"), self.profile)
         v4.addLayout(profile_form)
         row = QHBoxLayout()
-        self.analyze_button = QPushButton(_("Analyze"))
+        self.analyze_button = primary(QPushButton(_("Analyze")))
         self.analyze_button.setShortcut("Ctrl+Return")
         self.analyze_button.clicked.connect(self.start_analysis)
         self.back_button = QPushButton(_("Back"))
@@ -461,19 +525,28 @@ class StandalonePage(QWidget):
         self._measure_worker: MeasureWorker | None = None
         self._analysis_worker: AnalysisWorker | None = None
         self._channel_plan: ChannelPlan | None = None
-        layout = QVBoxLayout(self)
+        layout = _scroll_page(
+            self,
+            PageHeader(
+                _("Standalone Mode"),
+                _(
+                    "RoomScope plays the sweep and records the microphone through your audio "
+                    "interface, then runs the same analysis as Universal DAW Mode."
+                ),
+            ),
+        )
 
         self.demo_banner = QLabel(
             _("Demo mode: the fake backend synthesises a room. Nothing is sent to a loudspeaker.")
         )
         self.demo_banner.setWordWrap(True)
-        self.demo_banner.setStyleSheet("font-weight: bold;")
+        self.demo_banner.setProperty("banner", "info")
         self.demo_banner.hide()
         layout.addWidget(self.demo_banner)
 
         safety = QLabel(_(SAFETY_MESSAGE))
         safety.setWordWrap(True)
-        safety.setStyleSheet("font-weight: bold;")
+        safety.setProperty("banner", "warn")
         layout.addWidget(safety)
 
         devices = QGroupBox(_("Audio devices"))
@@ -540,10 +613,11 @@ class StandalonePage(QWidget):
         row = QHBoxLayout()
         self.back_button = QPushButton(_("Back"))
         self.back_button.clicked.connect(self.back.emit)
-        self.run_button = QPushButton(_("Run Measurement"))
+        self.run_button = primary(QPushButton(_("Run Measurement")))
         self.run_button.setShortcut("Ctrl+Return")
         self.run_button.clicked.connect(self.start_measurement)
         self.stop_button = QPushButton(_("Stop"))
+        self.stop_button.setProperty("danger", True)
         self.stop_button.setShortcut("Esc")
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_measurement)
