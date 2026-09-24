@@ -38,6 +38,10 @@ class UserSettings:
     audio_backend: str = ""
     output_dir: str = ""
     copy_recording: bool = True
+    #: "" follows the system, or "light" / "dark".
+    theme: str = ""
+    #: Show the developer tools in an installed (user-edition) RoomScope.
+    developer_tools: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -49,8 +53,11 @@ class UserSettings:
         version = read_schema_version(data, SETTINGS_SCHEMA_VERSION, "settings")
         payload = drop_unknown(data, {f.name for f in fields(cls)}, kind="settings")
         payload["schema_version"] = version
-        if "copy_recording" in payload:
-            payload["copy_recording"] = bool(payload["copy_recording"])
+        for flag in ("copy_recording", "developer_tools"):
+            if flag in payload:
+                payload[flag] = bool(payload[flag])
+        if payload.get("theme") not in (None, "", "light", "dark"):
+            payload["theme"] = ""
         return cls(**payload)
 
 

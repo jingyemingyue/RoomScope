@@ -1477,3 +1477,48 @@ msgstr "测量"
 
 msgid "comparison"
 msgstr "比较"
+
+msgid "print an environment report for bug reports and debugging"
+msgstr "打印用于问题报告和调试的环境报告"
+
+msgid "also check which sample rates each device accepts and mark the recommended entry of each physical device (nothing is played)"
+msgstr "同时检查每个设备接受哪些采样率，并标出每个物理设备的推荐条目（不会播放任何声音）"
+
+msgid "list the host APIs instead of devices"
+msgstr "列出主机 API 而不是设备"
+
+msgid "print the inventory as JSON"
+msgstr "以 JSON 格式打印设备清单"
+
+msgid "print the report as JSON"
+msgstr "以 JSON 格式打印报告"
+
+msgid "PortAudio latency class of the stream (default: PortAudio's high latency)"
+msgstr "音频流的 PortAudio 延迟等级（默认：PortAudio 的高延迟）"
+
+msgid "Windows WASAPI: open the device in exclusive mode (no mixer, no conversion)"
+msgstr "Windows WASAPI：以独占模式打开设备（不经混音器，不转换采样率）"
+
+msgid "macOS: let RoomScope set the device's sample rate instead of converting"
+msgstr "macOS：由 RoomScope 设置设备采样率，而不是做转换"
+
+msgid "recommended input"
+msgstr "推荐输入"
+
+msgid "recommended output"
+msgstr "推荐输出"
+
+msgid "devices"
+msgstr "设备数"
+
+msgid "rank"
+msgstr "排序"
+
+msgid "Warning: {message}"
+msgstr "警告：{message}"
+
+msgid "record"
+msgstr "录音"
+
+msgid "play"
+msgstr "播放"

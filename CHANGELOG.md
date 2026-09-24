@@ -7,6 +7,36 @@ All notable changes to RoomScope are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Audio device inventory** (`roomscope.audio.inventory`, `roomscope devices
+  --probe | --host-apis | --json`): every host API and device PortAudio sees,
+  the sample rates each accepts for one channel (`Pa_IsFormatSupported`;
+  nothing is played), PortAudio's default latencies, the entries that are one
+  physical device across host APIs (MME's 31-character names included), and
+  the recommended entry per device and direction (a direct path first — ALSA
+  `hw:`, WDM-KS, ASIO, JACK — then the platform's host-API order). Each
+  host API carries its measurement-relevant behaviour, from
+  `docs/AUDIO_DEVICES.md` (+ zh-CN; 38 references: PortAudio v19.7 source,
+  python-sounddevice, Microsoft, Apple, ALSA / PipeWire / JACK documentation,
+  Farina 2007, Müller & Massarani 2001, Torras-Rosell & Jacobsen 2011, Novák
+  et al. 2015 and others).
+- **Basic support for every device path in Standalone Mode**: one host API
+  per take (PortAudio refuses mixed host APIs, `paBadIODeviceCombination`;
+  an unset side takes the same host API's default device instead of MME's),
+  channels checked against the device before anything is played, a warning
+  when playback and recording are separate devices on separate clocks, and
+  `roomscope measure --latency low|high`, `--wasapi-exclusive` (no Windows
+  audio engine) and `--coreaudio-set-rate` (set the macOS device rate and
+  refuse to convert). WASAPI's auto-convert is deliberately not offered: it
+  inserts the engine's resampler.
+- `roomscope doctor`: an environment report (versions of NumPy, SciPy,
+  libsndfile, PortAudio, Qt; paths; host APIs; default devices) for bug
+  reports.
+- Developer and installer editions (`roomscope.edition`,
+  `ROOMSCOPE_EDITION`): a source or pip install is the developer edition, a
+  desktop bundle the user edition; settings gain `theme` and
+  `developer_tools`.
+
 ### Changed
 - **GUI redesign.** One design system (`ui/theme.py` tokens, a generated Qt
   style sheet, Fusion on every OS so Windows, macOS and Linux render alike,

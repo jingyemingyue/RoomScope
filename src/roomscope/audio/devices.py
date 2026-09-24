@@ -53,19 +53,38 @@ def list_devices() -> list[DeviceInfo]:
                 default_sample_rate=float(info.get("default_samplerate", 0.0)),
                 is_default_input=index == default_in,
                 is_default_output=index == default_out,
+                host_api_index=api_index,
+                default_low_input_latency_s=_latency(info, "default_low_input_latency"),
+                default_high_input_latency_s=_latency(info, "default_high_input_latency"),
+                default_low_output_latency_s=_latency(info, "default_low_output_latency"),
+                default_high_output_latency_s=_latency(info, "default_high_output_latency"),
             )
         )
     return devices
 
 
-def check_sample_rate(device_index: int, sample_rate: int, *, kind: str) -> None:
-    """Raise :class:`AudioDeviceError` if the device cannot run at ``sample_rate``."""
+def _latency(info: Any, key: str) -> float | None:
+    try:
+        value = float(info.get(key))
+    except (TypeError, ValueError):
+        return None
+    return value if value >= 0.0 else None
+
+
+def check_sample_rate(
+    device_index: int, sample_rate: int, *, kind: str, channels: int | None = None
+) -> None:
+    """Raise :class:`AudioDeviceError` if the device cannot run at ``sample_rate``.
+
+    ``channels=None`` lets sounddevice use the device's maximum channel count,
+    which a device may refuse at a rate it supports with fewer channels.
+    """
     sd = sounddevice_module()
     try:
         if kind == "input":
-            sd.check_input_settings(device=device_index, samplerate=sample_rate)
+            sd.check_input_settings(device=device_index, samplerate=sample_rate, channels=channels)
         else:
-            sd.check_output_settings(device=device_index, samplerate=sample_rate)
+            sd.check_output_settings(device=device_index, samplerate=sample_rate, channels=channels)
     except Exception as exc:
         raise AudioDeviceError(
             f"{kind} device {device_index} does not support {sample_rate} Hz: {exc}"

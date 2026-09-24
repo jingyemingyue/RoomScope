@@ -84,6 +84,14 @@ def color_scheme() -> str:
     if forced in {"dark", "light"}:
         return forced
     try:
+        from roomscope.settings import load_settings
+
+        chosen = load_settings().theme
+    except Exception:
+        chosen = ""
+    if chosen in {"dark", "light"}:
+        return chosen
+    try:
         from PySide6.QtCore import Qt
         from PySide6.QtGui import QGuiApplication
         from PySide6.QtWidgets import QApplication

@@ -44,6 +44,13 @@ class DeviceInfo:
     default_sample_rate: float
     is_default_input: bool
     is_default_output: bool
+    #: PortAudio's host API index (``None`` for backends without host APIs).
+    host_api_index: int | None = None
+    #: PortAudio's default latencies (s) for interactive / robust streams.
+    default_low_input_latency_s: float | None = None
+    default_high_input_latency_s: float | None = None
+    default_low_output_latency_s: float | None = None
+    default_high_output_latency_s: float | None = None
 
     @property
     def is_input(self) -> bool:
@@ -54,6 +61,35 @@ class DeviceInfo:
         return self.max_output_channels > 0
 
 
+@dataclass(frozen=True)
+class StreamOptions:
+    """Host-API options for a Standalone take (docs/AUDIO_DEVICES.md).
+
+    The defaults leave PortAudio's choices alone. ``latency`` is ``"low"`` or
+    ``"high"`` (PortAudio's default low / high latency of the device; high is
+    sounddevice's default and "typically more robust"). ``wasapi_exclusive``
+    opens a Windows WASAPI device in exclusive mode: no audio engine, no
+    mixing or conversion, the requested rate or a refusal.
+    ``coreaudio_change_device_rate`` lets PortAudio set a macOS device's
+    nominal rate and refuse to convert instead. Options that do not match the
+    selected device's host API are ignored. WASAPI's auto-convert flag is
+    deliberately not offered: it inserts the engine's sample-rate converter,
+    which a measurement path must not contain (docs/AUDIO_DEVICES.md).
+    """
+
+    latency: str | None = None
+    wasapi_exclusive: bool = False
+    coreaudio_change_device_rate: bool = False
+
+    def __post_init__(self) -> None:
+        if self.latency not in (None, "low", "high"):
+            raise ConfigurationError("latency must be 'low' or 'high'")
+
+    @property
+    def is_default(self) -> bool:
+        return self == StreamOptions()
+
+
 class AudioBackend(Protocol):
     """Play a sweep and record one or more input channels."""
 
@@ -61,7 +97,9 @@ class AudioBackend(Protocol):
 
     def list_devices(self) -> list[DeviceInfo]: ...
 
-    def check_sample_rate(self, device: int, sample_rate: int, *, kind: str) -> None: ...
+    def check_sample_rate(
+        self, device: int, sample_rate: int, *, kind: str, channels: int | None = None
+    ) -> None: ...
 
     def play_and_record(
         self,
@@ -76,6 +114,7 @@ class AudioBackend(Protocol):
         extra_record_s: float = 0.0,
         progress: Callable[[float], None] | None = None,
         cancel: threading.Event | None = None,
+        options: StreamOptions | None = None,
     ) -> AudioSignal: ...
 
 

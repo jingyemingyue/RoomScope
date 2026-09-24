@@ -1,0 +1,498 @@
+"""Inventory of every audio device RoomScope can reach, with measurement advice.
+
+A sweep measurement needs one sample clock for playback and recording, no
+sample-rate conversion and no processing in the path (Müller & Massarani
+2001; Farina 2007; see docs/AUDIO_DEVICES.md). The operating system offers
+the same interface several times, once per host API, and those paths differ
+exactly in that respect: a Windows interface appears under MME, DirectSound,
+WASAPI and WDM-KS; an ALSA card appears as ``hw:`` and through ``default`` /
+``pulse`` / ``pipewire``. This module lists every host API and device,
+probes which of RoomScope's sample rates each device accepts for one channel
+(PortAudio's ``Pa_IsFormatSupported`` through the backend's
+``check_sample_rate``; nothing is played, although Core Audio and ALSA open
+the device briefly to answer), groups the entries that are the same physical
+device, and marks the path RoomScope recommends for each group.
+
+What "supported" means depends on the host API (docs/AUDIO_DEVICES.md §4):
+WASAPI shared mode accepts only the device's Default Format rate; PortAudio
+does not check the rate on DirectSound, so every rate looks accepted there;
+MME, DirectSound, ALSA ``default`` / ``pulse`` / ``pipewire`` and Core Audio
+(unless told not to) convert a rate the device is not running at.
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from collections.abc import Sequence
+from dataclasses import asdict, dataclass, field, replace
+from typing import Any
+
+from roomscope.audio.backend import AudioBackend, DeviceInfo
+from roomscope.errors import RoomScopeError
+from roomscope.models.configuration import SUPPORTED_SAMPLE_RATES
+
+#: PortAudio host API names (as PortAudio reports them) -> short kind.
+HOST_API_KINDS: dict[str, str] = {
+    "Windows WASAPI": "wasapi",
+    "Windows WDM-KS": "wdmks",
+    "ASIO": "asio",
+    "Windows DirectSound": "directsound",
+    "MME": "mme",
+    "Core Audio": "coreaudio",
+    "ALSA": "alsa",
+    "JACK Audio Connection Kit": "jack",
+    "OSS": "oss",
+    "fake": "fake",
+}
+
+#: Preference per platform, best first. Paths that bypass the system mixer
+#: (WASAPI exclusive / WDM-KS / ASIO, ALSA ``hw:``) and keep one clock rank
+#: above shared-mode paths that may resample and mix.
+HOST_API_PREFERENCE: dict[str, tuple[str, ...]] = {
+    "win32": ("wasapi", "asio", "wdmks", "directsound", "mme"),
+    "darwin": ("coreaudio",),
+    "linux": ("alsa", "jack", "oss"),
+}
+
+#: One sentence per host API on what matters for a measurement.
+HOST_API_NOTES: dict[str, str] = {
+    "wasapi": (
+        "WASAPI: shared mode goes through the Windows audio engine and accepts only the "
+        "device's Default Format rate; exclusive mode (--wasapi-exclusive) bypasses the "
+        "engine at a rate the hardware supports"
+    ),
+    "wdmks": "WDM kernel streaming: bypasses the Windows mixer; the device must support the rate",
+    "asio": "ASIO: direct driver path (not included in RoomScope's desktop bundles)",
+    "directsound": (
+        "DirectSound: deprecated, runs on the Windows audio engine; resamples and mixes, "
+        "and PortAudio does not check its rates (all look accepted); prefer WASAPI"
+    ),
+    "mme": (
+        "MME: legacy path through the Windows audio engine; resamples and mixes, truncates "
+        "device names; prefer WASAPI"
+    ),
+    "coreaudio": (
+        "Core Audio: the device runs at its nominal rate (Audio MIDI Setup) and PortAudio "
+        "converts other rates, unless --coreaudio-set-rate sets the device rate and refuses "
+        "to convert"
+    ),
+    "alsa": "ALSA: a hw: device is direct; default, pulse, pipewire, dmix and plug devices may resample",
+    "jack": "JACK: runs at the JACK server's rate only",
+    "oss": "OSS: legacy Linux interface",
+    "fake": "synthetic backend: nothing is played",
+}
+
+#: ALSA device names that are plugins or sound servers rather than hardware.
+_ALSA_VIRTUAL = re.compile(
+    r"^(default|sysdefault|pulse|pipewire|jack|dmix|dsnoop|plug|samplerate|speexrate|"
+    r"upmix|vdownmix|lavrate|surround\d*|front|rear|center_lfe|side|iec958|spdif|hdmi|"
+    r"null|oss)\b",
+    re.IGNORECASE,
+)
+_ALSA_HW = re.compile(r"\(hw:\s*\d+\s*,\s*\d+\)")
+#: MME truncates device names to 31 characters.
+_MME_NAME_LENGTH = 31
+
+
+def host_api_kind(name: str) -> str:
+    return HOST_API_KINDS.get(name, name.strip().lower().replace(" ", "_") or "unknown")
+
+
+def physical_key(device: DeviceInfo) -> str:
+    """Key shared by the entries of one physical device across host APIs."""
+    name = device.name.strip().lower()
+    name = _ALSA_HW.sub("", name).strip()
+    name = re.sub(r"\s+", " ", name)
+    return name[:_MME_NAME_LENGTH].rstrip()
+
+
+def adapter_key(device: DeviceInfo) -> str:
+    """The hardware adapter behind an endpoint name.
+
+    Windows names endpoints "<endpoint> (<adapter>)" ("Line (Focusrite USB
+    Audio)", "Speakers (Focusrite USB Audio)"), MME cuts that at 31
+    characters, and ALSA names hardware "<card>: <device> (hw:X,Y)".
+    """
+    name = device.name.strip()
+    if host_api_kind(device.host_api) == "alsa" and ":" in name:
+        return name.split(":", 1)[0].strip().lower()
+    if "(" in name:
+        inner = name.split("(", 1)[1].rstrip(") ").strip()
+        if inner:
+            return inner.lower()
+    return physical_key(device)
+
+
+def same_adapter(a: DeviceInfo, b: DeviceInfo) -> bool:
+    """True when two endpoints belong to one adapter (one sample clock).
+
+    A truncated MME name matches the full name it starts with.
+    """
+    ka, kb = adapter_key(a), adapter_key(b)
+    if not ka or not kb:
+        return False
+    short, long_ = sorted((ka, kb), key=len)
+    return (long_.startswith(short) and len(short) >= 8) or ka == kb
+
+
+def is_direct_path(device: DeviceInfo) -> bool:
+    """True for paths that do not go through a system mixer or resampler."""
+    kind = host_api_kind(device.host_api)
+    # Core Audio converts by default, WASAPI shared goes through the engine:
+    # both become direct only through stream options.
+    if kind in {"wdmks", "asio", "jack", "fake"}:
+        return True
+    if kind == "alsa":
+        return bool(_ALSA_HW.search(device.name)) and not _ALSA_VIRTUAL.match(device.name)
+    # WASAPI is direct only in exclusive mode, which is a stream option.
+    return False
+
+
+@dataclass(frozen=True)
+class HostApiInfo:
+    index: int
+    name: str
+    kind: str
+    device_count: int
+    default_input: int | None
+    default_output: int | None
+    rank: int | None
+    note: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class DeviceProbe:
+    """One device entry, what it accepts, and whether RoomScope recommends it."""
+
+    device: DeviceInfo
+    host_api_kind: str
+    #: Sample rates (Hz) the host API accepts for 1 input / 1 output channel.
+    input_rates: tuple[int, ...] = ()
+    output_rates: tuple[int, ...] = ()
+    #: Entries sharing this key are the same physical device.
+    group: str = ""
+    direct_path: bool = False
+    recommended_input: bool = False
+    recommended_output: bool = False
+    notes: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["device"] = asdict(self.device)
+        return data
+
+
+@dataclass(frozen=True)
+class DeviceInventory:
+    platform: str
+    backend: str
+    portaudio_version: str | None
+    host_apis: tuple[HostApiInfo, ...]
+    devices: tuple[DeviceProbe, ...]
+    rates_probed: tuple[int, ...]
+    notes: tuple[str, ...] = field(default=())
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "platform": self.platform,
+            "backend": self.backend,
+            "portaudio_version": self.portaudio_version,
+            "rates_probed": list(self.rates_probed),
+            "host_apis": [api.to_dict() for api in self.host_apis],
+            "devices": [probe.to_dict() for probe in self.devices],
+            "notes": list(self.notes),
+        }
+
+    def recommended(self, kind: str) -> list[DeviceProbe]:
+        attr = "recommended_input" if kind == "input" else "recommended_output"
+        return [probe for probe in self.devices if getattr(probe, attr)]
+
+
+def _platform_key(platform: str) -> str:
+    if platform.startswith("win"):
+        return "win32"
+    if platform == "darwin":
+        return "darwin"
+    return "linux"
+
+
+def _rank(kind: str, platform: str) -> int | None:
+    order = HOST_API_PREFERENCE.get(_platform_key(platform), ())
+    return order.index(kind) if kind in order else None
+
+
+def _supported(
+    backend: AudioBackend, device: DeviceInfo, rates: Sequence[int], kind: str
+) -> tuple[int, ...]:
+    accepted: list[int] = []
+    for rate in rates:
+        try:
+            backend.check_sample_rate(device.index, int(rate), kind=kind, channels=1)
+        except RoomScopeError:
+            continue
+        except Exception:  # a driver that fails the query is "not supported"
+            continue
+        accepted.append(int(rate))
+    return tuple(accepted)
+
+
+def _sort_key(probe: DeviceProbe, platform: str) -> tuple[int, int, int]:
+    rank = _rank(probe.host_api_kind, platform)
+    return (0 if probe.direct_path else 1, rank if rank is not None else 99, probe.device.index)
+
+
+def build_inventory(
+    backend: AudioBackend,
+    *,
+    probe_rates: bool = True,
+    rates: Sequence[int] = SUPPORTED_SAMPLE_RATES,
+    platform: str | None = None,
+) -> DeviceInventory:
+    """List every device of ``backend``, probe its rates and recommend paths."""
+    platform = platform or sys.platform
+    devices = backend.list_devices()
+    host_apis = _host_apis(backend, devices, platform)
+    probes: list[DeviceProbe] = []
+    for device in devices:
+        kind = host_api_kind(device.host_api)
+        notes: list[str] = []
+        note = HOST_API_NOTES.get(kind)
+        if note:
+            notes.append(note)
+        if kind == "alsa" and _ALSA_VIRTUAL.match(device.name):
+            notes.append("ALSA plugin or sound-server device: may resample and mix")
+        input_rates = (
+            _supported(backend, device, rates, "input") if probe_rates and device.is_input else ()
+        )
+        output_rates = (
+            _supported(backend, device, rates, "output") if probe_rates and device.is_output else ()
+        )
+        if probe_rates and device.is_input and not input_rates:
+            notes.append("accepts none of RoomScope's sample rates for recording")
+        if probe_rates and device.is_output and not output_rates:
+            notes.append("accepts none of RoomScope's sample rates for playback")
+        probes.append(
+            DeviceProbe(
+                device=device,
+                host_api_kind=kind,
+                input_rates=input_rates,
+                output_rates=output_rates,
+                group=physical_key(device),
+                direct_path=is_direct_path(device),
+                notes=tuple(notes),
+            )
+        )
+    probes = _mark_recommended(probes, platform, probe_rates)
+    inventory_notes: list[str] = []
+    if not probes:
+        inventory_notes.append("no audio device found; Universal DAW Mode still works")
+    return DeviceInventory(
+        platform=platform,
+        backend=getattr(backend, "name", "unknown"),
+        portaudio_version=_portaudio_version(backend),
+        host_apis=tuple(host_apis),
+        devices=tuple(probes),
+        rates_probed=tuple(int(rate) for rate in rates) if probe_rates else (),
+        notes=tuple(inventory_notes),
+    )
+
+
+def _mark_recommended(
+    probes: list[DeviceProbe], platform: str, probe_rates: bool
+) -> list[DeviceProbe]:
+    """Recommend, per physical device and direction, the best-ranked usable entry."""
+    best: dict[tuple[str, str], DeviceProbe] = {}
+    for probe in probes:
+        for direction in ("input", "output"):
+            has = probe.device.is_input if direction == "input" else probe.device.is_output
+            rates = probe.input_rates if direction == "input" else probe.output_rates
+            if not has or (probe_rates and not rates):
+                continue
+            key = (probe.group, direction)
+            current = best.get(key)
+            if current is None or _sort_key(probe, platform) < _sort_key(current, platform):
+                best[key] = probe
+    marked: list[DeviceProbe] = []
+    for probe in probes:
+        marked.append(
+            replace(
+                probe,
+                recommended_input=best.get((probe.group, "input")) is probe,
+                recommended_output=best.get((probe.group, "output")) is probe,
+            )
+        )
+    return marked
+
+
+def _host_apis(
+    backend: AudioBackend, devices: Sequence[DeviceInfo], platform: str
+) -> list[HostApiInfo]:
+    raw = _query_host_apis(backend)
+    if raw is None:
+        names = sorted({device.host_api for device in devices})
+        raw = [
+            {
+                "name": name,
+                "devices": [d.index for d in devices if d.host_api == name],
+                "default_input_device": -1,
+                "default_output_device": -1,
+            }
+            for name in names
+        ]
+    apis: list[HostApiInfo] = []
+    for index, info in enumerate(raw):
+        name = str(info.get("name", f"host API {index}"))
+        kind = host_api_kind(name)
+        default_in = int(info.get("default_input_device", -1))
+        default_out = int(info.get("default_output_device", -1))
+        apis.append(
+            HostApiInfo(
+                index=index,
+                name=name,
+                kind=kind,
+                device_count=len(info.get("devices", ())),
+                default_input=default_in if default_in >= 0 else None,
+                default_output=default_out if default_out >= 0 else None,
+                rank=_rank(kind, platform),
+                note=HOST_API_NOTES.get(kind, ""),
+            )
+        )
+    return apis
+
+
+def _query_host_apis(backend: AudioBackend) -> list[dict[str, Any]] | None:
+    if getattr(backend, "name", "") != "portaudio":
+        return None
+    try:
+        from roomscope.audio.devices import sounddevice_module
+
+        return [dict(api) for api in sounddevice_module().query_hostapis()]
+    except Exception:
+        return None
+
+
+def _portaudio_version(backend: AudioBackend) -> str | None:
+    if getattr(backend, "name", "") != "portaudio":
+        return None
+    try:
+        from roomscope.audio.devices import sounddevice_module
+
+        return str(sounddevice_module().get_portaudio_version()[1])
+    except Exception:
+        return None
+
+
+def separate_clocks_warning(
+    devices: Sequence[DeviceInfo], input_device: int | None, output_device: int | None
+) -> str | None:
+    """A warning when playback and recording use different physical devices.
+
+    Two devices run on two sample clocks; the drift between them stretches the
+    recorded sweep against the reference and smears the deconvolved response
+    (Farina 2007). One interface for both, or an aggregate device with drift
+    correction, avoids it.
+    """
+    by_index = {device.index: device for device in devices}
+    inp = by_index.get(input_device) if input_device is not None else None
+    out = by_index.get(output_device) if output_device is not None else None
+    if inp is None:
+        inp = next((d for d in devices if d.is_default_input), None)
+    if out is None:
+        out = next((d for d in devices if d.is_default_output), None)
+    if inp is None or out is None or host_api_kind(inp.host_api) == "fake":
+        return None
+    if same_adapter(inp, out):
+        return None
+    return (
+        f"playback ({out.name}) and recording ({inp.name}) use different devices, which run on "
+        "separate sample clocks; their drift smears the measurement. Use one interface for both, "
+        "or an aggregate device with drift correction (macOS), and check the result with a "
+        "loopback"
+    )
+
+
+def check_channels(
+    devices: Sequence[DeviceInfo],
+    *,
+    input_device: int | None,
+    output_device: int | None,
+    input_channels: Sequence[int],
+    output_channel: int,
+) -> None:
+    """Refuse channels the selected devices do not have, before anything is played."""
+    from roomscope.errors import ConfigurationError
+
+    by_index = {device.index: device for device in devices}
+
+    def pick(index: int | None, default_attr: str) -> DeviceInfo | None:
+        if index is not None:
+            return by_index.get(index)
+        return next((d for d in devices if getattr(d, default_attr)), None)
+
+    inp = pick(input_device, "is_default_input")
+    out = pick(output_device, "is_default_output")
+    if inp is not None and input_channels and max(input_channels) > inp.max_input_channels:
+        raise ConfigurationError(
+            f"input channel {max(input_channels)} does not exist on {inp.name} "
+            f"({inp.max_input_channels} input channel(s))"
+        )
+    if out is not None and output_channel > out.max_output_channels:
+        raise ConfigurationError(
+            f"output channel {output_channel} does not exist on {out.name} "
+            f"({out.max_output_channels} output channel(s))"
+        )
+
+
+def resolve_duplex(
+    devices: Sequence[DeviceInfo],
+    host_apis: Sequence[HostApiInfo],
+    input_device: int | None,
+    output_device: int | None,
+) -> tuple[int | None, int | None]:
+    """Input and output devices for one full-duplex stream on one host API.
+
+    PortAudio opens a full-duplex stream only when both devices belong to the
+    same host API (otherwise ``Pa_OpenStream`` fails with
+    ``paBadIODeviceCombination``, "Illegal combination of I/O devices"). When
+    only one device is chosen, the other side becomes that host API's default
+    device (on Windows the system default is MME's, which would not match a
+    WASAPI choice). Both ``None`` keeps PortAudio's defaults.
+    """
+    from roomscope.errors import ConfigurationError
+
+    if input_device is None and output_device is None:
+        return None, None
+    by_index = {device.index: device for device in devices}
+    for index in (input_device, output_device):
+        if index is not None and index not in by_index:
+            raise ConfigurationError(f"there is no audio device {index}")
+    chosen_in = by_index.get(input_device) if input_device is not None else None
+    chosen_out = by_index.get(output_device) if output_device is not None else None
+    if chosen_in is not None and chosen_out is not None:
+        if chosen_in.host_api != chosen_out.host_api:
+            raise ConfigurationError(
+                f"input {chosen_in.name!r} ({chosen_in.host_api}) and output "
+                f"{chosen_out.name!r} ({chosen_out.host_api}) belong to different host APIs; "
+                "PortAudio records and plays in one stream only within one host API. "
+                "Choose both on the same host API"
+            )
+        return input_device, output_device
+    anchor = chosen_in or chosen_out
+    assert anchor is not None
+    api = next((a for a in host_apis if a.name == anchor.host_api), None)
+    if chosen_in is None:
+        other = api.default_input if api is not None else None
+        kind = "input"
+    else:
+        other = api.default_output if api is not None else None
+        kind = "output"
+    if other is None or other not in by_index:
+        raise ConfigurationError(
+            f"{anchor.host_api} has no default {kind} device; choose the {kind} device "
+            f"on {anchor.host_api} as well"
+        )
+    return (other, output_device) if chosen_in is None else (input_device, other)

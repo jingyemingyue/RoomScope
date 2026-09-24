@@ -15,10 +15,11 @@ import logging
 import threading
 import time
 from collections.abc import Callable, Sequence
+from typing import Any
 
 import numpy as np
 
-from roomscope.audio.backend import CALLBACK_BLOCK, DeviceInfo, prepare_playback
+from roomscope.audio.backend import CALLBACK_BLOCK, DeviceInfo, StreamOptions, prepare_playback
 from roomscope.audio.devices import check_sample_rate, list_devices, sounddevice_module
 from roomscope.errors import AudioDeviceError, ConfigurationError, MeasurementCancelledError
 from roomscope.models.audio import AudioSignal, FloatArray
@@ -34,6 +35,40 @@ TIMEOUT_MARGIN_S = 5.0
 CANCEL_GRACE_S = 0.5
 
 
+def device_host_api(sd: Any, device: int | None, kind: str) -> str | None:
+    """PortAudio host API name of ``device`` (or of the default ``kind`` device)."""
+    try:
+        if device is None:
+            device = int(sd.default.device[0 if kind == "input" else 1])
+            if device < 0:
+                return None
+        info = sd.query_devices(device)
+        return str(sd.query_hostapis(int(info["hostapi"]))["name"])
+    except Exception:
+        return None
+
+
+def host_api_settings(sd: Any, device: int | None, kind: str, options: StreamOptions) -> Any:
+    """The sounddevice extra-settings object for ``options`` on this device's host API.
+
+    ``WasapiSettings(exclusive)`` and
+    ``CoreAudioSettings(change_device_parameters, fail_if_conversion_required)``
+    are python-sounddevice's wrappers of PortAudio's ``paWinWasapiExclusive`` and
+    ``paMacCoreChangeDeviceParameters`` /
+    ``paMacCoreFailIfConversionRequired`` flags (pa_win_wasapi.h, pa_mac_core.h;
+    docs/AUDIO_DEVICES.md).
+    """
+    api = device_host_api(sd, device, kind)
+    if api == "Windows WASAPI" and options.wasapi_exclusive:
+        return sd.WasapiSettings(exclusive=True)
+    if api == "Core Audio" and options.coreaudio_change_device_rate:
+        # Set the device's nominal rate, and fail rather than convert when the
+        # device cannot run at it (paMacCoreChangeDeviceParameters |
+        # paMacCoreFailIfConversionRequired).
+        return sd.CoreAudioSettings(change_device_parameters=True, fail_if_conversion_required=True)
+    return None
+
+
 class PortAudioBackend:
     """sounddevice / PortAudio implementation of :class:`AudioBackend`."""
 
@@ -42,8 +77,10 @@ class PortAudioBackend:
     def list_devices(self) -> list[DeviceInfo]:
         return list_devices()
 
-    def check_sample_rate(self, device: int, sample_rate: int, *, kind: str) -> None:
-        check_sample_rate(device, sample_rate, kind=kind)
+    def check_sample_rate(
+        self, device: int, sample_rate: int, *, kind: str, channels: int | None = None
+    ) -> None:
+        check_sample_rate(device, sample_rate, kind=kind, channels=channels)
 
     def play_and_record(
         self,
@@ -58,6 +95,7 @@ class PortAudioBackend:
         extra_record_s: float = 0.0,
         progress: Callable[[float], None] | None = None,
         cancel: threading.Event | None = None,
+        options: StreamOptions | None = None,
     ) -> AudioSignal:
         if not input_channels:
             raise ConfigurationError("at least one input channel is required")
@@ -119,6 +157,18 @@ class PortAudioBackend:
             if progress is not None:
                 progress(min(1.0, fraction))
 
+        # Only an explicit option changes what is passed to PortAudio, so the
+        # default take is opened exactly as before.
+        stream_kwargs: dict[str, object] = {}
+        if options is not None and not options.is_default:
+            if options.latency is not None:
+                stream_kwargs["latency"] = options.latency
+            extra = (
+                host_api_settings(sd, input_device, "input", options),
+                host_api_settings(sd, output_device, "output", options),
+            )
+            if any(setting is not None for setting in extra):
+                stream_kwargs["extra_settings"] = extra
         try:
             with sd.Stream(
                 samplerate=sample_rate,
@@ -128,6 +178,7 @@ class PortAudioBackend:
                 blocksize=CALLBACK_BLOCK,
                 callback=callback,
                 finished_callback=on_finished,
+                **stream_kwargs,
             ):
                 deadline = time.monotonic() + frames_total / max(sample_rate, 1) + TIMEOUT_MARGIN_S
                 cancelled_at: float | None = None
