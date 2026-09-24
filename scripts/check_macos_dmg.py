@@ -1,0 +1,67 @@
+"""Inspect and smoke-test the installed app from the finished macOS disk image."""
+
+from __future__ import annotations
+
+import os
+import plistlib
+import subprocess
+import sys
+import tempfile
+import time
+import tomllib
+from pathlib import Path
+
+
+def check_app(app: Path, version: str) -> Path:
+    info = plistlib.loads((app / "Contents" / "Info.plist").read_bytes())
+    assert info["CFBundleShortVersionString"] == version
+    assert info["CFBundleVersion"] == version
+    assert info["NSMicrophoneUsageDescription"]
+    executable = app / "Contents" / "MacOS" / info["CFBundleExecutable"]
+    assert executable.is_file(), executable
+    archs = subprocess.check_output(["lipo", "-archs", str(executable)], text=True)
+    assert "arm64" in archs.split(), archs
+    subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
+    return executable
+
+
+def main() -> None:
+    dmg = Path(sys.argv[1]).resolve()
+    version = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "version"
+    ]
+    subprocess.run(["hdiutil", "verify", str(dmg)], check=True)
+    with tempfile.TemporaryDirectory(prefix="roomscope-dmg-") as directory:
+        root = Path(directory)
+        mount = root / "mounted"
+        mount.mkdir()
+        subprocess.run(
+            ["hdiutil", "attach", "-readonly", "-nobrowse", "-mountpoint", str(mount), str(dmg)],
+            check=True,
+        )
+        try:
+            assert (mount / "Applications").is_symlink()
+            assert os.readlink(mount / "Applications") == "/Applications"
+            app = mount / "RoomScope.app"
+            check_app(app, version)
+            installed = root / "Applications" / "RoomScope.app"
+            installed.parent.mkdir()
+            subprocess.run(["ditto", str(app), str(installed)], check=True)
+        finally:
+            subprocess.run(["hdiutil", "detach", str(mount)], check=True)
+
+        executable = check_app(installed, version)
+        env = os.environ.copy()
+        env["QT_QPA_PLATFORM"] = "offscreen"
+        subprocess.run([str(executable), "gui", "--smoke"], check=True, env=env, timeout=120)
+        with subprocess.Popen([str(executable)], env=env) as process:
+            time.sleep(6)
+            if process.poll() is not None:
+                raise RuntimeError(f"Finder-style launch exited immediately: {process.returncode}")
+            process.terminate()
+            process.wait(timeout=15)
+    print(f"mounted DMG, copied app, GUI startup and signature verified: {dmg}")
+
+
+if __name__ == "__main__":
+    main()

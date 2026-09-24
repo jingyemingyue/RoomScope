@@ -8,5 +8,9 @@ if [ ! -d "$APP" ]; then
   exit 1
 fi
 rm -f "$OUT"
-hdiutil create -volname RoomScope -srcfolder "$APP" -ov -format UDZO "$OUT"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT HUP INT TERM
+ditto "$APP" "$STAGE/RoomScope.app"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create -volname RoomScope -srcfolder "$STAGE" -ov -format UDZO "$OUT"
 echo "wrote $OUT"
