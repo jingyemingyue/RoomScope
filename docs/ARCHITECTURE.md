@@ -189,7 +189,8 @@ anything else is a bug. Subclasses: `ConfigurationError` (also a
 * `audio.playrec` opens a stream only for the measurement, scales the sweep
   to the requested dBFS level (default -20 dBFS), and requires an explicit
   acknowledgement above -12 dBFS. Nothing touches system volume or device
-  configuration.
+  configuration, except the opt-in `--coreaudio-set-rate`, which lets
+  PortAudio set the macOS device's nominal rate (SECURITY.md).
 
 ## 8. Testing strategy
 

@@ -44,6 +44,12 @@ write outside the files you opened is a security issue.
 ## Safety of Standalone Mode
 
 RoomScope plays a test sweep through a loudspeaker. Defaults stay conservative
-(−20 dBFS in Standalone Mode; −12 dBFS for generated sweep files). Nothing in
-this project changes system volume, audio-device configuration, or DAW
-settings. Please report any change that would do so as a security issue.
+(−20 dBFS in Standalone Mode; −12 dBFS for generated sweep files). By default
+nothing in this project changes system volume, audio-device configuration, or
+DAW settings. The one opt-in exception is `roomscope measure
+--coreaudio-set-rate` (the matching Standalone checkbox in the developer
+edition): it lets PortAudio set the selected macOS device's nominal sample
+rate for the take, which can disturb other programs using that device.
+Whether the previous rate is restored afterwards has not been checked; Audio
+MIDI Setup shows the device's rate. Please report any other change as a
+security issue.

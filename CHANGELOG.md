@@ -7,6 +7,21 @@ All notable changes to RoomScope are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-24
+
+First version meant for a draft pre-release (0.4.0 was never tagged, because
+#17 had to be fixed before any bundle is published, RELEASE_PLAN.md §4). It
+closes the review follow-ups #9–#17, each with a synthetic test that fails on
+0.4.0; makes the desktop bundles and the DAW workflow usable by someone other
+than the maintainer; and adds what the software-readiness phase needs before
+community hardware tests (RELEASE_PLAN.md §2): the audio device inventory and
+pre-flight, `roomscope doctor` and the environment report, the GUI redesign,
+and issue templates for hardware and DAW reports. Run-time dependency floor:
+**matplotlib ≥ 3.10** (was ≥ 3.8). Still no hardware or DAW result. The
+bundles are not signed for distribution (macOS: ad hoc, not notarized;
+Windows: no Authenticode). The repository is public; this version has not
+been published.
+
 ### Added
 - **Audio device inventory** (`roomscope.audio.inventory`, `roomscope devices
   --probe | --host-apis | --json`): every host API and device PortAudio sees,
@@ -89,6 +104,14 @@ All notable changes to RoomScope are documented here. The format follows
   the other declared minimums (numpy 1.26, scipy 1.12, soundfile 0.12,
   sounddevice 0.4.6, PySide6_Essentials 6.6) the suite passes 522/522 on
   Python 3.12; with the newest releases it passes on 3.13 and 3.14.
+- The `dev` extra lists `hatchling` (MIT; already the build backend) so the
+  wheel build-hook test runs in CI (DEPENDENCIES.md §2).
+- `SECURITY.md` names the supported versions and how files received from
+  other people are treated; `docs/HARDWARE_TESTS.md` gains two rows
+  (no logged buffer problem in a full take; an unplugged device is reported
+  as a failure) and says what the automated backend tests do not show.
+- Coverage of `core` + `models` (branch coverage, the CI gate's measure) is
+  90.20 % (87.74 % on 0.4.0); the run is recorded in `docs/STATUS.md`.
 
 ### Fixed
 - **Desktop bundles.** Every launch of a frozen app rebuilt matplotlib's font
@@ -141,42 +164,6 @@ All notable changes to RoomScope are documented here. The format follows
   `zh-Hans-CN` / "Chinese (Simplified)" tags map to zh_CN; the session list no
   longer fails on dates Windows cannot convert; a silent recording names the
   macOS microphone permission.
-
-### Documentation
-- `docs/COMPATIBILITY.md` (+ zh-CN): platforms, Python and dependency floors,
-  DAW export formats, host APIs and cross-platform behaviour, each with what
-  verified it (CI job, local build, test module) and what is not verified.
-- `docs/EDITIONS.md` (+ zh-CN): the developer edition and the installer
-  edition, what each shows, and how to switch.
-- `docs/user-guide/daw-setup.md` (+ zh-CN) re-checked against each vendor's
-  current manual, with a numbered source per step: Pro Tools (Apply SRC is
-  not a mismatch indicator; TrackInput off still monitors while recording),
-  Logic Pro 12.3 (*Flex* + *Smart Tempo* replace *Flex & Follow*), GarageBand
-  (no sample-rate setting; *Export projects at full volume* normalises),
-  Cubase / Nuendo (*Convert to Project Settings*, Auto Monitoring *Manual*,
-  Export Selected Events *Dry*), Fender Studio Pro 8 (formerly Studio One;
-  the track's *Tempo* mode), Live (*Auto-Warp Long Samples* is on by
-  default), REAPER (*Allow projects to override device sample rate*),
-  FL Studio (monitor and loop-record defaults), Bitwig (*Stretch* mode
-  *Raw*; there is no *Off*), Audacity 3.4+ (*Record New Track*, *Export
-  Audio* with *Current Selection*).
-- `docs/COMPARISON.md` (+ zh-CN): a sourced comparison with REW, Open Sound
-  Meter, ARTA, Smaart, SoundID Reference, ARC X, Dirac Live, HouseCurve,
-  AURORA, pyroomacoustics, python-acoustics, pyrato and ITA-Toolbox, what
-  RoomScope does differently, and when another tool is the better choice;
-  README gains "What makes RoomScope different".
-
-## [0.4.1] - 2026-09-24
-
-Patch release: closes the review follow-ups #9–#17, each with a synthetic
-test that fails on 0.4.0, and makes the desktop bundles and the DAW workflow
-usable by someone other than the maintainer (Packaging, DAW workflow). No new
-measurement, no dependency change at run time. Still no hardware result,
-still unsigned, still private. 0.4.0 was never tagged; because #17 had to be
-fixed before any bundle is published (RELEASE_PLAN.md §4), 0.4.1 is the
-first version meant for a draft Release.
-
-### Fixed
 - **Bundle gate (#17).** `scripts/check_bundle_contents.py` matches GPL-only
   Qt QML modules by directory (`qml/QtQuick/VirtualKeyboard`,
   `qml/QtQuick/Timeline`, `qml/QtCharts`, `qml/QtGraphs`,
@@ -257,16 +244,6 @@ first version meant for a draft Release.
 - `mypy --strict` is also clean when the PySide6 6.11 typed stubs are
   installed.
 
-### Changed
-- The `dev` extra lists `hatchling` (MIT; already the build backend) so the
-  wheel build-hook test runs in CI (DEPENDENCIES.md §2).
-- `SECURITY.md` names the supported versions and how files received from
-  other people are treated; `docs/HARDWARE_TESTS.md` gains two rows
-  (no logged buffer problem in a full take; an unplugged device is reported
-  as a failure) and says what the automated backend tests do not show.
-- Coverage of `core` + `models` (branch coverage, the CI gate's measure) is
-  90.20 % (87.74 % on 0.4.0); the run is recorded in `docs/STATUS.md`.
-
 ### DAW workflow
 - **Wrong sweep speed is diagnosed.** A DAW that plays the test signal at the
   wrong speed (a 48 kHz file in a 44.1 kHz project without conversion, a
@@ -340,6 +317,30 @@ first version meant for a draft Release.
   `RoomScope-macos-x86_64.dmg` (was `RoomScope.dmg`, Apple silicon only),
   each checked for its own architecture, and the checksum files are named per
   runner OS and architecture (`SHA256SUMS-macOS-ARM64`, ...).
+
+### Documentation
+- `docs/COMPATIBILITY.md` (+ zh-CN): platforms, Python and dependency floors,
+  DAW export formats, host APIs and cross-platform behaviour, each with what
+  verified it (CI job, local build, test module) and what is not verified.
+- `docs/EDITIONS.md` (+ zh-CN): the developer edition and the installer
+  edition, what each shows, and how to switch.
+- `docs/user-guide/daw-setup.md` (+ zh-CN) re-checked against each vendor's
+  current manual, with a numbered source per step: Pro Tools (Apply SRC is
+  not a mismatch indicator; TrackInput off still monitors while recording),
+  Logic Pro 12.3 (*Flex* + *Smart Tempo* replace *Flex & Follow*), GarageBand
+  (no sample-rate setting; *Export projects at full volume* normalises),
+  Cubase / Nuendo (*Convert to Project Settings*, Auto Monitoring *Manual*,
+  Export Selected Events *Dry*), Fender Studio Pro 8 (formerly Studio One;
+  the track's *Tempo* mode), Live (*Auto-Warp Long Samples* is on by
+  default), REAPER (*Allow projects to override device sample rate*),
+  FL Studio (monitor and loop-record defaults), Bitwig (*Stretch* mode
+  *Raw*; there is no *Off*), Audacity 3.4+ (*Record New Track*, *Export
+  Audio* with *Current Selection*).
+- `docs/COMPARISON.md` (+ zh-CN): a sourced comparison with REW, Open Sound
+  Meter, ARTA, Smaart, SoundID Reference, ARC X, Dirac Live, HouseCurve,
+  AURORA, pyroomacoustics, python-acoustics, pyrato and ITA-Toolbox, what
+  RoomScope does differently, and when another tool is the better choice;
+  README gains "What makes RoomScope different".
 
 ## [0.4.0] - 2026-09-24
 

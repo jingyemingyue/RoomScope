@@ -16,7 +16,8 @@ No dates. The exit criteria are the schedule (ARCHITECTURE_V1.md §10).
   *software* items (Placement tab, validation protocol, packaging
   scaffolding, robustness). They were reviewed and merged on 2026-09-24
   (PRs #5, #6, #7, #8); the review findings are GitHub issues #9–#16.
-* No tag and no GitHub Release exist yet. The repository is private.
+* No tag and no published Release exist yet (v0.4.1 is a draft). The
+  repository has been public since 2026-09-24.
 * **Update (2026-09-24, later the same day):** the review follow-ups
   #9–#17 (#17, the QML part of the bundle gate, was found after this plan
   was written) are fixed on the branch `v0.4.1-review-followups`, which
@@ -30,16 +31,16 @@ No dates. The exit criteria are the schedule (ARCHITECTURE_V1.md §10).
   run. The maintainer has no measurement hardware available in the near
   term, so those items are scheduled last and may be filled by
   contributors after the repository opens.
-* Signing identities, the PyPI project name, trusted publishing and the
-  public flip are maintainer decisions and are all still open
-  (ARCHITECTURE_V1.md §13).
+* Signing identities, the PyPI project name and trusted publishing are
+  maintainer decisions and are still open (ARCHITECTURE_V1.md §13); the
+  public flip was made on 2026-09-24.
 
 ## 2. Version ladder
 
 | Version | Purpose | Must be true before it is cut | Not claimed |
 | --- | --- | --- | --- |
 | **0.4.0** | First pre-release: everything on `main` today, as a draft Release with unsigned bundles for the maintainer's own testing | CI green on Linux / macOS / Windows and Python 3.12–3.14; `ruff`, `mypy`, the schema job and the bundle gates pass; the license bundle carries the verbatim LGPL-3.0 / GPL-3.0 / PortAudio texts; `CHANGELOG.md` has a `[0.4.0]` section; `docs/STATUS.md` has a dated snapshot | Any hardware result; a person installing a bundle on macOS / Windows; PyPI; public availability |
-| **0.4.x** | Patch releases for the review follow-ups | Each patch closes at least one of #9–#17 with a synthetic test; no new feature (0.4.1 closes all nine) | — |
+| **0.4.x** | Software readiness before community hardware validation (the maintainer's phase definition, 2026-09-24): the review follow-ups #9–#17 (all closed in 0.4.1), packaging, device diagnostics, the GUI, the DAW guide and the community report templates | CI and the Release workflow green on the release commit; every new behaviour has a synthetic or scripted test; `CHANGELOG.md` names what changed; no hardware or DAW claim | Any hardware or DAW result; signing; PyPI |
 | **0.5.0** | "Trusted by a human": the first version whose Standalone Mode and DAW workflow were run on real hardware at least once | One dated PASS row per cell of the hardware matrix on at least one platform (device enumeration, sample-rate negotiation, channel mapping, loopback capture, Stop during playback, a full Standalone measurement, the same signal through one DAW); #12 and #13 (loopback time origin, real-time callback) closed; #14 (zh-CN catalog complete, safety warning translated) closed; #15 (ISO 3382-2 table source) closed | The validation campaign; API / schema freeze; signing |
 | **1.0.0rc1** | Freeze and prove (ARCHITECTURE_V1.md §10, row 1.0-rc) | No open MUST item of §3.1: hardware matrix executed at least once per platform (M10); validation campaign published with its data (M11); signed bundles or an explicit maintainer decision to ship unsigned (M9); public-repository checklist executed (M13, §9.1); API and schema integers frozen; SECURITY / CONTRIBUTING / STATUS updated for the freeze; PyPI pre-release if trusted publishing is configured | — |
 | **1.0.0** | Release | Fixes from the candidate only; release notes name the validation results and the known limitations | — |
@@ -226,7 +227,7 @@ Sources for §3b (accessed 2026-09-24):
 
 | Decision | Needed by | State |
 | --- | --- | --- |
-| Public flip of the repository (ARCHITECTURE_V1.md §9.1 checklist: description and topics, branch protection on `main`, CODEOWNERS present, private vulnerability reporting, labels, Discussions, pinned roadmap) | 1.0.0rc1 (recommended at the first candidate so it gets outside testing) | Open |
+| Public flip of the repository (ARCHITECTURE_V1.md §9.1 checklist: description and topics, branch protection on `main`, CODEOWNERS present, private vulnerability reporting, labels, Discussions, pinned roadmap) | 1.0.0rc1 (recommended at the first candidate so it gets outside testing) | Repository public since 2026-09-24; CODEOWNERS is present; the other checklist items are repository settings not checked here (the issue templates use the labels `hardware-report` and `daw-report`, which GitHub adds only if they exist) |
 | Apple Developer ID + notarization, Windows Authenticode; or ship 1.0 unsigned with documentation | 1.0.0rc1 | Open; 0.x bundles are unsigned by design |
 | PyPI: register `roomscope`, configure trusted publishing, create the `pypi` environment with required reviewers, set `ROOMSCOPE_PUBLISH_PYPI=true` | First version the maintainer wants on PyPI (earliest 0.5.0) | Open; the workflow stays off until then |
 | Validation campaign: rooms, reference instrument (REW as a comparison instrument only), who runs it | 1.0.0rc1 | Open; no hardware available near-term |

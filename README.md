@@ -79,7 +79,9 @@ Warp / Flex / Follow Tempo stretching). Step-by-step notes for each DAW:
 RoomScope plays the sweep and records the microphone itself through the
 audio interface you select (PortAudio via `sounddevice`). Start with the
 monitor level low: the default sweep level is conservative and RoomScope
-never touches system volume or audio settings.
+does not touch system volume or audio settings (the one opt-in exception, a
+macOS option that sets the device's sample rate, is described in
+[SECURITY.md](SECURITY.md#safety-of-standalone-mode)).
 
 Both modes call exactly the same analysis pipeline
 (`roomscope.core.pipeline.analyze`).

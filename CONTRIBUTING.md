@@ -29,7 +29,9 @@ go through [SECURITY.md](SECURITY.md), not public issues.
    `roomscope.core.pipeline.analyze`.
 6. **Honest units.** dBFS unless calibrated. No "room score".
 7. **Safety.** Nothing changes system volume, audio configuration or DAW
-   settings. Default playback levels stay conservative.
+   settings unless the user opts in (the only such option today is
+   `--coreaudio-set-rate`, see SECURITY.md). Default playback levels stay
+   conservative.
 8. **Only LGPL Qt modules** (QtCore, QtGui, QtWidgets). Never import
    GPL-only modules such as QtCharts, QtDataVisualization or QtGraphs.
 

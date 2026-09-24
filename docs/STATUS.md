@@ -4,9 +4,9 @@ Snapshot: 2026-09-17, v0.1.0.dev1 (foundation). Everything below was
 verified by actually running it on macOS (Apple silicon, Python 3.12.14).
 Nothing is marked PASS that was not run.
 
-Snapshot 25: 2026-09-24 — **first all-platform green run on GitHub
-Actions** (the repository is public, so hosted runners are available). On
-this branch, CI run #54 (commit `2b54157`) passed every job: Ubuntu
+Snapshot 25: 2026-09-24 — **first all-platform green CI run on this
+branch** (the repository is public, so hosted runners are available; `main`
+had green CI runs before, e.g. #43). On this branch, CI run #54 (commit `2b54157`) passed every job: Ubuntu
 Python 3.12 / 3.13 / 3.14, macOS Python 3.12, Windows Python 3.12 (pytest,
 fake-backend Standalone flow, example script), lint + mypy + doc links +
 docs site + source safety, JSON schemas, sdist / wheel, license bundle and
@@ -22,7 +22,7 @@ wheel and the SBOM. Since snapshot 24: GUI redesign, audio device inventory
 and host-API-safe Standalone takes, `roomscope doctor`, developer / installer
 editions, sourced DAW guide, `docs/AUDIO_DEVICES.md`, `docs/COMPARISON.md`,
 `docs/COMPATIBILITY.md`, matplotlib>=3.10 and the cross-platform fixes
-(CHANGELOG `[Unreleased]`). Locally (Linux, Python 3.12): **549 passed**,
+(then CHANGELOG `[Unreleased]`, since folded into `[0.4.1]`). Locally (Linux, Python 3.12): **549 passed**,
 coverage gate 90.47 %. **Not run:** any real audio interface or DAW; the
 hardware and DAW matrices in HARDWARE_TESTS.md stay empty.
 
@@ -253,7 +253,7 @@ discovery follows files under `.dist-info/licenses/`; macOS
 | i18n | stdlib gettext with `pgettext` contexts; `zh_CN` catalog for report labels, GUI chrome, CLI help, the safety warning and the findings of all seven profiles (a test requires a translation with matching placeholders for every extracted message); wheel ships a hashed `.mo`, nothing is written at run time; `--lang` / settings / `ROOMSCOPE_LANG` |
 | GUI | PySide6 window: Home, Universal DAW Mode, Standalone Mode, Results (including Placement), session save/open, Compare (difference curve, matched reflections and resonances, loopback deltas), Demo, Stop, Settings, project-folder browser, tape-measure fields, dark-mode plot chrome, device rate vs requested rate, `gui --smoke` |
 | Standalone Mode | Device enumeration and play+record through the selected backend with safety defaults |
-| Bundles | `scripts/build_license_bundle.py` (verbatim LGPL-3.0 / GPL-3.0 / PortAudio texts from `packaging/licenses/`), `scripts/check_bundle_contents.py` (`--strip`, `--require-licenses`, `--installed-essentials`; GPL-only QML module directories matched, any `qml/` tree in a frozen bundle fails), `packaging/roomscope.spec`, `release.yml` (the version-driven workflow that opens a draft Release is delivered to the maintainer for installation, see RELEASE_PLAN.md §3; the committed workflow is still the earlier tag-only one), `scripts/smoke_bundle.py` |
+| Bundles | `scripts/build_license_bundle.py` (verbatim LGPL-3.0 / GPL-3.0 / PortAudio texts from `packaging/licenses/`), `scripts/check_bundle_contents.py` (`--strip`, `--require-licenses`, `--installed-essentials`; GPL-only QML module directories matched, any `qml/` tree in a frozen bundle fails), `packaging/roomscope.spec`, `release.yml` (the version-driven workflow on `main` since PR #18; it opened the v0.4.1 draft and refreshes it while `v0.4.1` has no tag, see RELEASE_PLAN.md §3), `scripts/smoke_bundle.py` |
 | Documentation | Hub at `docs/index.md`; themed HTML site from `scripts/build_docs_site.py` (S7); release plan in `docs/RELEASE_PLAN.md` |
 
 ## Tested (all PASS on 2026-09-17 on macOS; profile work re-verified 2026-09-22;
@@ -482,11 +482,13 @@ were not copied. `packaging/licenses/` holds verbatim license *texts*
 
 ## Next recommended milestone
 
-See [RELEASE_PLAN.md](RELEASE_PLAN.md): v0.4.1 closes #9–#17 once its
-pull request is merged with CI green; then v0.5.0 once the hardware
+See [RELEASE_PLAN.md](RELEASE_PLAN.md): v0.4.1 (a draft Release; #9–#17
+are closed on `main`) is published when the maintainer decides; this
+branch's work ships in it (CHANGELOG `[0.4.1]`). Then v0.5.0 once the hardware
 matrix has its first dated PASS rows, then 1.0.0rc1 when every MUST item of ARCHITECTURE_V1.md §3.1 is
 closed. API and schema versions stay unfrozen until then.
 
-Maintainer-only actions that this work does not do: public visibility flip,
-publishing a GitHub Release (which creates the tag), a license change, or
-rewriting published history.
+Maintainer-only actions that this work does not do: publishing a GitHub
+Release (which creates the tag), a PyPI upload, signing, a license change,
+or rewriting published history. (The repository was made public by the
+maintainer on 2026-09-24.)
