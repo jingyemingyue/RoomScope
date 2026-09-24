@@ -285,6 +285,7 @@ jobs:
               encoding='utf-8')
           PY
       - name: Open or update draft
+        id: release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ needs.prepare.outputs.version }}
@@ -295,6 +296,16 @@ jobs:
           body_path: release-notes.md
           files: artifacts/**/*
           fail_on_unmatched_files: true
+      - name: Point draft at tested commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+        run: |
+          test -n "$RELEASE_ID"
+          release="repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID"
+          test "$(gh api "$release" --jq '.draft')" = true
+          gh api --method PATCH "$release" -f target_commitish="$GITHUB_SHA" \
+            --jq '.target_commitish' | grep -Fx "$GITHUB_SHA"
 
   pypi:
     name: Publish to PyPI (explicit opt-in)
