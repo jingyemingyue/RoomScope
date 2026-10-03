@@ -2,14 +2,26 @@
 
 **English** | [简体中文](index.zh-CN.md)
 
-This is the documentation hub. GitHub renders the Markdown. A themed HTML
-site (S7) is generated from these files:
+RoomScope measures a recording room so you can hear what the room is doing
+to close-miked sources. This hub is the existing docs site: installation,
+the sweep workflow, DAW follow, and the analysis report.
+
+GitHub renders the Markdown. A themed HTML site (S7) is generated from
+these files:
 
 ```bash
 python scripts/build_docs_site.py --out site
 ```
 
 The generator uses only the standard library. Open `site/index.html`.
+Each page gets a title, a description, a canonical URL, and Open Graph
+title/description. The build also writes `site/sitemap.xml` and
+`site/robots.txt` (crawlers are allowed). The repo has **no public docs
+host yet**; canonical URLs use the placeholder
+`https://docs.example.invalid/roomscope/` until you pass
+`--base-url https://your.host/path/`. Copy the `site/` folder to any
+static host. This repository does not submit the site to Google, buy a
+domain, or enable a host account.
 
 ## Languages / 语言
 
